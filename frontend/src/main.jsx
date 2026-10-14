@@ -4,7 +4,7 @@ import { flushSync } from 'react-dom';
 import { createClient } from '@supabase/supabase-js';
 import './index.css';
 
-console.log('DROGUERIEPRO V57 OK');
+console.log('DROGUERIEPRO V58 OK');
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -134,7 +134,7 @@ Object.assign(TXT.fr, {
   "cashReceived": "Montant reçu",
   "changeDue": "Monnaie à rendre",
   "posValidate": "Valider la vente",
-  "posShortcuts": "F2 : recherche · F9 : valider · Échap : vider",
+  "posShortcuts": "F2 : recherche · F8 : mettre en attente · F9 : valider · Échap : vider",
   "inventory": "Inventaire",
   "inventoryCount": "Comptage",
   "inventoryHint": "Saisissez les quantités comptées (ou scannez les articles : chaque scan ajoute 1). Le comptage est conservé sur cet appareil jusqu'à la validation. À la validation, l'écart est calculé sur le stock du moment et appliqué en mouvements de stock.",
@@ -247,7 +247,7 @@ Object.assign(TXT.ar, {
   "cashReceived": "المبلغ المستلم",
   "changeDue": "الباقي للزبون",
   "posValidate": "تأكيد البيع",
-  "posShortcuts": "F2 : بحث · F9 : تأكيد · Esc : إفراغ",
+  "posShortcuts": "F2 : بحث · F8 : انتظار · F9 : تأكيد · Esc : إفراغ",
   "inventory": "الجرد",
   "inventoryCount": "العدّ",
   "inventoryHint": "أدخل الكميات المعدودة (أو امسح السلع: كل مسح يضيف 1). يُحفظ العدّ على هذا الجهاز حتى التأكيد. عند التأكيد يُحسب الفرق على المخزون الحالي ويُطبَّق كحركات مخزون.",
@@ -4773,6 +4773,12 @@ function Layout({ L, lang, toggleLang, session, setSession }) {
     setMobileMenuOpen(false);
     try { window.scrollTo(0, 0); } catch {}
   }
+  // V58 : navigation depuis un écran (ex. « À faire aujourd'hui »)
+  useEffect(() => {
+    const h = e => { if (e?.detail) setPage(e.detail); };
+    window.addEventListener('droguerie_goto', h);
+    return () => window.removeEventListener('droguerie_goto', h);
+  }, []);
 
   const items = [
     ['dashboard', L('dashboard'), 'dashboard.read'],
@@ -5114,6 +5120,24 @@ function takeQuickAction(page) {
   if (a && a.page === page && Date.now() - a.at < 15000) { pendingQuickAction = null; return a.action; }
   return null;
 }
+/* ---------- V58 : aller vers un écran avec un filtre déjà posé (« À faire aujourd'hui ») ---------- */
+let pendingListIntent = null;
+function goToPage(page, intent) {
+  pendingListIntent = intent ? { page, intent, at: Date.now() } : null;
+  try { window.dispatchEvent(new CustomEvent('droguerie_goto', { detail: page })); } catch {}
+}
+function takeListIntent(page) {
+  const a = pendingListIntent;
+  if (a && a.page === page && Date.now() - a.at < 15000) { pendingListIntent = null; return a.intent; }
+  return null;
+}
+function userStoreKey(name) {
+  const s = getStoredSession();
+  return 'dp_' + name + '_' + (s?.user?.id || 0);
+}
+function readLocal(key, fallback) { try { const v = JSON.parse(localStorage.getItem(key) || 'null'); return v ?? fallback; } catch { return fallback; } }
+function writeLocal(key, value) { try { if (value === null || value === undefined) localStorage.removeItem(key); else localStorage.setItem(key, JSON.stringify(value)); } catch {} }
+function hhmm(ts) { try { return new Date(ts).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }); } catch { return ''; } }
 
 /* ===================== V55 : briques d'ergonomie communes ===================== */
 // Période : presets + dates libres
@@ -7212,6 +7236,363 @@ function SaasBanner({ session }) {
   );
 }
 
+// V58 : « À faire aujourd'hui » — tout ce qui attend une action, avec accès direct à la bonne liste
+function TodayPanel({ data }) {
+  const plus7 = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
+  const minus7 = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
+  const t = today();
+  const sum = (list, f) => list.reduce((s, d) => s + Number(f(d) || 0), 0);
+  const sales = data.sales || [];
+  const purchases = data.purchases || [];
+  const products = data.products || [];
+  const overdue = sales.filter(d => isOverdueInvoice(d));
+  const quotes = sales.filter(d => d.stage === 'devis' && docStatus(d) !== 'closed' && String(d.date || '') <= minus7);
+  const toReceive = purchases.filter(d => d.stage === 'commande' && docStatus(d) !== 'closed' && docRemainingQty(d) > 0);
+  const toInvoice = purchases.filter(d => d.stage === 'reception' && docInvoiceRemainingQty(d) > 0);
+  const supplierDue = purchases.filter(d => d.stage === 'facture' && Number(d.reste || 0) > 0.009 && d.due_date && String(d.due_date) <= plus7);
+  const supplierLate = supplierDue.filter(d => String(d.due_date) < t);
+  const low = products.filter(p => isLowStockAlert(p));
+  const exp = products.filter(p => isExpiryAlert(p));
+  const items = [
+    can('sales.read') && overdue.length && { key: 'overdue', icon: '⏰', tone: 'red', title: tx('Factures clients en retard', 'فواتير زبناء متأخرة'), sub: dh(sum(overdue, d => d.reste)) + ' ' + tx('à encaisser', 'للتحصيل'), n: overdue.length, go: () => goToPage('sales', { tab: 'facture', payF: 'unpaid' }) },
+    can('purchases.read') && supplierDue.length && { key: 'supplierDue', icon: '💸', tone: supplierLate.length ? 'red' : 'amber', title: tx('Factures fournisseurs à payer (7 jours)', 'فواتير موردين للأداء (7 أيام)'), sub: dh(sum(supplierDue, d => d.reste)) + (supplierLate.length ? ' · ' + supplierLate.length + ' ' + tx('en retard', 'متأخرة') : ''), n: supplierDue.length, go: () => goToPage('purchases', { tab: 'facture', payF: 'unpaid' }) },
+    can('purchases.read') && toReceive.length && { key: 'receive', icon: '📦', tone: 'blue', title: tx('Commandes fournisseurs à réceptionner', 'طلبيات موردين للاستلام'), sub: toReceive.slice(0, 3).map(d => d.supplier_name).filter(Boolean).join(', '), n: toReceive.length, go: () => goToPage('purchases', { tab: 'commande' }) },
+    can('purchases.read') && toInvoice.length && { key: 'toInvoice', icon: '🧾', tone: 'blue', title: tx('Réceptions à facturer', 'سندات استلام للفوترة'), sub: tx('factures fournisseurs à saisir', 'فواتير موردين للإدخال'), n: toInvoice.length, go: () => goToPage('purchases', { tab: 'reception' }) },
+    can('sales.read') && quotes.length && { key: 'quotes', icon: '📝', tone: 'amber', title: tx('Devis sans réponse depuis 7 jours', 'عروض أسعار بدون رد منذ 7 أيام'), sub: dh(sum(quotes, d => d.totalTTC)) + ' ' + tx('à relancer', 'للتذكير'), n: quotes.length, go: () => goToPage('sales', { tab: 'devis' }) },
+    can('products.read') && low.length && { key: 'low', icon: '📉', tone: 'red', title: tx('Produits sous le stock minimum', 'منتجات تحت الحد الأدنى'), sub: low.slice(0, 3).map(p => p.nom).join(', '), n: low.length, go: () => goToPage('products', { alert: 'low' }) },
+    can('products.read') && exp.length && { key: 'expiry', icon: '⌛', tone: 'amber', title: tx('Péremption proche', 'صلاحية قريبة الانتهاء'), sub: exp.slice(0, 3).map(p => p.nom).join(', '), n: exp.length, go: () => goToPage('products', { alert: 'expiry' }) }
+  ].filter(Boolean);
+  return (
+    <div className="card p-5 mb-6 today-panel" data-today>
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-lg font-black">✅ {tx('À faire aujourd\'hui', 'مهام اليوم')}</h2>
+        <span className="text-xs text-slate-400">{frDate(t)}</span>
+      </div>
+      {items.length ? (
+        <div className="today-grid">
+          {items.map(i => (
+            <button key={i.key} type="button" className={'today-item ' + i.tone} onClick={i.go} data-today-item={i.key}>
+              <span className="today-icon">{i.icon}</span>
+              <span className="today-text"><b>{i.title}</b><small>{i.sub}</small></span>
+              <span className="today-n">{i.n}</span>
+            </button>
+          ))}
+        </div>
+      ) : <p className="text-sm text-emerald-700">👍 {tx('Rien d\'urgent : tout est à jour.', 'لا شيء مستعجل.')}</p>}
+    </div>
+  );
+}
+
+// V58 : code-barres Code 128 (jeu B) dessiné en SVG, sans bibliothèque externe
+const CODE128_PATTERNS = ['212222', '222122', '222221', '121223', '121322', '131222', '122213', '122312', '132212', '221213', '221312', '231212', '112232', '122132', '122231', '113222', '123122', '123221', '223211', '221132', '221231', '213212', '223112', '312131', '311222', '321122', '321221', '312212', '322112', '322211', '212123', '212321', '232121', '111323', '131123', '131321', '112313', '132113', '132311', '211313', '231113', '231311', '112133', '112331', '132131', '113123', '113321', '133121', '313121', '211331', '231131', '213113', '213311', '213131', '311123', '311321', '331121', '312113', '312311', '332111', '314111', '221411', '431111', '111224', '111422', '121124', '121421', '141122', '141221', '112214', '112412', '122114', '122411', '142112', '142211', '241211', '221114', '413111', '241112', '134111', '111242', '121142', '121241', '114212', '124112', '124211', '411212', '421112', '421211', '212141', '214121', '412121', '111143', '111341', '131141', '114113', '114311', '411113', '411311', '113141', '114131', '311141', '411131', '211412', '211214', '211232'];
+function code128Modules(text) {
+  const chars = [...String(text || '')].map(c => c.charCodeAt(0)).filter(c => c >= 32 && c <= 126);
+  if (!chars.length) return null;
+  const codes = [104, ...chars.map(c => c - 32)];
+  const check = codes.reduce((s, c, i) => s + c * (i === 0 ? 1 : i), 0) % 103;
+  const widths = [...codes, check].map(c => CODE128_PATTERNS[c]).join('') + '2331112';
+  return widths.split('').map(Number);
+}
+function code128Svg(text, height = 40) {
+  const w = code128Modules(text);
+  if (!w) return '';
+  const quiet = 10;
+  const total = w.reduce((s, x) => s + x, 0) + quiet * 2;
+  let x = quiet; let bars = '';
+  w.forEach((width, i) => { if (i % 2 === 0) bars += `<rect x="${x}" y="0" width="${width}" height="${height}"/>`; x += width; });
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${total} ${height}" preserveAspectRatio="none" class="bc">${bars}</svg>`;
+}
+
+// V58 : étiquettes prix / code-barres à imprimer (planche A4)
+const LABEL_FORMATS = {
+  a4_24: { cols: 3, rows: 8, w: 70, h: 37, fr: 'A4 · 24 étiquettes (70 × 37 mm)', ar: 'A4 · 24 ملصقا' },
+  a4_40: { cols: 4, rows: 10, w: 52.5, h: 29.7, fr: 'A4 · 40 petites étiquettes (52 × 30 mm)', ar: 'A4 · 40 ملصقا صغيرا' },
+  a4_10: { cols: 2, rows: 5, w: 105, h: 59.4, fr: 'A4 · 10 grandes étiquettes (rayon)', ar: 'A4 · 10 ملصقات كبيرة' }
+};
+function printLabels(list, opts, company) {
+  const f = LABEL_FORMATS[opts.format] || LABEL_FORMATS.a4_24;
+  const cells = [];
+  list.forEach(p => { for (let i = 0; i < Number(p.copies || 0); i++) cells.push(p); });
+  const perPage = f.cols * f.rows;
+  const offset = Math.max(0, Math.min(perPage - 1, Number(opts.skip || 0)));
+  const all = [...Array(offset).fill(null), ...cells];
+  const pages = [];
+  for (let i = 0; i < all.length; i += perPage) pages.push(all.slice(i, i + perPage));
+  const big = f.h > 50;
+  const cell = p => {
+    if (!p) return '<div class="lab empty"></div>';
+    const code = p.barcode || p.ref || '';
+    const price = Number(opts.field === 'gros' ? (p.prixGros || p.prixVente) : p.prixVente || 0);
+    return `<div class="lab">
+      ${opts.company && company?.name ? `<div class="co">${escapeHtml(company.name)}</div>` : ''}
+      <div class="nm">${escapeHtml(p.nom)}</div>
+      ${opts.arabic && p.nomAr ? `<div class="ar">${escapeHtml(p.nomAr)}</div>` : ''}
+      <div class="pr">${fmt(price)} <small>DH${p.unite ? ' / ' + escapeHtml(p.unite) : ''}</small></div>
+      ${opts.wholesale && Number(p.prixGros || 0) > 0 && opts.field !== 'gros' ? `<div class="gr">Gros : ${fmt(p.prixGros)} DH</div>` : ''}
+      ${opts.barcode && code ? `<div class="bcw">${code128Svg(code)}<div class="cd">${escapeHtml(code)}</div></div>` : (code ? `<div class="cd">${escapeHtml(code)}</div>` : '')}
+    </div>`;
+  };
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>Étiquettes</title>
+  <style>
+    @page { size: A4; margin: 0; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Arial, Helvetica, sans-serif; color: #000; }
+    .page { width: 210mm; height: 297mm; display: grid; grid-template-columns: repeat(${f.cols}, ${f.w}mm); grid-template-rows: repeat(${f.rows}, ${f.h}mm); justify-content: center; align-content: center; page-break-after: always; }
+    .page:last-child { page-break-after: auto; }
+    .lab { padding: ${big ? '4mm 5mm' : '1.8mm 2.5mm'}; overflow: hidden; display: flex; flex-direction: column; border: 0.2mm dashed #ccc; }
+    .lab.empty { border-color: transparent; }
+    .co { font-size: ${big ? 9 : 6.5}pt; color: #555; text-transform: uppercase; }
+    .nm { font-weight: bold; font-size: ${big ? 13 : 8.5}pt; line-height: 1.15; max-height: ${big ? 11 : 6.8}mm; overflow: hidden; }
+    .ar { direction: rtl; font-size: ${big ? 11 : 7.5}pt; color: #333; }
+    .pr { font-weight: 900; font-size: ${big ? 26 : 15}pt; margin-top: auto; line-height: 1.05; }
+    .pr small { font-size: ${big ? 10 : 7}pt; font-weight: bold; }
+    .gr { font-size: ${big ? 9 : 6.5}pt; }
+    .bcw { margin-top: 0.8mm; }
+    svg.bc { width: 100%; height: ${big ? 11 : 6.5}mm; display: block; }
+    .cd { font-family: 'Courier New', monospace; font-size: ${big ? 8 : 6}pt; text-align: center; letter-spacing: .5px; }
+    @media screen { body { background: #e2e8f0; } .page { background: #fff; margin: 10px auto; box-shadow: 0 2px 8px rgba(0,0,0,.2); } }
+  </style></head><body>
+  ${pages.map(pg => `<div class="page">${pg.map(cell).join('')}</div>`).join('')}
+  <script>window.onload = function () { setTimeout(function () { window.print(); }, 300); };</script>
+  </body></html>`;
+  const w = window.open('', '_blank');
+  if (!w) { alert('Autorisez les fenêtres pop-up pour imprimer les étiquettes'); return 0; }
+  w.document.open(); w.document.write(html); w.document.close();
+  return cells.length;
+}
+
+function LabelsModal({ L, products, close }) {
+  const [rows, setRows] = useState(() => products.map(p => ({ ...p, copies: 1 })));
+  const [q, setQ] = useState('');
+  const [opts, setOpts] = useState(() => ({ format: 'a4_24', barcode: true, arabic: true, wholesale: false, company: true, field: 'detail', skip: 0, ...readLocal('dp_label_opts', {}) }));
+  const [company, setCompany] = useState(null);
+  useEffect(() => { loadCompanySettings().then(setCompany).catch(() => {}); }, []);
+  const setO = (k, v) => { const n = { ...opts, [k]: v }; setOpts(n); writeLocal('dp_label_opts', { ...n, skip: 0 }); };
+  const setCopies = (id, v) => setRows(rows.map(r => r.id === id ? { ...r, copies: Math.max(0, Math.min(500, Number(v || 0))) } : r));
+  const shown = rows.filter(r => matchSearch(q, [r.nom, r.nomAr, r.ref, r.barcode, r.categorie]));
+  const count = rows.reduce((s, r) => s + Number(r.copies || 0), 0);
+  const f = LABEL_FORMATS[opts.format];
+  const sheets = Math.ceil((count + Number(opts.skip || 0)) / (f.cols * f.rows));
+  const sample = rows.find(r => r.copies > 0);
+  return (
+    <Modal title={'🏷 ' + tx('Étiquettes prix et code-barres', 'ملصقات الأثمنة والكود بار')} onClose={close} wide>
+      <div className="grid lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2">
+          <div className="flex gap-2 mb-2 flex-wrap items-center">
+            <input className="input max-w-xs" placeholder={'🔎 ' + tx('Filtrer', 'تصفية')} value={q} onChange={e => setQ(e.target.value)} />
+            <button className="btn bg-white border text-sm" onClick={() => setRows(rows.map(r => shown.some(s => s.id === r.id) ? { ...r, copies: 1 } : r))}>1 ×</button>
+            <button className="btn bg-white border text-sm" onClick={() => setRows(rows.map(r => shown.some(s => s.id === r.id) ? { ...r, copies: Math.max(0, Math.round(Number(r.quantite || 0))) } : r))} title={tx('Une étiquette par article en stock', 'ملصق لكل وحدة في المخزون')}>= {tx('stock', 'المخزون')}</button>
+            <button className="btn bg-white border text-sm" onClick={() => setRows(rows.map(r => shown.some(s => s.id === r.id) ? { ...r, copies: 0 } : r))}>0 ×</button>
+          </div>
+          <div className="card overflow-auto" style={{ maxHeight: 380 }}>
+            <table className="table w-full">
+              <thead><tr><th>{tx('Produit', 'المنتج')}</th><th>{tx('Code', 'الرمز')}</th><th>{tx('Prix', 'الثمن')}</th><th>{tx('Nb', 'العدد')}</th></tr></thead>
+              <tbody>
+                {shown.map(r => (
+                  <tr key={r.id} className={r.copies ? '' : 'opacity-50'}>
+                    <td><div className="font-semibold text-sm">{r.nom}</div><div className="text-xs text-slate-400">{r.categorie}</div></td>
+                    <td className="font-mono text-xs">{r.barcode || r.ref || '—'}</td>
+                    <td className="whitespace-nowrap">{fmt(opts.field === 'gros' ? (r.prixGros || r.prixVente) : r.prixVente)}</td>
+                    <td><input className="input" style={{ width: 70 }} type="number" min="0" data-label-copies={r.id} value={r.copies} onChange={e => setCopies(r.id, e.target.value)} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div className="space-y-2 text-sm">
+          <label className="text-xs text-slate-500 block">{tx('Format', 'الحجم')}
+            <select className="input mt-1" value={opts.format} onChange={e => setO('format', e.target.value)}>
+              {Object.entries(LABEL_FORMATS).map(([k, v]) => <option key={k} value={k}>{tx(v.fr, v.ar)}</option>)}
+            </select>
+          </label>
+          <label className="text-xs text-slate-500 block">{tx('Prix affiché', 'الثمن المعروض')}
+            <select className="input mt-1" value={opts.field} onChange={e => setO('field', e.target.value)}>
+              <option value="detail">{L('retail')}</option>
+              <option value="gros">{L('wholesale')}</option>
+            </select>
+          </label>
+          {[['barcode', tx('Code-barres', 'الكود بار')], ['arabic', tx('Nom en arabe', 'الاسم بالعربية')], ['wholesale', tx('Prix de gros en plus', 'ثمن الجملة أيضا')], ['company', tx('Nom de la droguerie', 'اسم المحل')]].map(([k, t]) => (
+            <label key={k} className="flex items-center gap-2"><input type="checkbox" checked={!!opts[k]} onChange={e => setO(k, e.target.checked)} /> {t}</label>
+          ))}
+          <label className="text-xs text-slate-500 block">{tx('Sauter les premières étiquettes (planche entamée)', 'تخطي الملصقات الأولى')}
+            <input className="input mt-1" type="number" min="0" max={f.cols * f.rows - 1} value={opts.skip} onChange={e => setOpts({ ...opts, skip: e.target.value })} />
+          </label>
+          {sample ? (
+            <div className="label-preview" style={{ aspectRatio: f.w + ' / ' + f.h }}>
+              {opts.company && company?.name ? <div className="co">{company.name}</div> : null}
+              <div className="nm">{sample.nom}</div>
+              {opts.arabic && sample.nomAr ? <div className="ar" dir="rtl">{sample.nomAr}</div> : null}
+              <div className="pr">{fmt(opts.field === 'gros' ? (sample.prixGros || sample.prixVente) : sample.prixVente)} <small>DH</small></div>
+              {opts.barcode && (sample.barcode || sample.ref) ? <div dangerouslySetInnerHTML={{ __html: code128Svg(sample.barcode || sample.ref) }} /> : null}
+            </div>
+          ) : null}
+          <div className="font-semibold">{count} {tx('étiquette(s)', 'ملصق')} · {sheets} {tx('planche(s)', 'صفحة')}</div>
+          <button disabled={!count} className="btn bg-amber-500 w-full" data-labels-print onClick={() => { const n = printLabels(rows.filter(r => r.copies > 0), opts, company); if (n) auditLog('Produits', 'EXPORT', 'Étiquettes', n + ' étiquette(s)'); }}>🖨 {tx('Imprimer', 'طباعة')}</button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+// V58 : modification des prix de vente en masse, avec aperçu et annulation
+function bulkNewPrice(p, s) {
+  const cur = Number(s.field === 'gros' ? p.prixGros : p.prixVente) || 0;
+  const v = Number(s.value || 0);
+  let n = cur;
+  if (s.mode === 'pct') n = cur * (1 + v / 100);
+  else if (s.mode === 'amount') n = cur + v;
+  else if (s.mode === 'margin') n = Number(p.prixAchat || 0) * (1 + v / 100);
+  else if (s.mode === 'fixed') n = v;
+  const step = Number(s.round || 0);
+  if (step > 0) n = s.roundMode === 'down' ? Math.floor(n / step + 1e-9) * step : s.roundMode === 'nearest' ? Math.round(n / step) * step : Math.ceil(n / step - 1e-9) * step;
+  return Math.max(0, Math.round(n * 100) / 100);
+}
+
+function BulkPriceModal({ L, products, close, done }) {
+  const [s, setS] = useState({ field: 'detail', mode: 'pct', value: 5, round: 0.5, roundMode: 'up', reason: '' });
+  const [off, setOff] = useState(() => new Set());
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState(null);
+  const set = (k, v) => setS({ ...s, [k]: v });
+  const rows = products.map(p => {
+    const cur = Number(s.field === 'gros' ? p.prixGros : p.prixVente) || 0;
+    const next = bulkNewPrice(p, s);
+    const cost = Number(p.prixAchat || 0);
+    return { p, cur, next, cost, below: cost > 0 && next < cost, margin: next > 0 && cost > 0 ? ((next - cost) / next) * 100 : null };
+  });
+  const changed = rows.filter(r => !off.has(r.p.id) && Math.abs(r.next - r.cur) > 0.004);
+  const below = changed.filter(r => r.below).length;
+  async function apply() {
+    if (!changed.length) return;
+    if (below && !confirm(tx(below + ' produit(s) seraient vendus sous leur prix d\'achat (PMP). Continuer ?', 'منتجات ستباع بأقل من ثمن الشراء. متابعة؟'))) return;
+    if (!confirm(tx('Modifier le prix de ' + changed.length + ' produit(s) ?', 'تعديل ثمن ' + changed.length + ' منتج؟'))) return;
+    setBusy(true);
+    try {
+      const field = s.field === 'gros' ? 'sale_price_wholesale' : 'sale_price';
+      const desc = { pct: (s.value >= 0 ? '+' : '') + s.value + ' %', amount: (s.value >= 0 ? '+' : '') + s.value + ' DH', margin: 'PMP + ' + s.value + ' %', fixed: '= ' + s.value + ' DH' }[s.mode] + (Number(s.round) ? ' · arrondi ' + s.round : '') + (s.reason ? ' · ' + s.reason : '');
+      const { data, error } = await supabase.rpc('app_bulk_set_prices', { p_items: changed.map(r => ({ id: r.p.id, price: r.next })), p_field: field, p_reason: desc });
+      if (error) throw new Error(error.message);
+      setResult({ n: data || 0, field, undo: changed.map(r => ({ id: r.p.id, price: r.cur })) });
+      done && done();
+    } catch (e) { alert(e.message); }
+    setBusy(false);
+  }
+  async function undo() {
+    setBusy(true);
+    try {
+      const { error } = await supabase.rpc('app_bulk_set_prices', { p_items: result.undo, p_field: result.field, p_reason: 'Annulation de la modification précédente' });
+      if (error) throw new Error(error.message);
+      showToast(tx('Anciens prix rétablis', 'تمت استعادة الأثمنة السابقة'));
+      done && done();
+      close();
+    } catch (e) { alert(e.message); }
+    setBusy(false);
+  }
+  if (result) {
+    return (
+      <Modal title={'💲 ' + tx('Prix modifiés', 'تم تعديل الأثمنة')} onClose={close}>
+        <p className="text-lg mb-3" data-bulk-done>✔ {result.n} {tx('prix modifié(s).', 'ثمن تم تعديله.')}</p>
+        <p className="text-sm text-slate-500 mb-4">{tx('Les documents déjà créés gardent leurs prix. La modification est tracée dans le journal.', 'الوثائق السابقة تحتفظ بأثمنتها.')}</p>
+        <div className="flex gap-2">
+          <button disabled={busy} className="btn bg-white border" data-bulk-undo onClick={undo}>↶ {tx('Annuler la modification', 'إلغاء التعديل')}</button>
+          <button className="btn bg-slate-900 text-white" onClick={close}>{L('closeBtn')}</button>
+        </div>
+      </Modal>
+    );
+  }
+  return (
+    <Modal title={'💲 ' + tx('Modifier les prix en masse', 'تعديل الأثمنة دفعة واحدة')} onClose={close} wide>
+      <p className="text-xs text-slate-500 mb-3">{tx('S\'applique aux ' + products.length + ' produit(s) de la liste affichée (filtres catégorie, droguerie et recherche). Décochez ceux à ne pas modifier.', 'يطبق على المنتجات المعروضة.')}</p>
+      <div className="grid md:grid-cols-6 gap-2 mb-3 items-end">
+        <label className="text-xs text-slate-500">{tx('Prix', 'الثمن')}
+          <select className="input mt-1" data-bulk-field value={s.field} onChange={e => set('field', e.target.value)}>
+            <option value="detail">{L('retail')}</option>
+            <option value="gros">{L('wholesale')}</option>
+          </select>
+        </label>
+        <label className="text-xs text-slate-500 md:col-span-2">{tx('Méthode', 'الطريقة')}
+          <select className="input mt-1" data-bulk-mode value={s.mode} onChange={e => set('mode', e.target.value)}>
+            <option value="pct">{tx('Hausse / baisse en %', 'زيادة / تخفيض ب %')}</option>
+            <option value="amount">{tx('Hausse / baisse en DH', 'زيادة / تخفيض بالدرهم')}</option>
+            <option value="margin">{tx('Prix d\'achat (PMP) + marge %', 'ثمن الشراء + هامش %')}</option>
+            <option value="fixed">{tx('Même prix pour tous', 'نفس الثمن للجميع')}</option>
+          </select>
+        </label>
+        <label className="text-xs text-slate-500">{s.mode === 'pct' || s.mode === 'margin' ? '%' : 'DH'}
+          <input className="input mt-1" type="number" step="0.01" data-bulk-value value={s.value} onChange={e => set('value', e.target.value)} />
+        </label>
+        <label className="text-xs text-slate-500">{tx('Arrondi', 'التقريب')}
+          <select className="input mt-1" value={s.round} onChange={e => set('round', e.target.value)}>
+            <option value="0">{tx('Aucun', 'بدون')}</option>
+            <option value="0.1">0,10</option>
+            <option value="0.5">0,50</option>
+            <option value="1">1 DH</option>
+            <option value="5">5 DH</option>
+          </select>
+        </label>
+        <label className="text-xs text-slate-500">{tx('Sens', 'الاتجاه')}
+          <select className="input mt-1" value={s.roundMode} onChange={e => set('roundMode', e.target.value)} disabled={!Number(s.round)}>
+            <option value="up">{tx('Supérieur', 'إلى الأعلى')}</option>
+            <option value="nearest">{tx('Le plus proche', 'الأقرب')}</option>
+            <option value="down">{tx('Inférieur', 'إلى الأسفل')}</option>
+          </select>
+        </label>
+      </div>
+      <div className="card overflow-auto mb-3" style={{ maxHeight: 360 }}>
+        <table className="table w-full">
+          <thead><tr><th></th><th>{tx('Produit', 'المنتج')}</th><th>PMP</th><th>{tx('Actuel', 'الحالي')}</th><th>{tx('Nouveau', 'الجديد')}</th><th>{tx('Marge', 'الهامش')}</th></tr></thead>
+          <tbody>
+            {rows.map(r => (
+              <tr key={r.p.id} className={off.has(r.p.id) ? 'opacity-40' : r.below ? 'bulk-below' : ''}>
+                <td><input type="checkbox" checked={!off.has(r.p.id)} onChange={e => { const n = new Set(off); if (e.target.checked) n.delete(r.p.id); else n.add(r.p.id); setOff(n); }} /></td>
+                <td><div className="font-semibold text-sm">{r.p.nom}</div><div className="text-xs text-slate-400">{r.p.categorie}{r.p.branchName ? ' · ' + r.p.branchName : ''}</div></td>
+                <td className="text-xs whitespace-nowrap">{fmt(r.cost)}</td>
+                <td className="whitespace-nowrap">{fmt(r.cur)}</td>
+                <td className={'whitespace-nowrap font-bold ' + (r.next > r.cur ? 'text-emerald-700' : r.next < r.cur ? 'text-red-600' : '')}>{fmt(r.next)}</td>
+                <td className={'text-xs whitespace-nowrap ' + (r.below ? 'text-red-600 font-bold' : '')}>{r.margin === null ? '—' : fmt(r.margin) + ' %'}{r.below ? ' ⚠' : ''}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="flex flex-wrap gap-2 items-center justify-between">
+        <input className="input max-w-sm" placeholder={tx('Motif (facultatif) : hausse fournisseur…', 'السبب (اختياري)')} value={s.reason} onChange={e => set('reason', e.target.value)} />
+        <span className="text-sm"><b data-bulk-count>{changed.length}</b> {tx('prix modifié(s)', 'ثمن سيعدل')}{below ? <span className="text-red-600"> · {below} {tx('sous le PMP', 'تحت ثمن الشراء')}</span> : null}</span>
+        <button disabled={busy || !changed.length} className="btn bg-amber-500" data-bulk-apply onClick={apply}>✔ {tx('Appliquer', 'تطبيق')}</button>
+      </div>
+    </Modal>
+  );
+}
+
+// V58 : tickets en attente de la caisse (par utilisateur, conservés après rechargement)
+function PosHoldsModal({ holds, resume, drop, close }) {
+  return (
+    <Modal title={'⏸ ' + tx('Tickets en attente', 'تذاكر في الانتظار')} onClose={close}>
+      {holds.length ? holds.map(h => (
+        <div key={h.id} className="flex items-center justify-between gap-2 border rounded-xl p-3 mb-2" data-hold={h.id}>
+          <div>
+            <div className="font-semibold">{h.label}</div>
+            <div className="text-xs text-slate-500">{hhmm(h.at)} · {h.cart.length} {tx('article(s)', 'سلعة')} · {h.clientName || tx('Client comptoir', 'زبون الكونطوار')}</div>
+          </div>
+          <div className="flex items-center gap-2">
+            <b className="whitespace-nowrap">{dh(h.total)}</b>
+            <button className="btn bg-amber-500" data-hold-resume={h.id} onClick={() => resume(h)}>▶ {tx('Reprendre', 'استئناف')}</button>
+            <button className="btn bg-white border text-red-600" onClick={() => { if (confirm(tx('Supprimer ce ticket en attente ?', 'حذف هذه التذكرة؟'))) drop(h.id); }}>🗑</button>
+          </div>
+        </div>
+      )) : <p className="text-sm text-slate-500">{tx('Aucun ticket en attente.', 'لا توجد تذاكر في الانتظار.')}</p>}
+    </Modal>
+  );
+}
+function cashSuggestions(total) {
+  const t = Math.round(Number(total || 0) * 100) / 100;
+  if (t <= 0) return [];
+  const out = [t];
+  [10, 20, 50, 100, 200].forEach(step => { const v = Math.ceil(t / step) * step; if (v > t && !out.includes(v)) out.push(v); });
+  return out.slice(0, 5);
+}
+
 function Dashboard({ L }) {
   const [data, setData] = useState(null);
   const [err, setErr] = useState('');
@@ -7258,6 +7639,8 @@ function Dashboard({ L }) {
           <b>{k.stockAlerts + (k.expiryAlerts || 0) + (k.overdueInvoices || 0)}</b>
         </div>
       </div>
+
+      <TodayPanel data={data} />
 
       <div className="pro-kpi-grid pro-kpi-grid-v38 mb-6">
         <div className="pro-kpi-card"><span>{L('todaySales')}</span><b>{dh(k.todaySales)}</b><small>{L('sales')}</small></div>
@@ -7354,6 +7737,11 @@ function Products({ L }) {
   const [suppliers, setSuppliers] = useState([]);
   const [search, setSearch] = useState('');
   const [err, setErr] = useState('');
+  // V58 : filtre d'alerte (depuis « À faire aujourd'hui »), étiquettes, prix en masse
+  const [alertF, setAlertF] = useState(() => takeListIntent('products')?.alert || 'all');
+  const [showLabels, setShowLabels] = useState(false);
+  const [showBulk, setShowBulk] = useState(false);
+  const canBulkPrice = canWriteProduct && (isAdmin(getStoredSession()) || isManager(getStoredSession()));
 
   async function load() {
     try {
@@ -7384,6 +7772,7 @@ function Products({ L }) {
     ? rows
     : rows.filter(p => String(p.branchId || '') === String(branchFilter)))
     .filter(p => catFilter === 'all' || String(p.categorie || '') === String(catFilter))
+    .filter(p => alertF === 'all' || (alertF === 'low' ? isLowStockAlert(p) : alertF === 'expiry' ? isExpiryAlert(p) : true))
     .filter(p => !search || [p.ref, p.nom, p.nomAr, p.categorie, p.branchName, p.barcode].join(' ').toLowerCase().includes(search.toLowerCase()));
 
   const categoryOptions = Array.from(new Set([...lists.categories.map(c => c.name), ...rows.map(p => p.categorie).filter(Boolean)])).sort();
@@ -7481,6 +7870,14 @@ function Products({ L }) {
         {canUse('stock.inventory') ? <button onClick={() => setShowInventory(true)} className="btn bg-white border">📋 {L('inventory')}</button> : null}
         {canUse('products.import') ? <button onClick={() => setShowImport(true)} className="btn bg-white border">📥 {L('importExcel')}</button> : null}
         {canUse('stock.reorder') && can('purchases.write') ? <button onClick={() => setShowReorder(true)} className="btn bg-white border">🔁 {L('reorderAuto')}</button> : null}
+        <button onClick={() => setShowLabels(true)} className="btn bg-white border" data-labels-btn disabled={!visibleRows.length}>🏷 {tx('Étiquettes', 'ملصقات')}</button>
+        {canBulkPrice ? <button onClick={() => setShowBulk(true)} className="btn bg-white border" data-bulk-btn disabled={!visibleRows.length}>💲 {tx('Prix en masse', 'الأثمنة دفعة واحدة')}</button> : null}
+      </div>
+
+      <div className="flex gap-1 mb-4 flex-wrap" data-alert-filter>
+        {[['all', tx('Tous les produits', 'كل المنتجات')], ['low', '📉 ' + tx('Sous le stock minimum', 'تحت الحد الأدنى') + ' (' + rows.filter(p => isLowStockAlert(p)).length + ')'], ['expiry', '⌛ ' + tx('Péremption proche', 'صلاحية قريبة') + ' (' + rows.filter(p => isExpiryAlert(p)).length + ')']].map(([k, t]) => (
+          <button key={k} type="button" data-alert={k} className={'chip ' + (alertF === k ? 'chip-on' : '')} onClick={() => setAlertF(k)}>{t}</button>
+        ))}
       </div>
 
       <div className="grid md:grid-cols-4 gap-4 mb-4">
@@ -7551,6 +7948,8 @@ function Products({ L }) {
       {showLists ? <ProductListsModal L={L} lists={lists} reload={load} close={() => setShowLists(false)} /> : null}
       {showReorder ? <ReorderModal L={L} products={rows} branches={branches.length ? branches : [{ id: currentBranchId(), name: '-' }]} suppliers={suppliers} close={() => setShowReorder(false)} done={load} /> : null}
       {showImport ? <ImportModal L={L} kind="products" branches={branches} close={() => setShowImport(false)} done={load} /> : null}
+      {showLabels ? <LabelsModal L={L} products={visibleRows} close={() => setShowLabels(false)} /> : null}
+      {showBulk ? <BulkPriceModal L={L} products={visibleRows} close={() => setShowBulk(false)} done={load} /> : null}
       {showInventory ? <InventoryModal L={L} products={rows} branches={branches.length ? branches : [{ id: currentBranchId(), name: '-' }]} categories={categoryOptions} close={() => setShowInventory(false)} done={load} /> : null}
       {transfer ? <StockTransferModal L={L} transfer={transfer} setTransfer={setTransfer} branches={branches} save={doTransfer} close={() => setTransfer(null)} /> : null}
     </>
@@ -8865,6 +9264,18 @@ function PosCenter({ L }) {
   const [waTicket, setWaTicket] = useState(null);
   const [err, setErr] = useState('');
   const searchRef = React.useRef(null);
+  // V58 : tickets en attente, favoris, plus vendus
+  const holdKey = userStoreKey('pos_hold');
+  const favKey = userStoreKey('pos_fav');
+  const [holds, setHolds] = useState(() => readLocal(holdKey, []));
+  const [showHolds, setShowHolds] = useState(false);
+  const [favs, setFavs] = useState(() => readLocal(favKey, []));
+  const [top, setTop] = useState([]);
+  const [gridMode, setGridMode] = useState(() => readLocal('dp_pos_grid', 'all'));
+  const saveHolds = h => { setHolds(h); writeLocal(holdKey, h); };
+  const toggleFav = id => { const n = favs.includes(id) ? favs.filter(x => x !== id) : [...favs, id]; setFavs(n); writeLocal(favKey, n); };
+  const setMode = m => { setGridMode(m); writeLocal('dp_pos_grid', m); };
+  useEffect(() => { supabase.rpc('app_top_products', { p_days: 60, p_limit: 24 }).then(({ data, error }) => { if (!error) setTop((data || []).map(x => Number(x.product_id))); }).catch(() => {}); }, []);
 
   async function load() {
     try {
@@ -8922,9 +9333,38 @@ function PosCenter({ L }) {
   }
 
   const q = search.trim().toLowerCase();
-  const results = q ? products.filter(p => [p.nom, p.nomAr, p.ref, p.barcode, p.categorie].join(' ').toLowerCase().includes(q)).slice(0, 24) : products.slice(0, 24);
+  // V58 : sans recherche → favoris puis plus vendus puis le reste
+  const byId = id => products.find(p => Number(p.id) === Number(id));
+  const favList = favs.map(byId).filter(Boolean);
+  const topList = top.map(byId).filter(Boolean);
+  const ordered = [...favList, ...topList.filter(p => !favs.includes(p.id)), ...products.filter(p => !favs.includes(p.id) && !top.includes(Number(p.id)))];
+  const results = q ? products.filter(p => [p.nom, p.nomAr, p.ref, p.barcode, p.categorie].join(' ').toLowerCase().includes(q)).slice(0, 24)
+    : (gridMode === 'fav' ? favList : gridMode === 'top' ? topList : ordered).slice(0, 24);
   const totals = computeTotals(cart, vatRate, true);
   const change = Math.max(0, Number(received || 0) - totals.totalTTC);
+
+  // V58 : mettre le panier en attente / reprendre un ticket
+  function parkCart(silent) {
+    if (!cart.length) return holds;
+    const h = { id: Date.now(), at: Date.now(), label: tx('Ticket', 'تذكرة') + ' ' + (holds.length + 1), clientId, clientName: client && !client.is_walk_in ? client.name : '', cart, globalDiscount, total: totals.totalTTC };
+    const next = [...holds, h];
+    saveHolds(next);
+    setCart([]); setReceived(''); setGlobalDiscount('');
+    { const walk = counterWalkIn(clients); if (walk) setClientId(String(walk.id)); }
+    if (!silent) showToast(tx('Ticket mis en attente', 'تم وضع التذكرة في الانتظار'));
+    return next;
+  }
+  function resumeHold(h) {
+    let list = holds;
+    if (cart.length) { if (!confirm(tx('Le panier en cours sera mis en attente. Continuer ?', 'سيتم وضع السلة الحالية في الانتظار. متابعة؟'))) return; list = parkCart(true); }
+    saveHolds(list.filter(x => x.id !== h.id));
+    if (clients.some(c => String(c.id) === String(h.clientId))) setClientId(String(h.clientId));
+    setCart(h.cart.map(l => ({ ...l, stock: byId(l.produitId)?.quantite ?? l.stock })));
+    setGlobalDiscount(h.globalDiscount || '');
+    setReceived('');
+    setShowHolds(false);
+    setTimeout(() => searchRef.current?.focus(), 100);
+  }
 
   async function validate(opts = {}) {
     if (!cart.length) return alert(L('emptyCart'));
@@ -8974,6 +9414,7 @@ function PosCenter({ L }) {
     const h = e => {
       if (e.key === 'F2') { e.preventDefault(); searchRef.current?.focus(); }
       if (e.key === 'F9') { e.preventDefault(); validate(); }
+      if (e.key === 'F8') { e.preventDefault(); parkCart(); }
       if (e.key === 'Escape') setSearch('');
     };
     window.addEventListener('keydown', h);
@@ -8985,6 +9426,7 @@ function PosCenter({ L }) {
   return (
     <>
       <Header title={L('posMod')}>
+        <button onClick={() => setShowHolds(true)} className={'btn ' + (holds.length ? 'bg-amber-100 border border-amber-300' : 'bg-white border')} data-holds-btn>⏸ {tx('En attente', 'في الانتظار')} ({holds.length})</button>
         {lastTicket ? <button onClick={() => printTicket(lastTicket)} className="btn bg-white border">🖨 {L('lastTicket')}</button> : null}
         {lastTicket && featureOn('share') ? <button onClick={() => setWaTicket(lastTicket)} className="btn wa-send">🟢 WhatsApp</button> : null}
         <button onClick={load} className="btn bg-white border">↻</button>
@@ -9005,9 +9447,18 @@ function PosCenter({ L }) {
               onChange={e => setSearch(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); onSearchEnter(); } }} />
             <button onClick={() => setCamera(true)} className="btn bg-slate-800 text-white" title={L('cameraScan')}>📷</button>
           </div>
+          {!q ? (
+            <div className="flex gap-1 mb-2 flex-wrap">
+              {[['all', tx('Tous', 'الكل')], ['fav', '★ ' + tx('Favoris', 'المفضلة') + ' (' + favList.length + ')'], ['top', '🔥 ' + tx('Les plus vendus', 'الأكثر مبيعا')]].map(([k, t]) => (
+                <button key={k} type="button" data-grid-mode={k} className={'chip ' + (gridMode === k ? 'chip-on' : '')} onClick={() => setMode(k)}>{t}</button>
+              ))}
+            </div>
+          ) : null}
           <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
             {results.map(p => (
-              <button key={p.id} onClick={() => { addProduct(p); searchRef.current?.focus(); }} className="card p-3 text-left hover:border-amber-400" style={{ minHeight: 92 }}>
+              <button key={p.id} onClick={() => { addProduct(p); searchRef.current?.focus(); }} className="card p-3 text-left hover:border-amber-400 pos-card" style={{ minHeight: 92 }} data-pos-product={p.id}>
+                <span role="button" tabIndex={-1} className={'pos-fav ' + (favs.includes(p.id) ? 'on' : '')} data-fav={p.id} title={tx('Favori', 'مفضلة')} onClick={e => { e.stopPropagation(); toggleFav(p.id); }}>{favs.includes(p.id) ? '★' : '☆'}</span>
+                {!favs.includes(p.id) && top.slice(0, 10).includes(Number(p.id)) && !q ? <span className="pos-hot" title={tx('Parmi les plus vendus', 'من الأكثر مبيعا')}>🔥</span> : null}
                 <div className="font-semibold text-sm leading-tight">{p.nom}</div>
                 {p.nomAr ? <div className="text-xs text-slate-400">{p.nomAr}</div> : null}
                 <div className="flex justify-between items-end mt-2">
@@ -9016,7 +9467,7 @@ function PosCenter({ L }) {
                 </div>
               </button>
             ))}
-            {!results.length ? <p className="text-sm text-slate-500 p-4">{L('noData')}</p> : null}
+            {!results.length ? <p className="text-sm text-slate-500 p-4">{gridMode === 'fav' && !q ? tx('Touchez ☆ sur un produit pour l\'ajouter aux favoris.', 'اضغط ☆ لإضافة منتج إلى المفضلة.') : L('noData')}</p> : null}
           </div>
         </div>
 
@@ -9079,12 +9530,22 @@ function PosCenter({ L }) {
                   <div className="text-xs text-slate-500">{L('changeDue')}</div>
                   <div className="text-2xl font-black text-emerald-700">{dh(change)}</div>
                 </div>
+                {cart.length ? (
+                  <div className="col-span-2 flex flex-wrap gap-1" data-cash-quick>
+                    {cashSuggestions(totals.totalTTC).map((v, i) => (
+                      <button key={v} type="button" className={'chip ' + (Number(received) === v ? 'chip-on' : '')} onClick={() => setReceived(String(v))}>{i === 0 ? tx('Montant exact', 'المبلغ بالضبط') : fmt(v)}</button>
+                    ))}
+                  </div>
+                ) : null}
               </div>
             ) : null}
 
-            <button disabled={busy || !cart.length} onClick={() => validate()} className="btn bg-amber-500 w-full text-lg py-3">
-              {busy ? '…' : L('posValidate') + ' (F9)'}
-            </button>
+            <div className="flex gap-2">
+              <button disabled={busy || !cart.length} onClick={() => parkCart()} className="btn bg-white border py-3" data-park title={tx('Mettre en attente (F8)', 'وضع في الانتظار (F8)')}>⏸</button>
+              <button disabled={busy || !cart.length} onClick={() => validate()} className="btn bg-amber-500 w-full text-lg py-3">
+                {busy ? '…' : L('posValidate') + ' (F9)'}
+              </button>
+            </div>
             <p className="text-xs text-slate-400 mt-2 text-center">{L('posShortcuts')}</p>
           </div>
         </div>
@@ -9101,6 +9562,7 @@ function PosCenter({ L }) {
           })}
           pdfName={waTicket.number} auditModule="Caisse" auditObject={waTicket.number} />
       ) : null}
+      {showHolds ? <PosHoldsModal holds={holds} resume={resumeHold} drop={id => saveHolds(holds.filter(h => h.id !== id))} close={() => setShowHolds(false)} /> : null}
       {camera ? <CameraScanner L={L} close={() => setCamera(false)} onCode={code => { const p = findByCode(code); if (p) addProduct(p); else alert(L('productNotFound') + ' : ' + code); }} /> : null}
     </>
   );
@@ -9126,6 +9588,24 @@ function Docs({ L, type }) {
   const [payF, setPayF] = useState('all');
   const [err, setErr] = useState('');
   const [userFilter, setUserFilter] = useState(getSelectedUserFilter(type));
+  // V58 : filtre posé depuis « À faire aujourd'hui »
+  useEffect(() => { const it = takeListIntent(type); if (it) { if (it.tab) setTab(it.tab); if (it.payF) setPayF(it.payF); } }, []);
+  // V58 : brouillon automatique des nouveaux documents (récupérable après fermeture ou rechargement)
+  const draftKey = userStoreKey('draft_' + type);
+  const [draft, setDraft] = useState(() => { const d = readLocal(draftKey, null); return d && d.form && Date.now() - d.at < 7 * 86400000 ? d : null; });
+  useEffect(() => {
+    if (!form || form.id || form.draftOffer) return undefined;
+    if (form._init && docFormSig(form) === form._init) return undefined;
+    if (!(form.lignes || []).some(l => l.produitId)) return undefined;
+    const t = setTimeout(() => {
+      const { draftOffer, _init, ...clean } = form;
+      const d = { at: Date.now(), form: clean };
+      writeLocal(draftKey, d); setDraft(d);
+    }, 500);
+    return () => clearTimeout(t);
+  }, [form]);
+  function discardDraft() { writeLocal(draftKey, null); setDraft(null); }
+  function resumeDraft() { if (draft?.form) setForm({ ...draft.form }); }
 
   async function load() {
     try {
@@ -9180,7 +9660,25 @@ function Docs({ L, type }) {
   const openInvoice = d => setPartial({ mode: 'invoice', doc: d, date: today(), supplierRef: '', dueDate: '', lignes: docInvoiceRemainingLines(d).filter(l => Number(l.remainingQty || 0) > 0).map(l => ({ ...l, qteToProcess: Number(l.remainingQty || 0), excluded: false })) });
 
   function create(start) {
-    setForm({ start, date: today(), partyId: (parties.find(p => !p.is_walk_in) || parties[0])?.id || '', lignes: [{ produitId: products[0]?.id || '', qte: 1 }] });
+    const f = { start, date: today(), partyId: (parties.find(p => !p.is_walk_in) || parties[0])?.id || '', lignes: [{ produitId: products[0]?.id || '', qte: 1 }] };
+    f._init = docFormSig(f);
+    if (draft) f.draftOffer = draft;
+    setForm(f);
+  }
+
+  // V58 : dupliquer un document (même client / fournisseur, mêmes articles, prix actuels)
+  function duplicate(d) {
+    const partyId = isSales ? d.client_id : d.supplier_id;
+    const party = parties.find(p => String(p.id) === String(partyId)) || parties.find(p => !p.is_walk_in) || parties[0];
+    const src = d.lignes || [];
+    const lignes = src.filter(l => products.some(p => String(p.id) === String(l.produitId))).map(l => {
+      const prod = products.find(p => String(p.id) === String(l.produitId));
+      return { produitId: prod.id, qte: Number(l.qte || 1), remise: Number(l.remise || 0), prixUnit: priceForParty(prod, party, isSales) };
+    });
+    if (!lignes.length) return alert(tx('Aucun article de ce document n\'est encore disponible.', 'لا توجد سلعة متاحة من هذه الوثيقة.'));
+    const f = { start: isSales ? 'devis' : 'commande', date: today(), partyId: party?.id || '', duplicateOf: docNo(d), skipped: src.length - lignes.length, lignes };
+    f._init = docFormSig(f);
+    setForm(f);
   }
 
   async function save(opts = {}) {
@@ -9220,7 +9718,7 @@ function Docs({ L, type }) {
       };
 
       if (form.id) await updateDoc(type, form.id, body);
-      else await createDoc(type, body);
+      else { await createDoc(type, body); discardDraft(); }
 
       setForm(null);
       load();
@@ -9319,6 +9817,16 @@ function Docs({ L, type }) {
         }} />
       </Header>
 
+      {draft && !form && canWriteDoc ? (
+        <div className="draft-banner" data-draft-banner>
+          <span>📝 {tx('Document non enregistré', 'وثيقة غير محفوظة')} · {hhmm(draft.at)} · {(draft.form.lignes || []).filter(l => l.produitId).length} {tx('ligne(s)', 'سطر')}{(() => { const pt = parties.find(p => String(p.id) === String(draft.form.partyId)); return pt ? ' · ' + pt.name : ''; })()}</span>
+          <span className="flex gap-2">
+            <button className="btn bg-amber-500 text-sm" data-draft-resume onClick={resumeDraft}>▶ {tx('Reprendre', 'استئناف')}</button>
+            <button className="btn bg-white border text-sm" onClick={() => { if (confirm(tx('Supprimer ce brouillon ?', 'حذف هذه المسودة؟'))) discardDraft(); }}>🗑</button>
+          </span>
+        </div>
+      ) : null}
+
       <div className="flex gap-1 mb-4 flex-wrap items-center">
         {tabs.map(t => <button key={t[0]} onClick={() => setTab(t[0])} className={'px-3 py-1.5 rounded-lg text-sm ' + (tab === t[0] ? 'bg-slate-800 text-white' : 'bg-white border text-slate-500')}>{t[1]}</button>)}
         {tab === 'commande' ? (
@@ -9414,6 +9922,7 @@ function Docs({ L, type }) {
                       canWriteDoc && isSales && canPartialInvoice(d, type) && { icon: '🧾', label: L('partialInvoice'), onClick: () => setPartial({ mode: 'invoice', doc: d, date: today(), lignes: docInvoiceRemainingLines(d).filter(l => Number(l.remainingQty || 0) > 0).map(l => ({ ...l, qteToProcess: Number(l.remainingQty || 0), excluded: false })) }) },
                       canWriteDoc && canUse(isSales ? 'sales.return' : 'purchases.return') && canReturnDoc(d) && { icon: '↩', label: isSales ? L('creditNote') : L('supplierReturn'), onClick: () => setPartial({ mode: 'return', restock: true, doc: d, date: today(), lignes: docReturnRemainingLines(d).filter(l => Number(l.remainingQty || 0) > 0).map(l => ({ ...l, qteToProcess: 0, excluded: false })) }) },
                       canWriteDoc && !isReturnDoc(d) && { icon: '✏️', label: L('edit'), onClick: () => setForm({ id: d.id, start: d.stage, date: d.date, partyId: isSales ? d.client_id : d.supplier_id, supplierRef: d.supplier_ref || '', dueDate: d.due_date || '', lignes: (d.lignes || []).map(l => ({ produitId: l.produitId, qte: l.qte, prixUnit: l.prixUnit, remise: l.remise || 0 })) }) },
+                      canWriteDoc && !isReturnDoc(d) && { icon: '⧉', label: tx('Dupliquer', 'نسخ'), onClick: () => duplicate(d) },
                       canDeleteDoc && { icon: '🗑', label: L('del'), onClick: () => remove(d.id), tone: 'danger' }
                     ].filter(Boolean);
                     const main = acts.find(x => x.main) || acts[0];
@@ -9434,7 +9943,7 @@ function Docs({ L, type }) {
       )}
       {isSales || tab !== 'reception' ? <ShowMore L={L} more={more} shown={shown.length} total={filtered.length} /> : null}
 
-      {form ? <DocModal L={L} isSales={isSales} form={form} setForm={setForm} products={products} parties={parties} save={save} close={() => setForm(null)} /> : null}
+      {form ? <DocModal L={L} isSales={isSales} form={form} setForm={setForm} products={products} parties={parties} save={save} close={() => setForm(null)} discardDraft={discardDraft} /> : null}
       {pay ? <PaymentModal L={L} isSales={isSales} pay={pay} setPay={setPay} save={settle} close={() => setPay(null)} /> : null}
       {partial ? <PartialModal L={L} isSales={isSales} partial={partial} setPartial={setPartial} save={doPartial} close={() => setPartial(null)} /> : null}
       {preview ? <DocumentPreview L={L} isSales={isSales} doc={preview} close={() => setPreview(null)} /> : null}
@@ -9592,7 +10101,9 @@ function PurchaseReceptionsView({ L, rows, allRows, canWriteDoc, canDeleteDoc, o
   );
 }
 
-function DocModal({ L, isSales, form, setForm, products, parties, save, close }) {
+function docFormSig(f) { return JSON.stringify([f.partyId, f.date, f.start, (f.lignes || []).map(l => [l.produitId, Number(l.qte), l.prixUnit ?? null, Number(l.remise || 0)])]); }
+
+function DocModal({ L, isSales, form, setForm, products, parties, save, close, discardDraft }) {
   const currentParty = parties.find(x => String(x.id) === String(form.partyId));
   function defaultPrice(productId, party = currentParty) {
     const p = products.find(x => String(x.id) === String(productId));
@@ -9670,6 +10181,25 @@ function DocModal({ L, isSales, form, setForm, products, parties, save, close })
           : <div className="text-sm text-slate-500 p-4 text-center">{L('addAttachment')} — {L('save')} ✓</div>
       ) : (
       <>
+      {form.draftOffer ? (
+        <div className="draft-banner mb-3" data-draft-offer>
+          <span>📝 {tx('Brouillon non enregistré du', 'مسودة غير محفوظة بتاريخ')} {hhmm(form.draftOffer.at)} ({(form.draftOffer.form.lignes || []).filter(l => l.produitId).length} {tx('ligne(s)', 'سطر')})</span>
+          <span className="flex gap-2">
+            <button className="btn bg-amber-500 text-sm" data-draft-take onClick={() => setForm({ ...form.draftOffer.form })}>▶ {tx('Reprendre', 'استئناف')}</button>
+            <button className="btn bg-white border text-sm" onClick={() => { discardDraft && discardDraft(); setForm({ ...form, draftOffer: undefined }); }}>{tx('Ignorer', 'تجاهل')}</button>
+          </span>
+        </div>
+      ) : null}
+      {form.duplicateOf && !form.id ? (
+        <div className="dup-banner mb-3" data-dup-banner>
+          <span>⧉ {tx('Copie de', 'نسخة من')} <b>{form.duplicateOf}</b> · {tx('prix mis à jour au tarif actuel', 'الأثمنة محينة')}{form.skipped ? ' · ' + form.skipped + ' ' + tx('ligne(s) ignorée(s) (produit supprimé)', 'سطر متجاهل') : ''}</span>
+          <label className="text-xs text-slate-600 flex items-center gap-2">{tx('Créer comme', 'إنشاء ك')}
+            <select className="input" style={{ width: 'auto' }} data-dup-stage value={form.start} onChange={e => setForm({ ...form, start: e.target.value })}>
+              {(isSales ? [['devis', L('quotes')], ['facture', L('direct') + ' (' + L('invoices') + ')']] : [['commande', L('orders')], ['reception', L('direct') + ' (' + L('receipts') + ')']]).map(([k, t]) => <option key={k} value={k}>{t}</option>)}
+            </select>
+          </label>
+        </div>
+      ) : null}
       <div className="grid md:grid-cols-2 gap-3 mb-4">
         <label className="text-xs text-slate-500">{L('date')}
           <input type="date" className="input mt-1" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} />

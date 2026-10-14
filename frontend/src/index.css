@@ -1303,3 +1303,33 @@ tr.party-walkin > td { background: #fffbeb; }
 .saas-banner.info { background: #f0f9ff; border-color: #bae6fd; color: #075985; }
 .saas-banner.warning { background: #fffbeb; border-color: #fcd34d; color: #92400e; }
 .saas-banner.danger { background: #fef2f2; border-color: #fca5a5; color: #991b1b; }
+
+/* ===== V58 : fonctions qui facilitent le quotidien ===== */
+.today-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
+.today-item { display: flex; align-items: center; gap: 12px; text-align: start; border: 1px solid #e2e8f0; border-radius: 14px; padding: 12px 14px; background: #fff; cursor: pointer; transition: border-color .15s, box-shadow .15s; }
+.today-item:hover { border-color: #f59e0b; box-shadow: 0 4px 14px rgba(15, 23, 42, .08); }
+.today-icon { font-size: 22px; }
+.today-text { flex: 1; min-width: 0; }
+.today-text b { display: block; font-size: 14px; color: #0f172a; }
+.today-text small { display: block; color: #64748b; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.today-n { font-weight: 900; font-size: 20px; min-width: 38px; text-align: center; border-radius: 10px; padding: 4px 8px; }
+.today-item.red .today-n { background: #fee2e2; color: #b91c1c; }
+.today-item.amber .today-n { background: #fef3c7; color: #92400e; }
+.today-item.blue .today-n { background: #e0f2fe; color: #075985; }
+.draft-banner, .dup-banner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; border-radius: 12px; padding: 10px 14px; font-size: 14px; margin-bottom: 12px; }
+.draft-banner { background: #fffbeb; border: 1px solid #fcd34d; color: #92400e; }
+.dup-banner { background: #f0f9ff; border: 1px solid #bae6fd; color: #075985; }
+.pos-card { position: relative; }
+.pos-fav { position: absolute; top: 4px; inset-inline-end: 6px; font-size: 18px; color: #cbd5e1; line-height: 1; padding: 2px; cursor: pointer; }
+.pos-fav.on { color: #f59e0b; }
+.pos-fav:hover { color: #f59e0b; }
+.pos-hot { position: absolute; top: 6px; inset-inline-end: 28px; font-size: 12px; }
+.pos-card .font-semibold { padding-inline-end: 22px; }
+.bulk-below td { background: #fef2f2; }
+.label-preview { border: 1px dashed #94a3b8; border-radius: 6px; padding: 8px 10px; background: #fff; display: flex; flex-direction: column; overflow: hidden; max-width: 260px; }
+.label-preview .co { font-size: 9px; color: #64748b; text-transform: uppercase; }
+.label-preview .nm { font-weight: 700; font-size: 12px; line-height: 1.15; }
+.label-preview .ar { font-size: 11px; color: #475569; }
+.label-preview .pr { font-weight: 900; font-size: 20px; margin-top: auto; }
+.label-preview .pr small { font-size: 10px; }
+.label-preview svg { width: 100%; height: 22px; }
