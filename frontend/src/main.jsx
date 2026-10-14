@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import { flushSync } from 'react-dom';
 import { createClient } from '@supabase/supabase-js';
 import './index.css';
 
-console.log('DROGUERIEPRO V51 OK');
+console.log('DROGUERIEPRO V52 OK');
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -462,6 +463,953 @@ Object.assign(TXT.ar, {
   "bkSecurity": "الملف يحتوي على كل معطياتك بما فيها كلمات المرور المشفرة: احفظه في مكان آمن. الملفات المرفقة (Supabase Storage) غير مدرجة، فقط مراجعها."
 });
 
+/* =====================================================================
+   V52 : charte graphique du client, export Excel, partage WhatsApp
+   ===================================================================== */
+Object.assign(TXT.fr, {
+  brandTitle: 'Identité visuelle (charte graphique)',
+  brandHint: 'Logo et couleurs de votre droguerie, repris sur les documents, tickets, exports Excel, messages WhatsApp et dans l\'application.',
+  brandLogo: 'Logo',
+  brandLogoHint: 'PNG, JPG, SVG ou WebP. Les marges vides sont retirées et le logo est réduit automatiquement.',
+  brandLogoChoose: 'Choisir un logo',
+  brandLogoRemove: 'Retirer',
+  brandPrimary: 'Couleur principale',
+  brandAccent: 'Couleur d\'accent',
+  brandFromLogo: 'Prendre les couleurs du logo',
+  brandPresets: 'Palettes proposées',
+  brandSlogan: 'Slogan',
+  brandDocFooter: 'Pied de page des documents',
+  brandDocFooterHint: 'Ex. : conditions de paiement, horaires, mentions.',
+  brandTicketMessage: 'Message en bas du ticket de caisse',
+  brandTicketLogo: 'Logo sur le ticket de caisse',
+  brandApplyApp: 'Appliquer les couleurs à l\'application (menu, boutons)',
+  brandPreview: 'Aperçu',
+  brandReset: 'Couleurs par défaut',
+  brandSaveHint: 'Cliquez sur « Enregistrer » en haut de la page pour appliquer.',
+  companyEmail: 'E-mail',
+  companyWebsite: 'Site web',
+  companyRib: 'RIB / Banque',
+  companyRc: 'RC',
+  companyIf: 'IF',
+  companyPatente: 'Patente',
+  companyCnss: 'CNSS',
+  companyLegal: 'Mentions légales',
+  poweredBy: 'propulsé par DrogueriePro',
+  exportExcel: 'Excel',
+  exportCsvShort: 'CSV',
+  exportBusy: 'Préparation…',
+  xlGenerated: 'Généré le',
+  xlBy: 'par',
+  xlPeriod: 'Période',
+  xlTotal: 'Total',
+  xlFullExport: 'Excel complet (toutes les tables)',
+  xlFullExportHint: 'Un classeur Excel avec un onglet par table : pratique pour consulter ou analyser vos données.',
+  waTitle: 'Envoyer par WhatsApp',
+  waPhone: 'Numéro WhatsApp',
+  waPhoneHint: 'Formats acceptés : 06…, 07…, 05… ou +212…',
+  waPhoneInvalid: 'Numéro invalide',
+  waNoPhone: 'Aucun numéro : vous choisirez le contact dans WhatsApp.',
+  waSaveNumber: 'Enregistrer ce numéro sur la fiche',
+  waLang: 'Langue du message',
+  waMessage: 'Message',
+  waLinkHint: '{lien} sera remplacé par le lien de téléchargement du PDF.',
+  waAttach: 'Document PDF',
+  waAttachLink: 'Lien de téléchargement dans le message (recommandé)',
+  waAttachFile: 'Fichier PDF à joindre',
+  waAttachNone: 'Message seul, sans PDF',
+  waLinkDays: 'Lien valable (jours)',
+  waSend: 'Ouvrir WhatsApp',
+  waPreparing: 'Préparation du PDF…',
+  waUploading: 'Mise en ligne du PDF…',
+  waLinkFailed: 'Lien impossible (stockage Supabase indisponible) : le PDF a été téléchargé, joignez-le dans la conversation.',
+  waFileDesktop: 'Le PDF a été téléchargé : glissez-le dans la conversation WhatsApp qui vient de s\'ouvrir.',
+  waTemplates: 'Messages WhatsApp',
+  waTemplatesHint: 'Variables : {client} {document} {numero} {date} {montant} {reste} {lien} {factures} {articles} {paiement} {total_facture} {total_regle} {societe} {telephone_societe}. Une ligne dont toutes les variables sont vides est retirée du message.',
+  waKind_doc: 'Document (facture, devis, BL…)',
+  waKind_statement: 'Relevé de compte',
+  waKind_reminder: 'Relance impayés',
+  waKind_ticket: 'Ticket de caisse',
+  waRestore: 'Modèle par défaut',
+  waReminder: 'Relance',
+  waDefaultLang: 'Langue proposée par défaut',
+  waLinkDefaultDays: 'Validité des liens PDF (jours)',
+  statementAt: 'Relevé de compte au',
+  shareStatement: 'WhatsApp',
+  docPdfShared: 'PDF partagé',
+  rcNumber: 'N° BR',
+  receiveAction: 'Réceptionner',
+  invoiceAction: 'Facturer',
+  receiveTitle: 'Réception de la commande',
+  invoiceTitle: 'Facturation de la réception',
+  supplierBlRef: 'N° BL fournisseur',
+  supplierInvRef: 'N° facture fournisseur',
+  supplierRef: 'Réf. fournisseur',
+  unitPriceHT: 'PU HT',
+  unitPriceHTHint: 'Prix d\'achat HT réellement facturé : il met à jour le coût moyen (PMP).',
+  rcToInvoice: 'À facturer',
+  rcPartial: 'Facturée partiellement',
+  rcInvoiced: 'Facturée',
+  rcReceivedValue: 'Valeur reçue (HT)',
+  rcToInvoiceValue: 'Reste à facturer (HT)',
+  rcCount: 'Réceptions',
+  rcToInvoiceCount: 'Réceptions à facturer',
+  rcSearch: 'Rechercher (N°, fournisseur, BL, produit)',
+  rcOrder: 'Commande',
+  rcArticles: 'Articles',
+  rcInvoicing: 'Facturation',
+  rcLines: 'lignes',
+  rcDetails: 'Détail',
+  rcNone: 'Aucune réception',
+  poOpen: 'Ouverte',
+  poPartial: 'Partiellement reçue',
+  poReceived: 'Reçue',
+  poReceipts: 'Réceptions',
+  showClosedDocs: 'Afficher les documents soldés',
+  originOrder: 'Commande d\'origine'
+});
+Object.assign(TXT.ar, {
+  brandTitle: 'الهوية البصرية',
+  brandHint: 'شعار وألوان محلبتكم، تظهر في الوثائق والتذاكر وملفات Excel ورسائل واتساب وفي التطبيق.',
+  brandLogo: 'الشعار',
+  brandLogoHint: 'PNG أو JPG أو SVG أو WebP. تُحذف الهوامش الفارغة ويُصغَّر الشعار تلقائياً.',
+  brandLogoChoose: 'اختيار شعار',
+  brandLogoRemove: 'حذف',
+  brandPrimary: 'اللون الرئيسي',
+  brandAccent: 'لون الإبراز',
+  brandFromLogo: 'أخذ الألوان من الشعار',
+  brandPresets: 'ألوان مقترحة',
+  brandSlogan: 'الشعار النصي',
+  brandDocFooter: 'تذييل الوثائق',
+  brandDocFooterHint: 'مثال: شروط الأداء، أوقات العمل، بيانات إضافية.',
+  brandTicketMessage: 'رسالة أسفل تذكرة الصندوق',
+  brandTicketLogo: 'الشعار على تذكرة الصندوق',
+  brandApplyApp: 'تطبيق الألوان على التطبيق (القائمة والأزرار)',
+  brandPreview: 'معاينة',
+  brandReset: 'الألوان الافتراضية',
+  brandSaveHint: 'اضغط « حفظ » أعلى الصفحة للتطبيق.',
+  companyEmail: 'البريد الإلكتروني',
+  companyWebsite: 'الموقع الإلكتروني',
+  companyRib: 'الحساب البنكي (RIB)',
+  companyRc: 'السجل التجاري',
+  companyIf: 'التعريف الضريبي',
+  companyPatente: 'الضريبة المهنية',
+  companyCnss: 'الضمان الاجتماعي',
+  companyLegal: 'البيانات القانونية',
+  poweredBy: 'بواسطة DrogueriePro',
+  exportExcel: 'Excel',
+  exportCsvShort: 'CSV',
+  exportBusy: 'جاري التحضير…',
+  xlGenerated: 'أُنشئ في',
+  xlBy: 'بواسطة',
+  xlPeriod: 'الفترة',
+  xlTotal: 'المجموع',
+  xlFullExport: 'Excel كامل (كل الجداول)',
+  xlFullExportHint: 'ملف Excel بورقة لكل جدول، لاستعراض أو تحليل معطياتك.',
+  waTitle: 'إرسال عبر واتساب',
+  waPhone: 'رقم واتساب',
+  waPhoneHint: 'الصيغ المقبولة: …06 أو …07 أو …05 أو …212+',
+  waPhoneInvalid: 'رقم غير صالح',
+  waNoPhone: 'لا يوجد رقم: ستختار جهة الاتصال داخل واتساب.',
+  waSaveNumber: 'حفظ هذا الرقم في البطاقة',
+  waLang: 'لغة الرسالة',
+  waMessage: 'الرسالة',
+  waLinkHint: 'سيُستبدل {lien} برابط تحميل ملف PDF.',
+  waAttach: 'وثيقة PDF',
+  waAttachLink: 'رابط التحميل داخل الرسالة (مُستحسن)',
+  waAttachFile: 'ملف PDF للإرفاق',
+  waAttachNone: 'رسالة فقط بدون PDF',
+  waLinkDays: 'صلاحية الرابط (أيام)',
+  waSend: 'فتح واتساب',
+  waPreparing: 'تحضير ملف PDF…',
+  waUploading: 'رفع ملف PDF…',
+  waLinkFailed: 'تعذّر إنشاء الرابط (التخزين غير متاح): تم تحميل ملف PDF، أرفقه في المحادثة.',
+  waFileDesktop: 'تم تحميل ملف PDF: اسحبه إلى محادثة واتساب التي فُتحت.',
+  waTemplates: 'رسائل واتساب',
+  waTemplatesHint: 'المتغيرات: {client} {document} {numero} {date} {montant} {reste} {lien} {factures} {articles} {paiement} {total_facture} {total_regle} {societe} {telephone_societe}. يُحذف كل سطر تكون كل متغيراته فارغة.',
+  waKind_doc: 'وثيقة (فاتورة، عرض أثمان، وصل تسليم…)',
+  waKind_statement: 'كشف الحساب',
+  waKind_reminder: 'تذكير بالمستحقات',
+  waKind_ticket: 'تذكرة الصندوق',
+  waRestore: 'النموذج الافتراضي',
+  waReminder: 'تذكير',
+  waDefaultLang: 'اللغة المقترحة افتراضياً',
+  waLinkDefaultDays: 'صلاحية روابط PDF (أيام)',
+  statementAt: 'كشف الحساب بتاريخ',
+  shareStatement: 'واتساب',
+  docPdfShared: 'تمت مشاركة PDF',
+  rcNumber: 'رقم وصل الاستلام',
+  receiveAction: 'استلام',
+  invoiceAction: 'فوترة',
+  receiveTitle: 'استلام الطلبية',
+  invoiceTitle: 'فوترة وصل الاستلام',
+  supplierBlRef: 'رقم وصل تسليم المورد',
+  supplierInvRef: 'رقم فاتورة المورد',
+  supplierRef: 'مرجع المورد',
+  unitPriceHT: 'ثمن الوحدة دون رسوم',
+  unitPriceHTHint: 'ثمن الشراء الفعلي دون رسوم: يُحدِّث متوسط التكلفة المرجّح.',
+  rcToInvoice: 'للفوترة',
+  rcPartial: 'مفوترة جزئياً',
+  rcInvoiced: 'مفوترة',
+  rcReceivedValue: 'قيمة المستلم (دون رسوم)',
+  rcToInvoiceValue: 'الباقي للفوترة (دون رسوم)',
+  rcCount: 'الاستلامات',
+  rcToInvoiceCount: 'استلامات للفوترة',
+  rcSearch: 'بحث (الرقم، المورد، الوصل، المنتج)',
+  rcOrder: 'الطلبية',
+  rcArticles: 'المواد',
+  rcInvoicing: 'الفوترة',
+  rcLines: 'سطور',
+  rcDetails: 'التفاصيل',
+  rcNone: 'لا توجد استلامات',
+  poOpen: 'مفتوحة',
+  poPartial: 'مستلمة جزئياً',
+  poReceived: 'مستلمة',
+  poReceipts: 'الاستلامات',
+  showClosedDocs: 'عرض الوثائق المنتهية',
+  originOrder: 'الطلبية الأصلية'
+});
+
+const Lx = lang => key => TXT[lang]?.[key] || TXT.fr[key] || key;
+const Lc = key => Lx(curLang())(key);
+
+/* ---------- Charte graphique ---------- */
+const BRAND_DEFAULTS = { logo: '', primary: '#0f172a', accent: '#f59e0b', slogan: '', docFooter: '', ticketMessage: '', ticketLogo: true, applyApp: true, name: '' };
+const BRAND_PRESETS = [
+  ['#0f172a', '#f59e0b'], ['#1e3a8a', '#0ea5e9'], ['#14532d', '#65a30d'], ['#7f1d1d', '#ea580c'],
+  ['#312e81', '#9333ea'], ['#134e4a', '#0d9488'], ['#27272a', '#ca8a04'], ['#0c4a6e', '#dc2626']
+];
+function normHex(v, fallback) {
+  const s = String(v || '').trim();
+  if (/^#[0-9a-f]{6}$/i.test(s)) return s.toLowerCase();
+  if (/^#[0-9a-f]{3}$/i.test(s)) return ('#' + s.slice(1).split('').map(c => c + c).join('')).toLowerCase();
+  return fallback;
+}
+function hexRgb(h) { const n = parseInt(normHex(h, '#000000').slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
+function rgbHex(r, g, b) { return '#' + [r, g, b].map(x => Math.max(0, Math.min(255, Math.round(x))).toString(16).padStart(2, '0')).join(''); }
+function luminance(h) {
+  const [r, g, b] = hexRgb(h).map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+// Texte lisible sur une couleur de fond (blanc ou bleu nuit, selon le meilleur contraste)
+function textOn(h) { const l = luminance(h); return (1.05 / (l + 0.05)) >= ((l + 0.05) / 0.0589) ? '#ffffff' : '#0f172a'; }
+function mixHex(a, b, t) { const A = hexRgb(a), B = hexRgb(b); return rgbHex(...A.map((v, i) => v + (B[i] - v) * t)); }
+function readableAccent(h) { return luminance(h) > 0.3 ? mixHex(h, '#000000', 0.45) : h; }
+
+function brandFromSettings(s = {}) {
+  return {
+    logo: String(s.brand_logo || '').startsWith('data:image/') ? s.brand_logo : '',
+    primary: normHex(s.brand_primary, BRAND_DEFAULTS.primary),
+    accent: normHex(s.brand_accent, BRAND_DEFAULTS.accent),
+    slogan: s.brand_slogan || '',
+    docFooter: s.brand_doc_footer || '',
+    ticketMessage: s.brand_ticket_message || '',
+    ticketLogo: String(s.brand_ticket_logo ?? '1') !== '0',
+    applyApp: String(s.brand_apply_app ?? '1') !== '0',
+    name: s.company_name && s.company_name !== 'DrogueriePro' ? s.company_name : ''
+  };
+}
+let brandCache = null;
+function getBrand() {
+  if (brandCache) return brandCache;
+  try {
+    const b = JSON.parse(localStorage.getItem('droguerie_brand_v52') || 'null');
+    if (b) { brandCache = { ...BRAND_DEFAULTS, ...b }; return brandCache; }
+  } catch {}
+  return { ...BRAND_DEFAULTS };
+}
+function brandVars(b = getBrand()) {
+  const sidebar = luminance(b.primary) < 0.12 ? b.primary : '#0f172a';
+  return {
+    '--brand-primary': b.primary, '--brand-on-primary': textOn(b.primary),
+    '--brand-accent': b.accent, '--brand-on-accent': textOn(b.accent),
+    '--brand-accent-soft': mixHex(b.accent, '#ffffff', 0.85), '--brand-accent-text': readableAccent(b.accent),
+    '--brand-sidebar': sidebar, '--brand-sidebar-hover': mixHex(sidebar, '#ffffff', 0.12)
+  };
+}
+function applyBrandCss(b = getBrand()) {
+  try {
+    const r = document.documentElement;
+    Object.entries(brandVars(b)).forEach(([k, v]) => r.style.setProperty(k, v));
+    if (b.applyApp) r.style.setProperty('--dp-accent', b.accent); else r.style.removeProperty('--dp-accent');
+  } catch {}
+}
+function setBrandCache(b) {
+  const next = { ...BRAND_DEFAULTS, ...b };
+  const same = brandCache && JSON.stringify(brandCache) === JSON.stringify(next);
+  brandCache = next;
+  try { localStorage.setItem('droguerie_brand_v52', JSON.stringify(next)); } catch {}
+  applyBrandCss(next);
+  if (!same) { try { window.dispatchEvent(new CustomEvent('droguerie_brand_changed', { detail: next })); } catch {} }
+}
+applyBrandCss(getBrand());
+
+function useBrand() {
+  const [b, setB] = useState(getBrand());
+  useEffect(() => {
+    const h = e => setB(e.detail || getBrand());
+    window.addEventListener('droguerie_brand_changed', h);
+    return () => window.removeEventListener('droguerie_brand_changed', h);
+  }, []);
+  return b;
+}
+
+// Page de connexion : logo et couleurs lisibles sans être connecté (fonction app_public_branding, V52)
+async function loadPublicBranding() {
+  try {
+    const { data, error } = await supabase.rpc('app_public_branding');
+    if (error || !data) return null;
+    return data;
+  } catch { return null; }
+}
+
+function docStyle(c = {}) {
+  const b = getBrand();
+  const primary = normHex(c.primary, b.primary), accent = normHex(c.accent, b.accent);
+  return {
+    '--doc-primary': primary, '--doc-on-primary': textOn(primary), '--doc-accent': accent,
+    '--doc-accent-text': readableAccent(accent), '--doc-primary-soft': mixHex(primary, '#ffffff', 0.93)
+  };
+}
+
+function loadImage(src) {
+  return new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error('Image illisible')); i.src = src; });
+}
+function fileToDataUrl(file) {
+  return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => rej(r.error || new Error('Lecture impossible')); r.readAsDataURL(file); });
+}
+
+// Logo : rendu, recadrage des marges vides, réduction (480 × 200 px max), PNG
+async function processLogoFile(file) {
+  if (!file) throw new Error('Aucun fichier');
+  const isSvg = /svg/i.test(file.type) || /\.svg$/i.test(file.name || '');
+  if (!/^image\//.test(file.type || '') && !/\.(png|jpe?g|svg|webp|gif)$/i.test(file.name || '')) throw new Error('Format non pris en charge (PNG, JPG, SVG, WebP)');
+  if (file.size > 8 * 1024 * 1024) throw new Error('Fichier trop lourd (8 Mo maximum)');
+  const img = await loadImage(await fileToDataUrl(file));
+  let w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+  if (!w || !h) { w = 600; h = 300; }
+  const k0 = isSvg ? 900 / Math.max(w, h) : Math.min(1, 1200 / Math.max(w, h));
+  const work = document.createElement('canvas');
+  work.width = Math.max(1, Math.round(w * k0)); work.height = Math.max(1, Math.round(h * k0));
+  const ctx = work.getContext('2d');
+  ctx.drawImage(img, 0, 0, work.width, work.height);
+  let sx = 0, sy = 0, sw = work.width, sh = work.height;
+  try {
+    const d = ctx.getImageData(0, 0, work.width, work.height).data;
+    let minX = work.width, minY = work.height, maxX = -1, maxY = -1;
+    for (let y = 0; y < work.height; y++) {
+      for (let x = 0; x < work.width; x++) {
+        const i = (y * work.width + x) * 4;
+        if (d[i + 3] > 16 && !(d[i] > 245 && d[i + 1] > 245 && d[i + 2] > 245)) {
+          if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y;
+        }
+      }
+    }
+    if (maxX >= minX && maxY >= minY) {
+      const pad = Math.round(Math.max(maxX - minX, maxY - minY) * 0.03);
+      sx = Math.max(0, minX - pad); sy = Math.max(0, minY - pad);
+      sw = Math.min(work.width, maxX + pad + 1) - sx; sh = Math.min(work.height, maxY + pad + 1) - sy;
+    }
+  } catch {}
+  let maxW = 480, maxH = 200, out = null, url = '';
+  for (let i = 0; i < 6; i++) {
+    const k = Math.min(1, maxW / sw, maxH / sh);
+    out = document.createElement('canvas');
+    out.width = Math.max(1, Math.round(sw * k)); out.height = Math.max(1, Math.round(sh * k));
+    const o = out.getContext('2d');
+    o.imageSmoothingQuality = 'high';
+    o.drawImage(work, sx, sy, sw, sh, 0, 0, out.width, out.height);
+    url = out.toDataURL('image/png');
+    if (url.length <= 120000) break;
+    maxW *= 0.8; maxH *= 0.8;
+  }
+  return { dataUrl: url, width: out.width, height: out.height };
+}
+
+// Couleurs dominantes du logo : accent = couleur vive la plus présente, principale = couleur sombre
+async function extractLogoColors(dataUrl) {
+  const img = await loadImage(dataUrl);
+  const S = 64, c = document.createElement('canvas'); c.width = S; c.height = S;
+  const x = c.getContext('2d'); x.drawImage(img, 0, 0, S, S);
+  const d = x.getImageData(0, 0, S, S).data;
+  const buckets = {};
+  for (let i = 0; i < d.length; i += 4) {
+    const r = d[i], g = d[i + 1], b = d[i + 2], a = d[i + 3];
+    if (a < 128 || (r > 238 && g > 238 && b > 238)) continue;
+    const key = (r >> 4) + ',' + (g >> 4) + ',' + (b >> 4);
+    const bk = buckets[key] || (buckets[key] = { n: 0, r: 0, g: 0, b: 0 });
+    bk.n++; bk.r += r; bk.g += g; bk.b += b;
+  }
+  const list = Object.values(buckets).map(bk => {
+    const r = bk.r / bk.n, g = bk.g / bk.n, b = bk.b / bk.n, max = Math.max(r, g, b), min = Math.min(r, g, b);
+    const hex = rgbHex(r, g, b);
+    return { hex, n: bk.n, sat: max ? (max - min) / max : 0, lum: luminance(hex) };
+  });
+  if (!list.length) return null;
+  const dist = (a, b) => { const A = hexRgb(a), B = hexRgb(b); return Math.sqrt(A.reduce((t, v, i) => t + (v - B[i]) ** 2, 0)); };
+  // Couleur principale : la couleur sombre la plus présente (sinon la couleur dominante assombrie)
+  const byCount = [...list].sort((a, b) => b.n - a.n);
+  const darkest = list.filter(c => c.lum < 0.15).sort((a, b) => b.n - a.n)[0];
+  const primary = darkest ? darkest.hex : mixHex(byCount[0].hex, '#000000', 0.55);
+  // Accent : couleur vive, assez claire et bien distincte de la principale
+  const colorful = list.filter(c => c.sat > 0.35 && c.lum > 0.06 && dist(c.hex, primary) > 90).sort((a, b) => b.n * b.sat - a.n * a.sat);
+  let acc = colorful[0]?.hex || list.filter(c => dist(c.hex, primary) > 90).sort((a, b) => b.n - a.n)[0]?.hex || mixHex(primary, '#ffffff', 0.45);
+  return { primary, accent: acc };
+}
+
+function legalLine(c = {}) {
+  return [['ICE', c.ice], ['RC', c.rc], ['IF', c.ifNumber], ['Patente', c.patente], ['CNSS', c.cnss]]
+    .filter(x => String(x[1] || '').trim()).map(x => x[0] + ' : ' + x[1]).join(' · ');
+}
+
+// En-tête commun des documents A4 (factures, devis, BL, relevés)
+function DocBrandHeader({ L, company, title, number, date, extra }) {
+  const c = company || {};
+  return (
+    <div className="simple-doc-header">
+      <div className="doc-brand-left">
+        {c.logo ? <img className="doc-logo" src={c.logo} alt="" /> : null}
+        <div>
+          <div className="simple-brand">{c.name}</div>
+          {c.slogan ? <div className="doc-slogan">{c.slogan}</div> : null}
+          {c.address ? <div className="simple-muted">{c.address}</div> : null}
+          <div className="simple-muted">{[c.phone ? (L('phone') + ' : ' + c.phone) : '', c.email, c.website].filter(Boolean).join(' · ')}</div>
+          {legalLine(c) ? <div className="simple-legal">{legalLine(c)}</div> : null}
+        </div>
+      </div>
+      <div className="simple-title-box">
+        <div className="simple-title">{title}</div>
+        {number ? <div className="simple-number">{number}</div> : null}
+        {date ? <div className="simple-muted">{L('date')} : {date}</div> : null}
+        {extra || null}
+      </div>
+    </div>
+  );
+}
+
+function DocFooterText({ company }) {
+  const c = company || {};
+  if (!c.docFooter && !c.rib) return null;
+  return (
+    <div className="doc-footer-text">
+      {c.docFooter ? <div>{c.docFooter}</div> : null}
+      {c.rib ? <div>RIB : {c.rib}</div> : null}
+    </div>
+  );
+}
+
+/* ---------- PDF fiable (même rendu sur téléphone et ordinateur, sans ligne coupée) ---------- */
+async function waitImages(root) {
+  const imgs = [...root.querySelectorAll('img')];
+  await Promise.all(imgs.map(i => (i.complete ? null : new Promise(r => { i.onload = r; i.onerror = r; }))));
+}
+
+async function elementToPdfBlob(el) {
+  const [{ default: html2canvas }, { jsPDF }] = await Promise.all([import('html2canvas'), import('jspdf')]);
+  const W = 794; // largeur A4 à 96 ppp
+  const host = document.createElement('div');
+  if (el.closest && el.closest('.rtl')) host.className = 'rtl';
+  host.style.cssText = `position:fixed;left:-12000px;top:0;width:${W}px;background:#fff;pointer-events:none;z-index:-1`;
+  const clone = el.cloneNode(true);
+  clone.classList.add('pdf-render');
+  clone.style.width = W + 'px';
+  host.appendChild(clone);
+  document.body.appendChild(host);
+  try {
+    await waitImages(clone);
+    const canvas = await html2canvas(clone, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false, windowWidth: 1280 });
+    const box = clone.getBoundingClientRect();
+    const ratio = canvas.width / box.width;
+    // Points de coupe autorisés : début de chaque ligne de tableau ou bloc
+    const cuts = [...clone.querySelectorAll('tr, .simple-bottom, .simple-footer, .doc-footer-text, .simple-doc-meta, .pdf-block')]
+      .map(n => Math.round((n.getBoundingClientRect().top - box.top) * ratio)).filter(v => v > 0).sort((a, b) => a - b);
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
+    const margin = 8, imgW = 210 - margin * 2, pxPerMm = canvas.width / imgW;
+    const pageHpx = Math.floor((297 - margin * 2 - 6) * pxPerMm);
+    let y = 0, pages = 0;
+    while (y < canvas.height - 2) {
+      let end = Math.min(y + pageHpx, canvas.height);
+      if (end < canvas.height) {
+        const c = cuts.filter(v => v > y + pageHpx * 0.4 && v <= end).pop();
+        if (c) end = c;
+      }
+      const sliceH = end - y;
+      const part = document.createElement('canvas');
+      part.width = canvas.width; part.height = sliceH;
+      const pc = part.getContext('2d');
+      pc.fillStyle = '#ffffff'; pc.fillRect(0, 0, part.width, part.height);
+      pc.drawImage(canvas, 0, y, canvas.width, sliceH, 0, 0, canvas.width, sliceH);
+      if (pages) pdf.addPage();
+      pdf.addImage(part.toDataURL('image/jpeg', 0.9), 'JPEG', margin, margin, imgW, sliceH / pxPerMm);
+      pages++; y = end;
+    }
+    if (pages > 1) {
+      for (let i = 1; i <= pages; i++) { pdf.setPage(i); pdf.setFontSize(8); pdf.setTextColor(120); pdf.text(i + ' / ' + pages, 210 - margin, 297 - 4, { align: 'right' }); }
+    }
+    return pdf.output('blob');
+  } finally {
+    host.remove();
+  }
+}
+
+// Rendu d'un composant hors écran puis conversion en PDF (relevé envoyé depuis une relance, etc.)
+async function jsxToPdfBlob(jsx) {
+  const host = document.createElement('div');
+  if (document.querySelector('.rtl')) host.className = 'rtl';
+  host.style.cssText = 'position:fixed;left:-12000px;top:0;width:794px;background:#fff';
+  document.body.appendChild(host);
+  const root = createRoot(host);
+  try {
+    flushSync(() => root.render(jsx));
+    await new Promise(r => setTimeout(r, 30));
+    await waitImages(host);
+    return await elementToPdfBlob(host.firstElementChild);
+  } finally {
+    root.unmount();
+    host.remove();
+  }
+}
+
+function downloadBlobFile(blob, name) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+
+function storageSafe(s) {
+  return String(s || 'document').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w.-]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 80) || 'document';
+}
+
+// PDF mis en ligne dans Supabase Storage (bucket privé « attachments ») + lien signé à durée limitée.
+// Même chemin pour un même document : le lien donne toujours la dernière version.
+async function uploadSharedPdf(blob, folder, name, days) {
+  const path = 'partages/' + storageSafe(folder) + '/' + storageSafe(name) + '.pdf';
+  const st = supabase.storage.from('attachments');
+  const { error } = await st.upload(path, blob, { upsert: true, contentType: 'application/pdf', cacheControl: '60' });
+  if (error) throw new Error(error.message || 'Stockage indisponible');
+  const { data, error: e2 } = await st.createSignedUrl(path, Math.max(1, Math.min(365, Number(days) || 30)) * 86400);
+  if (e2 || !data?.signedUrl) throw new Error(e2?.message || 'Lien indisponible');
+  return data.signedUrl;
+}
+
+/* ---------- Export Excel (.xlsx) ---------- */
+const XL_FMT = { money: '#,##0.00 "DH"', number: '#,##0.00', qty: '#,##0.###', int: '0', pct: '0.0%', date: 'dd/mm/yyyy', datetime: 'dd/mm/yyyy hh:mm' };
+
+function xlValue(v, type) {
+  if (v === null || v === undefined || v === '') return null;
+  if (['money', 'number', 'qty', 'int'].includes(type)) { const n = Number(v); return Number.isFinite(n) ? n : String(v); }
+  if (type === 'pct') { const n = Number(v); return Number.isFinite(n) ? n / 100 : null; }
+  if (type === 'date' || type === 'datetime') {
+    const s = String(v);
+    if (type === 'datetime' && /T|:/.test(s)) {
+      const d = new Date(s);
+      if (!isNaN(d)) return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), d.getMinutes()));
+    }
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+    return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])) : s;
+  }
+  if (type === 'bool') { const yes = v === true || v === 'true' || v === 1 || v === '1'; return curLang() === 'ar' ? (yes ? 'نعم' : 'لا') : (yes ? 'Oui' : 'Non'); }
+  if (typeof v === 'object') return JSON.stringify(v).slice(0, 32000);
+  const s = String(v);
+  return s.length > 32000 ? s.slice(0, 32000) : (typeof v === 'number' ? v : s);
+}
+
+function xlColLetter(n) { let s = ''; while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; }
+function xlArgb(hex) { return 'FF' + normHex(hex, '#000000').slice(1).toUpperCase(); }
+function xlCellValue(c, r) { return typeof c.value === 'function' ? c.value(r) : r[c.key]; }
+
+// spec = { fileName, title, period, sheets: [{ name, title, note, columns: [{ key | value(row), header, type, width, total }], rows, totals }] }
+async function exportExcel(spec) {
+  const ExcelJS = (await import('exceljs')).default;
+  const company = await loadCompanySettings().catch(() => ({ name: 'DrogueriePro' }));
+  const b = getBrand();
+  const primary = normHex(company.primary, b.primary), accent = normHex(company.accent, b.accent);
+  const rtl = curLang() === 'ar';
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'DrogueriePro'; wb.company = company.name || ''; wb.created = new Date(); wb.title = spec.title || '';
+  let logoId = null, logoExt = null;
+  if (company.logo) {
+    try {
+      const img = await loadImage(company.logo);
+      logoId = wb.addImage({ base64: company.logo, extension: 'png' });
+      let h = 56, w = Math.round(img.width * h / img.height);
+      if (w > 180) { w = 180; h = Math.round(img.height * 180 / img.width); }
+      logoExt = { width: w, height: h };
+    } catch (e) { console.warn('Logo Excel', e?.message || e); logoId = null; }
+  }
+  const stamp = new Date().toLocaleString('fr-FR');
+  const user = currentUserLabel();
+  const used = new Set();
+  const thin = { style: 'thin', color: { argb: 'FFD7DEE7' } };
+  const HEAD = 6;
+  for (const sh of spec.sheets || []) {
+    let name = String(sh.name || 'Feuille').replace(/[\\/?*[\]:]/g, ' ').trim().slice(0, 31) || 'Feuille';
+    let k = 2; const base = name;
+    while (used.has(name.toLowerCase())) name = (base.slice(0, 28) + ' ' + k++);
+    used.add(name.toLowerCase());
+    const cols = sh.columns || [];
+    const rows = sh.rows || [];
+    const ws = wb.addWorksheet(name, {
+      views: [{ rightToLeft: rtl, state: 'frozen', ySplit: HEAD, showGridLines: false }],
+      pageSetup: { paperSize: 9, orientation: cols.length > 6 ? 'landscape' : 'portrait', fitToPage: true, fitToWidth: 1, fitToHeight: 0,
+        margins: { left: 0.4, right: 0.4, top: 0.5, bottom: 0.6, header: 0.2, footer: 0.3 } },
+      headerFooter: { oddFooter: '&L' + String(company.name || 'DrogueriePro').replace(/&/g, '&&') + '&R' + 'Page &P / &N' }
+    });
+    const hasLogo = logoId !== null;
+    const tc = hasLogo ? 3 : 1;
+    const t1 = ws.getCell(1, tc); t1.value = company.name || 'DrogueriePro'; t1.font = { bold: true, size: 16, color: { argb: xlArgb(primary) } };
+    const t2 = ws.getCell(2, tc); t2.value = sh.title || spec.title || name; t2.font = { bold: true, size: 12, color: { argb: 'FF0F172A' } };
+    const t3 = ws.getCell(3, tc);
+    t3.value = [spec.period ? Lc('xlPeriod') + ' : ' + spec.period : '', Lc('xlGenerated') + ' ' + stamp + (user ? ' ' + Lc('xlBy') + ' ' + user : '')].filter(Boolean).join('   ·   ');
+    t3.font = { italic: true, size: 9, color: { argb: 'FF64748B' } };
+    if (sh.note) { const t4 = ws.getCell(4, tc); t4.value = sh.note; t4.font = { size: 9, color: { argb: 'FF475569' } }; }
+    [1, 2, 3].forEach(r => { ws.getRow(r).height = 20; });
+    if (hasLogo) ws.addImage(logoId, { tl: { col: 0.15, row: 0.2 }, ext: logoExt, editAs: 'oneCell' });
+    // Bande de couleur d'accent sous l'en-tête
+    for (let i = 1; i <= Math.max(cols.length, tc); i++) ws.getCell(5, i).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: xlArgb(accent) } };
+    ws.getRow(5).height = 4;
+    const hr = ws.getRow(HEAD); hr.height = 30;
+    cols.forEach((c, i) => {
+      const cell = hr.getCell(i + 1);
+      cell.value = c.header;
+      cell.font = { bold: true, color: { argb: xlArgb(textOn(primary)) } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: xlArgb(primary) } };
+      cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+      cell.border = { top: thin, bottom: thin, left: thin, right: thin };
+    });
+    const zebra = xlArgb(mixHex(primary, '#ffffff', 0.94));
+    rows.forEach((r, ri) => {
+      const row = ws.getRow(HEAD + 1 + ri);
+      cols.forEach((c, ci) => {
+        const cell = row.getCell(ci + 1);
+        cell.value = xlValue(xlCellValue(c, r), c.type);
+        if (XL_FMT[c.type]) cell.numFmt = XL_FMT[c.type];
+        cell.border = { bottom: thin };
+        if (ri % 2) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: zebra } };
+        if (['money', 'number', 'qty', 'int', 'pct'].includes(c.type)) cell.alignment = { horizontal: 'right' };
+        if (c.bold) cell.font = { bold: true };
+      });
+    });
+    if (!rows.length) ws.getCell(HEAD + 1, 1).value = Lc('noData');
+    const totalCols = cols.map((c, i) => ({ c, i })).filter(({ c }) => sh.totals !== false && (c.total === true || (c.total === undefined && c.type === 'money')));
+    if (rows.length && totalCols.length) {
+      const tr = HEAD + rows.length + 1;
+      const row = ws.getRow(tr); row.height = 22;
+      cols.forEach((c, i) => {
+        const cell = row.getCell(i + 1);
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: xlArgb(mixHex(accent, '#ffffff', 0.8)) } };
+        cell.border = { top: { style: 'medium', color: { argb: xlArgb(primary) } } };
+        cell.font = { bold: true };
+      });
+      const labelCol = totalCols[0].i === 0 ? null : 1;
+      if (labelCol) row.getCell(labelCol).value = Lc('xlTotal');
+      totalCols.forEach(({ c, i }) => {
+        const L1 = xlColLetter(i + 1);
+        const sum = rows.reduce((s, r) => s + (Number(xlCellValue(c, r)) || 0), 0);
+        const cell = row.getCell(i + 1);
+        cell.value = { formula: `SUBTOTAL(109,${L1}${HEAD + 1}:${L1}${tr - 1})`, result: Math.round(sum * 1000) / 1000 };
+        if (XL_FMT[c.type]) cell.numFmt = XL_FMT[c.type];
+        cell.alignment = { horizontal: 'right' };
+      });
+    }
+    if (rows.length) ws.autoFilter = { from: { row: HEAD, column: 1 }, to: { row: HEAD, column: Math.max(1, cols.length) } };
+    cols.forEach((c, i) => {
+      let w = c.width;
+      if (!w) {
+        const lens = rows.slice(0, 400).map(r => {
+          const v = xlCellValue(c, r);
+          if (c.type === 'money') return fmt(v).length + 4;
+          if (c.type === 'date') return 10;
+          if (c.type === 'datetime') return 16;
+          return String(v ?? '').length;
+        });
+        w = Math.max(String(c.header || '').length * 0.9 + 2, ...lens.map(x => x + 2), 8);
+        w = Math.min(w, c.type === 'text' || !c.type ? 48 : 22);
+      }
+      ws.getColumn(i + 1).width = w;
+    });
+    if (hasLogo && (ws.getColumn(1).width || 0) + (ws.getColumn(2).width || 0) < 24) {
+      ws.getColumn(1).width = Math.max(ws.getColumn(1).width || 10, 12);
+      ws.getColumn(2).width = Math.max(ws.getColumn(2).width || 10, 12);
+    }
+    ws.pageSetup.printTitlesRow = `${HEAD}:${HEAD}`;
+  }
+  const buf = await wb.xlsx.writeBuffer();
+  const file = String(spec.fileName || 'DrogueriePro').replace(/\.(xlsx|csv)$/i, '') + '_' + today() + '.xlsx';
+  downloadBlobFile(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), file);
+  return file;
+}
+
+function exportCsvFromSpec(spec) {
+  const sh = (spec.sheets || []).find(s => (s.rows || []).length) || (spec.sheets || [])[0];
+  if (!sh) return;
+  const file = String(spec.fileName || 'DrogueriePro').replace(/\.(xlsx|csv)$/i, '') + '_' + today() + '.csv';
+  downloadCsv(file, (sh.rows || []).map(r => Object.fromEntries((sh.columns || []).map(c => {
+    const v = xlCellValue(c, r);
+    return [c.header, v !== null && typeof v === 'object' ? JSON.stringify(v) : v];
+  }))));
+}
+
+// Boutons d'export : Excel (principal) + CSV
+function ExportButtons({ L, spec, label }) {
+  const [busy, setBusy] = useState(false);
+  if (!can('data.export')) return null;
+  async function run(kind) {
+    setBusy(true);
+    try {
+      const s = typeof spec === 'function' ? await spec() : spec;
+      if (!s || !(s.sheets || []).some(x => (x.rows || []).length)) alert(L('noData'));
+      else {
+        if (kind === 'csv') exportCsvFromSpec(s); else await exportExcel(s);
+        auditLog('Export', 'EXPORT', s.fileName || s.title || '', kind.toUpperCase());
+      }
+    } catch (e) { alert(e.message); }
+    setBusy(false);
+  }
+  return (
+    <span className="export-group">
+      <button type="button" disabled={busy} onClick={() => run('xlsx')} className="btn export-xlsx">{busy ? L('exportBusy') : '📊 ' + (label || L('exportExcel'))}</button>
+      <button type="button" disabled={busy} onClick={() => run('csv')} className="btn export-csv" title="CSV">{L('exportCsvShort')}</button>
+    </span>
+  );
+}
+
+/* ---------- WhatsApp ---------- */
+const WA_KINDS = ['doc', 'statement', 'reminder', 'ticket'];
+const WA_DEFAULTS = {
+  fr: {
+    doc: 'Bonjour {client},\nVeuillez trouver votre {document} N° {numero} du {date}, d\'un montant de {montant}.\nReste à régler : {reste}\n📄 {lien}\nCordialement,\n{societe}\n{telephone_societe}',
+    statement: 'Bonjour {client},\nVoici votre relevé de compte au {date}.\nTotal facturé : {total_facture}\nTotal réglé : {total_regle}\nSolde dû : {montant}\n📄 {lien}\nCordialement,\n{societe}\n{telephone_societe}',
+    reminder: 'Bonjour {client},\nSauf erreur de notre part, les factures suivantes restent à régler :\n{factures}\nTotal dû : {montant}\n📄 Relevé : {lien}\nMerci de bien vouloir procéder au règlement.\nCordialement,\n{societe}\n{telephone_societe}',
+    ticket: '{societe}\nTicket {numero} du {date}\n{articles}\nTotal : {montant} ({paiement})\nMerci de votre visite !'
+  },
+  ar: {
+    doc: 'السلام عليكم {client}،\nتجدون {document} رقم {numero} بتاريخ {date}، بمبلغ {montant}.\nالمبلغ المتبقي: {reste}\n📄 {lien}\nمع التحية،\n{societe}\n{telephone_societe}',
+    statement: 'السلام عليكم {client}،\nإليكم كشف حسابكم بتاريخ {date}.\nمجموع الفواتير: {total_facture}\nمجموع المؤدى: {total_regle}\nالرصيد المستحق: {montant}\n📄 {lien}\nمع التحية،\n{societe}\n{telephone_societe}',
+    reminder: 'السلام عليكم {client}،\nنذكّركم بأن الفواتير التالية لم تُؤدَّ بعد:\n{factures}\nالمجموع المستحق: {montant}\n📄 كشف الحساب: {lien}\nنرجو منكم التفضل بالأداء.\nمع التحية،\n{societe}\n{telephone_societe}',
+    ticket: '{societe}\nتذكرة {numero} بتاريخ {date}\n{articles}\nالمجموع: {montant} ({paiement})\nشكراً لزيارتكم!'
+  }
+};
+let waSettingsCache = {};
+function cacheWaSettings(s) { waSettingsCache = { ...(s || {}) }; }
+function waTemplate(kind, lang, settings) {
+  const key = 'wa_tpl_' + kind + '_' + lang;
+  const src = settings || waSettingsCache;
+  return String(src[key] || '').trim() ? src[key] : WA_DEFAULTS[lang][kind];
+}
+function waPrefs() {
+  let p = {};
+  try { p = JSON.parse(localStorage.getItem('droguerie_wa_prefs') || '{}'); } catch {}
+  const lang = p.lang || waSettingsCache.wa_default_lang || curLang();
+  const days = Number(p.days || waSettingsCache.wa_link_days || 30);
+  return { lang: lang === 'ar' ? 'ar' : 'fr', days: days > 0 ? days : 30 };
+}
+// Remplace les variables ; une ligne dont toutes les variables sont vides est retirée. {lien} est gardé pour l'envoi.
+function renderWa(tpl, vars, lang) {
+  // Message arabe : montants, numéros et dates isolés (sinon « 0522 45 67 89 » s'affiche à l'envers)
+  if (lang === 'ar') {
+    vars = Object.fromEntries(Object.entries(vars || {}).map(([k, v]) => {
+      const t = String(v ?? '');
+      if (!t || /[\u0600-\u06FF]/.test(t)) return [k, v];
+      return [k, t.split('\n').map(x => (x ? '\u2066' + x + '\u2069' : x)).join('\n')];
+    }));
+  }
+  return String(tpl || '').split('\n').map(line => {
+    const keys = [...line.matchAll(/\{(\w+)\}/g)].map(m => m[1]).filter(k => k === 'lien' || k in vars);
+    if (keys.length && !keys.includes('lien') && keys.every(k => String(vars[k] ?? '').trim() === '')) return null;
+    return line.replace(/\{(\w+)\}/g, (m, k) => (k === 'lien' ? m : (k in vars ? String(vars[k] ?? '') : m))).replace(/\s+$/, '');
+  }).filter(l => l !== null).join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+function finalizeWa(text, link) {
+  return String(text || '').split('\n').map(l => (l.includes('{lien}') ? (link ? l.split('{lien}').join(link) : null) : l))
+    .filter(l => l !== null).join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+function waDisplayNumber(n) { return n ? '+' + n.slice(0, 3) + ' ' + n.slice(3).replace(/(\d)(\d{2})(\d{2})(\d{2})(\d{2})$/, '$1 $2 $3 $4 $5') : ''; }
+function frDate(d) { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(d || '')); return m ? `${m[3]}/${m[2]}/${m[1]}` : String(d || ''); }
+function canShareFiles() {
+  try { return !!(navigator.canShare && navigator.canShare({ files: [new File(['x'], 'x.pdf', { type: 'application/pdf' })] })); } catch { return false; }
+}
+const isMobileDevice = () => /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
+
+/* Fenêtre d'envoi WhatsApp
+   kind : doc | statement | reminder | ticket
+   party : { id, name, phone, table: 'clients' | 'suppliers' }
+   buildVars(lang) : variables du message ; makePdf() : Blob PDF (facultatif) */
+function WhatsAppModal({ L, kind, party, buildVars, makePdf, pdfFolder, pdfName, auditModule, auditObject, close }) {
+  const prefs = waPrefs();
+  const [lang, setLang] = useState(prefs.lang);
+  const [phone, setPhone] = useState(party?.phone || '');
+  const [message, setMessage] = useState(() => renderWa(waTemplate(kind, prefs.lang), buildVars(prefs.lang), prefs.lang));
+  const [edited, setEdited] = useState(false);
+  const [attach, setAttach] = useState(makePdf ? 'link' : 'none');
+  const [days, setDays] = useState(prefs.days);
+  const [saveNum, setSaveNum] = useState(true);
+  const [busy, setBusy] = useState('');
+  const [info, setInfo] = useState('');
+  useEffect(() => { if (!edited) setMessage(renderWa(waTemplate(kind, lang), buildVars(lang), lang)); }, [lang]);
+
+  const num = whatsappNumber(phone);
+  const invalid = !!phone.trim() && !num;
+  const tableWrite = party?.table === 'suppliers' ? 'suppliers.write' : 'clients.write';
+  const canSaveNum = !!(party?.id && party?.table && num && num !== whatsappNumber(party.phone || '') && can(tableWrite));
+  const preview = finalizeWa(message, attach === 'link' ? 'https://…/' + storageSafe(pdfName || 'document') + '.pdf' : '');
+
+  async function send() {
+    if (invalid) return;
+    try { localStorage.setItem('droguerie_wa_prefs', JSON.stringify({ lang, days })); } catch {}
+    const mobile = isMobileDevice();
+    const nativeFile = attach === 'file' && canShareFiles();
+    // Ordinateur : la fenêtre est ouverte tout de suite, sinon le navigateur la bloque après la préparation du PDF
+    const win = !mobile && !nativeFile ? window.open('about:blank', '_blank') : null;
+    setInfo('');
+    try {
+      let link = '', blob = null, note = '';
+      if (attach !== 'none' && makePdf) { setBusy(L('waPreparing')); blob = await makePdf(); }
+      if (attach === 'link' && blob) {
+        setBusy(L('waUploading'));
+        try { link = await uploadSharedPdf(blob, pdfFolder || 'documents', pdfName || 'document', days); }
+        catch (e) { downloadBlobFile(blob, storageSafe(pdfName) + '.pdf'); note = L('waLinkFailed'); }
+      }
+      const text = finalizeWa(message, link);
+      if (attach === 'file' && blob) {
+        const file = new File([blob], storageSafe(pdfName) + '.pdf', { type: 'application/pdf' });
+        if (nativeFile) {
+          await navigator.share({ files: [file], text }).catch(() => {});
+          if (win) win.close();
+          await afterSend('file');
+          setBusy(''); close(); return;
+        }
+        downloadBlobFile(blob, file.name);
+        note = L('waFileDesktop');
+      }
+      const url = 'https://wa.me/' + num + '?text=' + encodeURIComponent(text);
+      if (win) win.location.href = url;
+      else if (mobile) window.location.href = url;
+      else if (!window.open(url, '_blank')) window.location.href = url;
+      await afterSend(attach === 'link' && link ? 'link' : attach);
+      setBusy('');
+      if (note) setInfo(note); else close();
+    } catch (e) {
+      if (win) win.close();
+      setBusy('');
+      alert(e.message);
+    }
+  }
+  async function afterSend(mode) {
+    if (saveNum && canSaveNum) {
+      const { error } = await supabase.from(party.table).update({ phone: phone.trim() }).eq('id', party.id);
+      if (error) console.warn('phone save', error.message);
+    }
+    auditLog(auditModule || 'WhatsApp', 'SHARE', auditObject || pdfName || party?.name || '', 'WhatsApp ' + (num ? '+' + num : '') + ' · ' + mode);
+  }
+
+  return (
+    <Modal title={'🟢 ' + L('waTitle') + (party?.name ? ' — ' + party.name : '')} onClose={close} wide>
+      <div className="grid md:grid-cols-5 gap-4">
+        <div className="md:col-span-3 space-y-3">
+          <label className="text-xs text-slate-500 block">{L('waPhone')}
+            <input className={'input mt-1 ' + (invalid ? 'border-red-500' : '')} inputMode="tel" placeholder="06 12 34 56 78" value={phone} onChange={e => setPhone(e.target.value)} />
+          </label>
+          <div className="text-xs -mt-2">
+            {invalid ? <span className="text-red-600 font-semibold">{L('waPhoneInvalid')} · {L('waPhoneHint')}</span>
+              : num ? <span className="text-emerald-700 font-semibold" dir="ltr">✔ {waDisplayNumber(num)}</span>
+              : <span className="text-amber-700">{L('waNoPhone')}</span>}
+          </div>
+          {canSaveNum ? (
+            <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={saveNum} onChange={e => setSaveNum(e.target.checked)} /> {L('waSaveNumber')}</label>
+          ) : null}
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-xs text-slate-500">{L('waLang')}</span>
+            {[['fr', 'Français'], ['ar', 'العربية']].map(([k, lbl]) => (
+              <button key={k} type="button" onClick={() => setLang(k)} className={'btn text-sm ' + (lang === k ? 'bg-slate-900 text-white' : 'bg-white border')}>{lbl}</button>
+            ))}
+          </div>
+          <label className="text-xs text-slate-500 block">{L('waMessage')}
+            <textarea className="input mt-1 font-sans" rows={10} dir={lang === 'ar' ? 'rtl' : 'ltr'} value={message} onChange={e => { setMessage(e.target.value); setEdited(true); }} />
+          </label>
+          {makePdf && attach === 'link' ? <p className="text-xs text-slate-400 -mt-2">{L('waLinkHint')}</p> : null}
+          {makePdf ? (
+            <div className="border rounded-xl p-3 space-y-1 text-sm">
+              <div className="text-xs text-slate-500 font-semibold">{L('waAttach')}</div>
+              {[['link', L('waAttachLink')], ['file', L('waAttachFile')], ['none', L('waAttachNone')]].map(([k, lbl]) => (
+                <label key={k} className="flex items-center gap-2"><input type="radio" name="wa-attach" checked={attach === k} onChange={() => setAttach(k)} /> {lbl}</label>
+              ))}
+              {attach === 'link' ? (
+                <label className="text-xs text-slate-500 flex items-center gap-2 mt-1">{L('waLinkDays')}
+                  <input className="input" style={{ width: 80 }} type="number" min="1" max="365" value={days} onChange={e => setDays(e.target.value)} />
+                </label>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+        <div className="md:col-span-2">
+          <div className="wa-phone">
+            <div className="wa-head">{party?.name || 'WhatsApp'}<small dir="ltr">{num ? waDisplayNumber(num) : ''}</small></div>
+            <div className="wa-chat">
+              <div className="wa-bubble" dir={lang === 'ar' ? 'rtl' : 'ltr'}>{preview}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      {info ? <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-xl p-3 mt-3 text-sm">{info}</div> : null}
+      <div className="flex flex-wrap justify-end items-center gap-2 mt-4">
+        {busy ? <span className="text-sm text-slate-500">{busy}</span> : null}
+        <button type="button" onClick={close} className="btn bg-white border">{L('closeBtn')}</button>
+        <button type="button" disabled={!!busy || invalid} onClick={send} className="btn wa-send">🟢 {L('waSend')}</button>
+      </div>
+    </Modal>
+  );
+}
+
+/* ---------- Relevé de compte (document A4) ---------- */
+function StatementDocument({ L, company, party, st, docRef }) {
+  return (
+    <div className="print-area simple-document" style={docStyle(company)} ref={docRef}>
+      <DocBrandHeader L={L} company={company} title={L('statement')} number={party.name} date={frDate(today())} />
+      <div className="simple-doc-meta three">
+        <div><span>{L('totalInvoiced')}</span><b>{dh(st.totalInvoiced)}</b></div>
+        <div><span>{L('totalPaid')}</span><b>{dh(st.totalPaid)}</b></div>
+        <div><span>{L('balanceDue')}</span><b>{dh(st.balance)}</b></div>
+      </div>
+      <table className="simple-lines">
+        <thead>
+          <tr><th>{L('date')}</th><th>{L('ref')}</th><th>{L('movement')}</th><th>{L('totalInvoiced')}</th><th>{L('totalPaid')}</th><th>{L('balanceDue')}</th></tr>
+        </thead>
+        <tbody>
+          {st.lines.map((e, i) => (
+            <tr key={i}>
+              <td>{frDate(e.date) || '-'}</td>
+              <td className="font-mono">{e.ref}</td>
+              <td>{e.kind}</td>
+              <td>{e.debit ? dh(e.debit) : '-'}</td>
+              <td>{e.credit ? dh(e.credit) : '-'}</td>
+              <td className="simple-bold">{dh(e.balance)}</td>
+            </tr>
+          ))}
+          {!st.lines.length ? <tr><td colSpan="6">{L('noData')}</td></tr> : null}
+        </tbody>
+      </table>
+      <div className="simple-bottom">
+        <div className="simple-note"><b>{L('note')}</b><p>{L('thankYou') || ''}</p></div>
+        <div className="simple-totals">
+          <div><span>{L('totalInvoiced')}</span><b>{dh(st.totalInvoiced)}</b></div>
+          <div><span>{L('totalPaid')}</span><b>{dh(st.totalPaid)}</b></div>
+          <div className="simple-grand"><span>{L('balanceDue')}</span><b>{dh(st.balance)}</b></div>
+        </div>
+      </div>
+      <DocFooterText company={company} />
+    </div>
+  );
+}
+
+function statementVars(party, st, company) {
+  return lang => ({
+    client: party.name || '', date: frDate(today()), montant: dh(st.balance),
+    total_facture: dh(st.totalInvoiced), total_regle: dh(st.totalPaid),
+    societe: company?.name || '', telephone_societe: company?.phone || ''
+  });
+}
+
+
 /* ---------- V49 : catalogue des droits ----------
    Chaque droit : code, libellé FR/AR, aide FR/AR, fonction (activable pour toute la droguerie). */
 const PD = (code, fr, ar, dfr = '', dar = '', feature = null) => ({ code, fr, ar, dfr, dar, feature });
@@ -471,7 +1419,7 @@ const PERM_MODULES = [
     PD('reporting.read', 'Reporting', 'التقارير', 'CA, encaissements, dettes et marges par vendeur ; relevés clients.', 'رقم المعاملات والتحصيل والديون والهوامش حسب البائع؛ كشوف الحساب.'),
     PD('profit.read', 'Centre de rentabilité', 'مركز الربحية', 'Marges par produit, prix conseillés, stock dormant.', 'الهوامش حسب المنتج، الأثمنة المقترحة، المخزون الراكد.', 'profit'),
     PD('tools.read', 'Outils et calculateurs', 'الأدوات والحاسبات', 'Calculatrice, calcul de marge et de prix de vente.', 'آلة حاسبة، حساب الهامش وثمن البيع.', 'tools'),
-    PD('data.export', 'Exporter les données (CSV)', 'تصدير البيانات (CSV)', 'Boutons « Exporter CSV » des listes et du reporting.', 'أزرار « تصدير CSV » في اللوائح والتقارير.')
+    PD('data.export', 'Exporter les données (Excel / CSV)', 'تصدير البيانات (Excel / CSV)', 'Boutons « Excel / CSV » des listes, du reporting et des sauvegardes Excel.', 'أزرار « Excel / CSV » في اللوائح والتقارير.')
   ]},
   { key: 'pos', fr: 'Caisse rapide', ar: 'الصندوق السريع', icon: '🛒', feature: 'pos', perms: [
     PD('pos.use', 'Utiliser la caisse rapide', 'استعمال الصندوق السريع', 'Vente au comptoir : code-barres, encaissement et ticket.', 'البيع في الكونطوار: الكود بار، التحصيل والتذكرة.', 'pos'),
@@ -1054,7 +2002,7 @@ function downloadCsv(filename, rows) {
     ...list.map(row => headers.map(h => `"${String(row[h] ?? '').replaceAll('"', '""')}"`).join(';'))
   ].join('\n');
 
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -1160,6 +2108,31 @@ function paymentInfo(doc) {
   const rest = Math.max(0, total - paid);
   const status = paid <= 0.001 ? 'unpaid' : rest <= 0.01 ? 'paid' : 'partial';
   return { paid, rest, status };
+}
+
+// V52 : export produits réimportable (mêmes en-têtes que le modèle d'import Excel)
+function productsExportSpec(L, rows, title) {
+  return {
+    fileName: 'Produits', title: title || L('products'),
+    sheets: [{
+      name: L('products'),
+      note: 'Fichier modifiable puis réimportable : Produits → Import Excel (même référence = mise à jour).'
+        + (new Set((rows || []).map(p => p.branchName || '')).size > 1 ? ' Plusieurs drogueries : pour réimporter, exportez une droguerie à la fois (filtre droguerie).' : ''),
+      columns: [
+        { key: 'ref', header: 'Référence' }, { key: 'nom', header: 'Désignation' }, { key: 'nomAr', header: 'Nom arabe' },
+        { key: 'categorie', header: 'Catégorie' }, { key: 'unite', header: 'Unité' },
+        { key: 'prixVente', header: 'Prix vente TTC (détail)', type: 'money', total: false },
+        { key: 'prixGros', header: 'Prix vente TTC (gros)', type: 'money', total: false },
+        { key: 'barcode', header: 'Code-barres' }, { key: 'stockMin', header: 'Stock minimum', type: 'qty' },
+        { key: 'quantite', header: 'Stock', type: 'qty', total: true },
+        { key: 'prixAchat', header: 'Coût unitaire HT (PMP)', type: 'money', total: false },
+        { value: p => Number(p.quantite || 0) * Number(p.prixAchat || 0), header: 'Valeur stock (PMP)', type: 'money', total: true },
+        { key: 'datePeremption', header: 'Date péremption (AAAA-MM-JJ)', type: 'date' },
+        { key: 'branchName', header: 'Droguerie' }
+      ],
+      rows
+    }]
+  };
 }
 
 function mapProduct(p) {
@@ -2076,12 +3049,17 @@ async function deleteProductListItem(kind, item) {
 }
 
 async function loadSettings() {
-  const defaults = { vat_rate: '20', theme: 'light', company_name: 'DrogueriePro', company_ice: '', company_phone: '', company_address: '', company_rc: '', company_if: '', company_patente: '', company_cnss: '', ...ALERT_DEFAULTS };
+  const defaults = { vat_rate: '20', theme: 'light', company_name: 'DrogueriePro', company_ice: '', company_phone: '', company_address: '', company_rc: '', company_if: '', company_patente: '', company_cnss: '',
+    company_email: '', company_website: '', company_rib: '',
+    brand_logo: '', brand_primary: BRAND_DEFAULTS.primary, brand_accent: BRAND_DEFAULTS.accent, brand_slogan: '', brand_doc_footer: '', brand_ticket_message: '', brand_ticket_logo: '1', brand_apply_app: '1',
+    wa_default_lang: '', wa_link_days: '30', ...ALERT_DEFAULTS };
   const { data, error } = await supabase.from('app_settings').select('*');
   if (error) return defaults;
   const out = { ...defaults };
   (data || []).forEach(x => { out[x.key] = x.value; });
   cacheAlertSettings(out);
+  cacheWaSettings(out);
+  setBrandCache(brandFromSettings(out));
   return out;
 }
 
@@ -2090,6 +3068,8 @@ async function saveSettings(settings) {
   const { error } = await supabase.from('app_settings').upsert(rows, { onConflict: 'key' });
   if (error) throw new Error(error.message);
   cacheAlertSettings(settings);
+  cacheWaSettings(settings);
+  setBrandCache(brandFromSettings(settings));
 }
 
 
@@ -2214,7 +3194,11 @@ async function loadCompanySettings() {
     rc: s.company_rc || '',
     ifNumber: s.company_if || '',
     patente: s.company_patente || '',
-    cnss: s.company_cnss || ''
+    cnss: s.company_cnss || '',
+    email: s.company_email || '',
+    website: s.company_website || '',
+    rib: s.company_rib || '',
+    ...(({ logo, primary, accent, slogan, docFooter, ticketMessage, ticketLogo }) => ({ logo, primary, accent, slogan, docFooter, ticketMessage, ticketLogo }))(brandFromSettings(s))
   };
 }
 
@@ -2344,6 +3328,8 @@ function docStatus(doc) {
   const rem = docRemainingQty(doc);
   if (doc.stage === 'facture') return 'closed';
   if (rem <= 0 && ['livraison', 'reception'].includes(doc.stage)) return 'closed';
+  // V52 : commande entièrement livrée / reçue (par des BL / BR liés) = soldée
+  if (doc.stage === 'commande' && rem <= 0.0001 && Number(doc.qty_done || 0) > 0) return 'closed';
   if (Number(doc.qty_done || 0) > 0) return 'partial';
   return 'open';
 }
@@ -2448,9 +3434,11 @@ function selectedPartialLines(doc, linesInput, sourceLines) {
   input.forEach(l => {
     const key = lineKey(l);
     if (!key) return;
+    const editedPrice = l.prixUnitEdit !== undefined && l.prixUnitEdit !== null && String(l.prixUnitEdit).trim() !== '' ? Number(l.prixUnitEdit) : null;
     byKey[key] = {
       excluded: !!l.excluded,
-      qty: Number(l.qteToProcess ?? l.qte ?? 0)
+      qty: Number(l.qteToProcess ?? l.qte ?? 0),
+      price: editedPrice !== null && Number.isFinite(editedPrice) && editedPrice >= 0 ? editedPrice : null
     };
   });
 
@@ -2475,6 +3463,8 @@ function selectedPartialLines(doc, linesInput, sourceLines) {
     result.push({
       ...line,
       qte: qty,
+      ...(inputLine.price !== null ? { prixUnit: inputLine.price } : {}),
+      prixUnitEdit: undefined,
       processedQty: undefined,
       remainingQty: undefined,
       excluded: undefined,
@@ -2552,6 +3542,29 @@ async function partyName(type, id, fallback = '') {
   return data?.name || fallback;
 }
 
+// V52 : colonnes facultatives des achats (N° BL / facture fournisseur, échéance).
+// Tant que MAJ_V52 n'est pas exécuté, l'enregistrement se fait sans elles.
+const PURCHASE_OPTIONAL_COLS = ['supplier_ref', 'due_date'];
+function purchaseExtraFields(body = {}) {
+  const out = {};
+  if (String(body.supplierRef || '').trim()) out.supplier_ref = String(body.supplierRef).trim().slice(0, 80);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(String(body.dueDate || ''))) out.due_date = body.dueDate;
+  return out;
+}
+function isOptionalColError(error) {
+  return !!error && PURCHASE_OPTIONAL_COLS.some(c => String(error.message || '').includes(c));
+}
+function withoutOptionalCols(payload) {
+  const p = { ...payload }; PURCHASE_OPTIONAL_COLS.forEach(c => { delete p[c]; }); return p;
+}
+async function insertDocRow(type, payload, wantId = false) {
+  const run = pl => (wantId ? supabase.from(type).insert(pl).select('id').single() : supabase.from(type).insert(pl));
+  let r = await run(payload);
+  if (r.error && isOptionalColError(r.error)) r = await run(withoutOptionalCols(payload));
+  if (r.error) throw new Error(r.error.message);
+  return r.data;
+}
+
 async function createDoc(type, body) {
   requirePerm(type === 'sales' ? 'sales.write' : 'purchases.write', type === 'sales' ? 'Création vente' : 'Création achat');
   const isSales = type === 'sales';
@@ -2626,11 +3639,11 @@ async function createDoc(type, body) {
     doc_status: start === 'facture' ? 'closed' : (movesStock ? 'closed' : 'open'),
     created_by: session?.user?.id || null,
     base_doc_id: body.baseDocId || null,
-    branch_id: isAdmin(session) ? (body.branchId || branchId(session)) : branchId(session)
+    branch_id: isAdmin(session) ? (body.branchId || branchId(session)) : branchId(session),
+    ...purchaseExtraFields(body)
   };
 
-  const { data: created, error } = await supabase.from(type).insert(payload).select('id').single();
-  if (error) throw new Error(error.message);
+  const created = await insertDocRow(type, payload, true);
   await auditLog(isSales ? 'Ventes' : 'Achats', 'CREATE', docNumber, 'Création ' + start);
   return { id: created?.id, number: docNumber, totals: t };
 }
@@ -2872,9 +3885,12 @@ async function updateDoc(type, id, body) {
   } else {
     payload.supplier_id = body.fournisseurId || null;
     payload.supplier_name = body.fournisseurNom || await partyName(type, payload.supplier_id);
+    if (body.supplierRef !== undefined) payload.supplier_ref = String(body.supplierRef || '').trim() || null;
+    if (body.dueDate !== undefined) payload.due_date = /^\d{4}-\d{2}-\d{2}$/.test(String(body.dueDate || '')) ? body.dueDate : null;
   }
 
-  const { error } = await supabase.from(type).update(payload).eq('id', id);
+  let { error } = await supabase.from(type).update(payload).eq('id', id);
+  if (error && isOptionalColError(error)) ({ error } = await supabase.from(type).update(withoutOptionalCols(payload)).eq('id', id));
   if (error) throw new Error(error.message);
   await auditLog(isSales ? 'Ventes' : 'Achats', 'UPDATE', number, qtyChanged ? 'Modification document (quantités) — stock ajusté par différence' : 'Modification document');
 }
@@ -2958,11 +3974,10 @@ async function partialInvoiceDoc(type, id, body) {
   };
   const payload = isSales
     ? { ...common, client_id: doc.client_id, client_name: doc.client_name, delivered: false }
-    : { ...common, supplier_id: doc.supplier_id, supplier_name: doc.supplier_name, received: false };
+    : { ...common, supplier_id: doc.supplier_id, supplier_name: doc.supplier_name, received: false, ...purchaseExtraFields(body) };
   if (doc.trip_id && isSales) payload.trip_id = doc.trip_id;
 
-  const { error: e2 } = await supabase.from(type).insert(payload);
-  if (e2) throw new Error(e2.message);
+  await insertDocRow(type, payload);
 
   await adjustParentTracking(type, doc.id, 'invoiced_lines_json', linesToMap(lines));
   await auditLog(isSales ? 'Ventes' : 'Achats', 'PARTIAL_INVOICE', number, 'Facturation partielle de ' + docNo(doc) + ' : ' + docQty(lines));
@@ -3068,6 +4083,13 @@ async function advanceDoc(type, id, opts = {}) {
   const remainingLines = docRemainingLines(doc).filter(l => Number(l.remainingQty || 0) > 0);
   if ((next === 'livraison' || next === 'reception') && !remainingLines.length) {
     throw new Error('Aucune quantité restante à traiter');
+  }
+
+  // V52 : commande déjà partiellement livrée / reçue → on crée un BL / BR lié pour le reste
+  // (avant : la commande entière devenait un BL / BR et pouvait être facturée deux fois)
+  if ((next === 'livraison' || next === 'reception') && processedTotal(processedLines(doc)) > 0.0001) {
+    await partialDoc(type, doc.id, { date: opts.date || today(), supplierRef: opts.supplierRef, lignes: remainingLines.map(l => ({ ...l, qteToProcess: Number(l.remainingQty || 0), excluded: false })) });
+    return;
   }
 
   // Ventes : la commande réserve le stock → contrôle du disponible (hors réservation de ce document)
@@ -3245,11 +4267,11 @@ async function partialDoc(type, id, body) {
     doc_status: 'closed',
     created_by: session?.user?.id || null,
     base_doc_id: doc.id,
-    branch_id: doc.branch_id || branchId(session)
+    branch_id: doc.branch_id || branchId(session),
+    ...purchaseExtraFields(body)
   };
 
-  const { error: e2 } = await supabase.from(type).insert(payload);
-  if (e2) throw new Error(e2.message);
+  await insertDocRow(type, payload);
 
   const { error: e3 } = await supabase.from(type).update({
     qty_done: newDone,
@@ -3401,6 +4423,12 @@ function LoginPage({ L, lang, onLogin }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [err, setErr] = useState('');
+  const brand = useBrand();
+  useEffect(() => {
+    loadPublicBranding().then(d => {
+      if (d) setBrandCache({ ...getBrand(), ...(({ logo, primary, accent, slogan, name }) => ({ logo, primary, accent, slogan, name }))(brandFromSettings(d)) });
+    });
+  }, []);
 
   async function submit(e) {
     e.preventDefault();
@@ -3414,15 +4442,24 @@ function LoginPage({ L, lang, onLogin }) {
   }
 
   return (
-    <div className={'min-h-screen bg-slate-900 grid place-items-center ' + (lang === 'ar' ? 'rtl' : '')}>
-      <form onSubmit={submit} className="bg-white p-7 rounded-2xl w-full max-w-sm shadow-2xl">
-        <div className="flex items-center gap-3 mb-5">
-          <span className="bg-amber-500 rounded-xl w-12 h-12 grid place-items-center font-black">DP</span>
-          <div>
-            <h1 className="font-bold text-xl">DrogueriePro</h1>
-            <p className="text-xs text-slate-400">{L('login')}</p>
+    <div className={'min-h-screen grid place-items-center login-bg ' + (lang === 'ar' ? 'rtl ' : '') + (brand.applyApp ? 'brand-app' : '')}>
+      <form onSubmit={submit} className="bg-white p-7 rounded-2xl w-full max-w-sm shadow-2xl login-card">
+        {brand.logo ? (
+          <div className="text-center mb-5">
+            <img src={brand.logo} alt="" className="login-logo" />
+            {brand.name ? <h1 className="font-bold text-lg mt-2">{brand.name}</h1> : null}
+            {brand.slogan ? <p className="text-xs text-slate-500">{brand.slogan}</p> : null}
+            <p className="text-xs text-slate-400 mt-1">{L('login')} · DrogueriePro</p>
           </div>
-        </div>
+        ) : (
+          <div className="flex items-center gap-3 mb-5">
+            <span className="bg-amber-500 rounded-xl w-12 h-12 grid place-items-center font-black">DP</span>
+            <div>
+              <h1 className="font-bold text-xl">{brand.name || 'DrogueriePro'}</h1>
+              <p className="text-xs text-slate-400">{L('login')}{brand.name ? ' · DrogueriePro' : ''}</p>
+            </div>
+          </div>
+        )}
 
         {err ? <p className="bg-red-50 text-red-600 p-2 rounded mb-3">{err}</p> : null}
 
@@ -3444,6 +4481,8 @@ function Layout({ L, lang, toggleLang, session, setSession }) {
   const [globalBranchFilter, setGlobalBranchFilter] = useState(getSelectedBranchFilter());
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [pwdOpen, setPwdOpen] = useState(false);
+  const brand = useBrand();
+  useEffect(() => { loadSettings().catch(() => null); }, []);
 
   const items = [
 ['dashboard', L('dashboard'), 'dashboard.read'],
@@ -3494,17 +4533,26 @@ function Layout({ L, lang, toggleLang, session, setSession }) {
   const visibleItems = items.filter(item => visibleMenuItem(item, session, disabledModules));
 
   return (
-    <div className={lang === 'ar' ? 'rtl' : ''}>
+    <div className={(lang === 'ar' ? 'rtl ' : '') + (brand.applyApp ? 'brand-app' : '')}>
       <div className="mobile-topbar">
         <button className="mobile-menu-btn" onClick={() => setMobileMenuOpen(true)}>☰</button>
-        <div className="font-bold">Droguerie<span className="text-amber-500">Pro</span></div>
+        <div className="font-bold flex items-center gap-2">
+          {brand.logo ? <img src={brand.logo} alt="" className="topbar-logo" /> : null}
+          {brand.name ? <span>{brand.name}</span> : <span>Droguerie<span className="text-amber-500">Pro</span></span>}
+        </div>
         <button className="mobile-menu-btn" onClick={toggleLang}>{L('lang')}</button>
       </div>
       {mobileMenuOpen ? <div className="mobile-backdrop" onClick={() => setMobileMenuOpen(false)} /> : null}
       <div className="min-h-screen flex app-shell">
         <aside className={'w-64 bg-slate-900 text-slate-300 flex flex-col app-sidebar ' + (mobileMenuOpen ? 'open' : '')}>
-          <div className="p-6 border-b border-slate-800">
-            <div className="text-xl font-black text-white">Droguerie<span className="text-amber-500">Pro</span></div>
+          <div className="p-5 border-b border-slate-800">
+            {brand.logo ? <div className="sidebar-logo"><img src={brand.logo} alt="" /></div> : null}
+            {brand.name ? (
+              <>
+                <div className="text-lg font-black text-white leading-tight">{brand.name}</div>
+                <div className="text-[10px] text-slate-400">{L('poweredBy')}</div>
+              </>
+            ) : <div className="text-xl font-black text-white">Droguerie<span className="text-amber-500">Pro</span></div>}
             <div className="text-xs text-slate-400 mt-1">{session.user.full_name || session.user.username} · {session.user.role}</div>
           </div>
           <nav className="flex-1 p-4 space-y-1 overflow-auto">
@@ -3783,7 +4831,34 @@ function ReportingCenter({ L }) {
         </label>
         <button onClick={() => { setDateFrom(''); setDateTo(''); }} className="btn bg-white border">{L('allPeriod')}</button>
         <button onClick={load} className="btn bg-white border">↻</button>
-        {can('data.export') ? <button onClick={() => downloadCsv('reporting-commercial.csv', salesBySeller.map(x => ({ vendeur: x.name, ca: x.total, encaisse: x.paid, dette: x.debt, marge: x.margin, docs: x.docs })))} className="btn bg-slate-900 text-white">{L('exportReport') || L('exportCsv')}</button> : null}
+        <ExportButtons L={L} label={L('exportReport') || L('exportExcel')} spec={() => {
+          const sellerCols = [
+            { key: 'name', header: L('seller') }, { key: 'docs', header: L('documentsCount'), type: 'int', total: true },
+            { key: 'total', header: L('turnover'), type: 'money' }, { key: 'paid', header: L('collected'), type: 'money' },
+            { key: 'debt', header: L('outstanding'), type: 'money' }, { key: 'margin', header: L('margin'), type: 'money' }
+          ];
+          const debtCols = [
+            { key: 'name', header: L('name') }, { key: 'total', header: L('totalDebt') || 'Total', type: 'money' },
+            { key: 'due0_30', header: '0-30', type: 'money' }, { key: 'due31_60', header: '31-60', type: 'money' },
+            { key: 'due61_90', header: '61-90', type: 'money' }, { key: 'due90p', header: '+90', type: 'money' },
+            { key: 'docs', header: 'Docs', type: 'int', total: true }
+          ];
+          return {
+            fileName: 'Reporting', title: L('reporting'),
+            period: dateFrom || dateTo ? (frDate(dateFrom) || '…') + ' → ' + (frDate(dateTo) || '…') : L('allPeriod'),
+            sheets: [
+              { name: L('salesBySeller'), columns: sellerCols, rows: salesBySeller },
+              { name: L('debtBySeller'), columns: sellerCols, rows: debtBySeller },
+              { name: L('customerDebts'), columns: debtCols, rows: clientDebts },
+              { name: L('supplierDebts'), columns: debtCols, rows: supplierDebts },
+              { name: L('expensesMod'), columns: [
+                { key: 'num_dep', header: L('tripNum') }, { key: 'date', header: L('date'), type: 'date' }, { key: 'label', header: L('tripLabel') },
+                { key: 'manager', header: L('manager2') }, { key: 'grossMargin', header: L('grossMarginLbl'), type: 'money' },
+                { key: 'charges', header: L('totalCharges'), type: 'money' }, { key: 'net', header: L('netMargin'), type: 'money' }
+              ], rows: tripRows }
+            ]
+          };
+        }} />
       </Header>
 
       <div className="pro-kpi-grid mb-5">
@@ -3896,38 +4971,85 @@ function buildStatement(docs, type, partyKey) {
 
 function StatementModal({ L, title, docs, type, party, close }) {
   const st = buildStatement(docs, type, party.id);
+  const [company, setCompany] = useState(null);
+  const [phone, setPhone] = useState('');
+  const [wa, setWa] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const ref = useRef(null);
+  const table = type === 'clients' ? 'clients' : 'suppliers';
+  const numericId = /^\d+$/.test(String(party.id || ''));
+  useEffect(() => {
+    loadCompanySettings().then(setCompany).catch(() => setCompany({ name: 'DrogueriePro' }));
+    if (numericId) supabase.from(table).select('phone').eq('id', party.id).maybeSingle().then(({ data }) => setPhone(data?.phone || ''));
+  }, []);
+  const c = company || { name: getBrand().name || 'DrogueriePro', logo: getBrand().logo };
+  async function pdf() {
+    setBusy(true);
+    try { downloadBlobFile(await elementToPdfBlob(ref.current), storageSafe(L('statement') + '_' + party.name) + '.pdf'); }
+    catch (e) { alert(e.message); }
+    setBusy(false);
+  }
   return (
     <Modal title={L('statement') + ' — ' + party.name} onClose={close} wide>
-      <div className="grid md:grid-cols-3 gap-3 mb-4 no-print">
-        <div className="card p-3"><p className="text-xs text-slate-400">{L('totalInvoiced')}</p><p className="text-xl font-black">{dh(st.totalInvoiced)}</p></div>
-        <div className="card p-3"><p className="text-xs text-slate-400">{L('totalPaid')}</p><p className="text-xl font-black text-emerald-700">{dh(st.totalPaid)}</p></div>
-        <div className="card p-3"><p className="text-xs text-slate-400">{L('balanceDue')}</p><p className={'text-xl font-black ' + (st.balance > 0 ? 'text-red-700' : 'text-emerald-700')}>{dh(st.balance)}</p></div>
-      </div>
-      <div className="print-area">
-        <table className="table w-full">
-          <thead>
-            <tr><th>{L('date')}</th><th>{L('ref')}</th><th>{L('paymentStatus') || 'Type'}</th><th>{L('totalInvoiced')}</th><th>{L('totalPaid')}</th><th>{L('balanceDue')}</th></tr>
-          </thead>
-          <tbody>
-            {st.lines.map((e, i) => (
-              <tr key={i}>
-                <td>{e.date || '-'}</td>
-                <td className="font-mono text-xs">{e.ref}</td>
-                <td><Badge tone={e.debit ? 'amber' : 'green'}>{e.kind}</Badge></td>
-                <td>{e.debit ? dh(e.debit) : '-'}</td>
-                <td>{e.credit ? dh(e.credit) : '-'}</td>
-                <td className="font-semibold">{dh(e.balance)}</td>
-              </tr>
-            ))}
-            {!st.lines.length ? <tr><td colSpan="6">{L('noData')}</td></tr> : null}
-          </tbody>
-        </table>
-      </div>
-      <div className="flex justify-end gap-2 mt-4 no-print">
+      <StatementDocument L={L} company={c} party={party} st={st} docRef={ref} />
+      <div className="flex flex-wrap justify-end gap-2 mt-4 no-print">
+        <ExportButtons L={L} spec={() => ({
+          fileName: 'Releve_' + storageSafe(party.name), title: L('statement') + ' — ' + party.name,
+          sheets: [{ name: L('statement'), columns: [
+            { key: 'date', header: L('date'), type: 'date' }, { key: 'ref', header: L('ref') }, { key: 'kind', header: L('movement') },
+            { key: 'debit', header: L('totalInvoiced'), type: 'money' }, { key: 'credit', header: L('totalPaid'), type: 'money' },
+            { key: 'balance', header: L('balanceDue'), type: 'money', total: false }
+          ], rows: st.lines }]
+        })} />
+        {featureOn('share') ? <button onClick={() => setWa(true)} className="btn wa-send">🟢 WhatsApp</button> : null}
+        <button disabled={busy} onClick={pdf} className="btn bg-white border">{busy ? L('pdfBuilding') : '📄 PDF'}</button>
         <button onClick={() => window.print()} className="btn bg-slate-900 text-white">{L('print')}</button>
         <button onClick={close} className="btn bg-white border">{L('closeBtn')}</button>
       </div>
+      {wa ? (
+        <WhatsAppModal L={L} kind="statement" close={() => setWa(false)}
+          party={{ id: numericId ? party.id : null, name: party.name, phone, table }}
+          buildVars={statementVars(party, st, c)} makePdf={() => elementToPdfBlob(ref.current)}
+          pdfFolder={'releves_' + table} pdfName={'releve_' + (numericId ? party.id : party.name)}
+          auditModule="Reporting" auditObject={L('statement') + ' ' + party.name} />
+      ) : null}
     </Modal>
+  );
+}
+
+// Relance d'un client : factures impayées + relevé en PDF
+function ReminderButton({ L, docs, party }) {
+  const [open, setOpen] = useState(null);
+  async function start() {
+    let phone = '';
+    if (/^\d+$/.test(String(party.id || ''))) {
+      const { data } = await supabase.from('clients').select('phone').eq('id', party.id).maybeSingle();
+      phone = data?.phone || '';
+    }
+    const company = await loadCompanySettings().catch(() => ({ name: 'DrogueriePro' }));
+    setOpen({ phone, company });
+  }
+  if (!featureOn('share')) return null;
+  const unpaid = (docs || []).filter(d => d.stage === 'facture' && String(d.client_id || d.client_name || 'unknown') === String(party.id))
+    .map(d => ({ d, rest: Number(d.reste ?? paymentInfo(d).rest ?? 0) })).filter(x => x.rest > 0.009)
+    .sort((a, b) => String(a.d.date || '').localeCompare(String(b.d.date || '')));
+  const st = buildStatement(docs, 'clients', party.id);
+  return (
+    <>
+      <button onClick={start} className="btn wa-send text-xs" title={L('waReminder')}>🟢 {L('waReminder')}</button>
+      {open ? (
+        <WhatsAppModal L={L} kind="reminder" close={() => setOpen(null)}
+          party={{ id: /^\d+$/.test(String(party.id || '')) ? party.id : null, name: party.name, phone: open.phone, table: 'clients' }}
+          buildVars={lang => ({
+            client: party.name, date: frDate(today()), montant: dh(unpaid.reduce((s, x) => s + x.rest, 0)),
+            factures: unpaid.map(x => '• ' + docNo(x.d) + ' (' + frDate(x.d.date) + ') : ' + dh(x.rest)).join('\n'),
+            societe: open.company.name || '', telephone_societe: open.company.phone || ''
+          })}
+          makePdf={() => jsxToPdfBlob(<StatementDocument L={L} company={open.company} party={party} st={st} />)}
+          pdfFolder="releves_clients" pdfName={'releve_' + party.id}
+          auditModule="Reporting" auditObject={'Relance ' + party.name} />
+      ) : null}
+    </>
   );
 }
 
@@ -3935,7 +5057,18 @@ function DebtTable({ L, title, rows, docs, type }) {
   const [stmt, setStmt] = useState(null);
   return (
     <div className="card p-5 overflow-auto">
-      <h2 className="text-lg font-black mb-4">{title}</h2>
+      <div className="flex justify-between items-center gap-2 mb-4 flex-wrap">
+        <h2 className="text-lg font-black">{title}</h2>
+        <ExportButtons L={L} spec={() => ({
+          fileName: type === 'clients' ? 'Creances_clients' : 'Dettes_fournisseurs', title,
+          sheets: [{ name: title, columns: [
+            { key: 'name', header: L('name') }, { key: 'total', header: L('totalDebt') || 'Total', type: 'money' },
+            { key: 'due0_30', header: '0-30', type: 'money' }, { key: 'due31_60', header: '31-60', type: 'money' },
+            { key: 'due61_90', header: '61-90', type: 'money' }, { key: 'due90p', header: '+90', type: 'money' },
+            { key: 'docs', header: 'Docs', type: 'int', total: true }
+          ], rows }]
+        })} />
+      </div>
       <table className="table w-full">
         <thead>
           <tr>
@@ -3946,7 +5079,10 @@ function DebtTable({ L, title, rows, docs, type }) {
           {rows.map(r => (
             <tr key={r.id}>
               <td className="font-semibold">{r.name}</td><td className="font-bold">{dh(r.total)}</td><td>{dh(r.due0_30)}</td><td>{dh(r.due31_60)}</td><td>{dh(r.due61_90)}</td><td>{dh(r.due90p)}</td><td>{r.docs}</td>
-              <td>{docs ? <button onClick={() => setStmt(r)} className="btn bg-white border text-xs">{L('statement')}</button> : null}</td>
+              <td className="whitespace-nowrap">
+                {docs ? <button onClick={() => setStmt(r)} className="btn bg-white border text-xs">{L('statement')}</button> : null}
+                {docs && type === 'clients' && r.total > 0.009 ? <> <ReminderButton L={L} docs={docs} party={r} /></> : null}
+              </td>
             </tr>
           ))}
           {!rows.length ? <tr><td colSpan="8">{L('noData')}</td></tr> : null}
@@ -3990,16 +5126,31 @@ function ProfitCenter({ L }) {
     <>
       <Header title={L('profitCenter')}>
         <button onClick={load} className="btn bg-white border">↻</button>
-        {can('data.export') ? <button onClick={() => downloadCsv('rentabilite-produits.csv', rows.map(p => ({
-          ref: p.ref,
-          produit: p.nom,
-          prix_achat: p.prixAchat,
-          prix_vente: p.prixVente,
-          marge_unitaire: Number(p.prixVente || 0) - Number(p.prixAchat || 0),
-          taux_marge: p.prixVente ? ((p.prixVente - p.prixAchat) / p.prixVente) * 100 : 0,
-          stock: p.quantite,
-          qte_a_commander: reorderSuggestion(p)
-        })))} className="btn bg-slate-900 text-white">{L('exportCsv')}</button> : null}
+        <ExportButtons L={L} spec={() => ({
+          fileName: 'Rentabilite_produits', title: L('profitCenter'),
+          sheets: [
+            { name: L('profitability'), columns: [
+              { key: 'ref', header: L('ref') }, { key: 'nom', header: L('product') }, { key: 'categorie', header: L('category') },
+              { key: 'prixAchat', header: L('purchasePrice'), type: 'money', total: false }, { key: 'prixVente', header: L('salePrice'), type: 'money', total: false },
+              { value: p => Number(p.prixVente || 0) - Number(p.prixAchat || 0), header: L('margin'), type: 'money', total: false },
+              { value: p => (p.prixVente ? ((p.prixVente - p.prixAchat) / p.prixVente) * 100 : 0), header: L('marginRate'), type: 'pct' },
+              { key: 'quantite', header: L('stock'), type: 'qty' },
+              { value: p => Number(p.quantite || 0) * Number(p.prixAchat || 0), header: L('stockValue'), type: 'money', total: true },
+              { value: p => reorderSuggestion(p), header: L('reorderQty'), type: 'qty' }
+            ], rows },
+            { name: L('profitAlerts'), columns: [
+              { key: 'ref', header: L('ref') }, { key: 'nom', header: L('product') },
+              { key: 'prixAchat', header: L('purchasePrice'), type: 'money', total: false }, { key: 'prixVente', header: L('salePrice'), type: 'money', total: false },
+              { value: p => (p.prixVente ? ((p.prixVente - p.prixAchat) / p.prixVente) * 100 : 0), header: L('marginRate'), type: 'pct' },
+              { value: p => suggestSalePrice(p.prixAchat, 25), header: L('minimumSalePrice'), type: 'money', total: false }
+            ], rows: lowMargin },
+            { name: L('reorderProposal'), columns: [
+              { key: 'ref', header: L('ref') }, { key: 'nom', header: L('product') }, { key: 'quantite', header: L('stock'), type: 'qty' },
+              { key: 'stockMin', header: L('minStock'), type: 'qty' }, { key: 'reorderQty', header: L('reorderQty'), type: 'qty' },
+              { value: p => p.reorderQty * p.prixAchat, header: L('valuation'), type: 'money' }
+            ], rows: reorder }
+          ]
+        })} />
       </Header>
 
       <div className="pro-kpi-grid mb-5">
@@ -4408,6 +5559,27 @@ function BackupCenter({ L }) {
     }
   });
 
+  // V52 : classeur Excel, un onglet par table (consultation / analyse). Sans mots de passe ni jetons.
+  const excelAll = () => run('xlsx', async () => {
+    const data = await serverBackupJson();
+    const sheets = Object.entries(data.tables || {})
+      .filter(([t, rows]) => !['user_credentials', 'app_sessions'].includes(t) && Array.isArray(rows))
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([table, rows]) => {
+        const keys = [...new Set(rows.slice(0, 200).flatMap(r => Object.keys(r || {})))].filter(k => !/password|token|hash|secret/i.test(k));
+        const columns = keys.map(k => {
+          const sample = rows.map(r => r?.[k]).find(v => v !== null && v !== undefined && v !== '');
+          const type = typeof sample === 'number' ? (Number.isInteger(sample) ? 'int' : 'number')
+            : typeof sample === 'boolean' ? 'bool'
+            : typeof sample === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(sample) ? 'datetime'
+            : typeof sample === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(sample) ? 'date' : 'text';
+          return { key: k, header: k, type, total: false };
+        });
+        return { name: table, columns, rows, totals: false };
+      });
+    await exportExcel({ fileName: 'DrogueriePro_Base_complete', title: L('xlFullExport'), sheets });
+  });
+
   // SQL normalisé : rejouable dans un autre SGBD (MySQL, SQL Server, Oracle, SQLite, PostgreSQL ou SQL standard)
   const portableSql = () => run('portable', async () => {
     try { localStorage.setItem('droguerie_backup_dialect', dialect); } catch {}
@@ -4498,6 +5670,11 @@ function BackupCenter({ L }) {
               <h2 className="font-black mb-1">{L('backupCsv')}</h2>
               <p className="text-sm text-slate-500">{L('bkCsvHint')}</p>
               <button disabled={!!busy} onClick={csvAll} className="btn bg-white border mt-4 w-full">{busy === 'csv' ? '…' : L('exportAll')}</button>
+            </div>
+            <div className="card p-5 md:col-span-2 border-emerald-500" style={{ borderWidth: 2 }}>
+              <h2 className="font-black mb-1">📊 {L('xlFullExport')}</h2>
+              <p className="text-sm text-slate-500">{L('xlFullExportHint')}</p>
+              <button disabled={!!busy} onClick={excelAll} className="btn bg-emerald-700 text-white mt-4 w-full">{busy === 'xlsx' ? '…' : L('downloadBackup')}</button>
             </div>
           </div>
 
@@ -4683,9 +5860,7 @@ function Dashboard({ L }) {
     <>
       <Header title={L('dashboard')}>
         <button onClick={load} className="btn bg-white border">↻</button>
-        {can('data.export') ? <button onClick={() => downloadCsv('drogueriepro-produits.csv', data.products.map(p => ({ ref: p.ref, nom: p.nom, stock: p.quantite, prix_achat: p.prixAchat, prix_vente: p.prixVente, droguerie: p.branchName })))} className="btn bg-slate-900 text-white">
-          {L('exportCsv')}
-        </button> : null}
+        <ExportButtons L={L} spec={() => productsExportSpec(L, data.products)} />
       </Header>
 
       <div className="pro-hero mb-6">
@@ -4913,7 +6088,7 @@ function Products({ L }) {
       </Header>
 
       <div className="flex flex-wrap gap-2 mb-4">
-        {can('data.export') ? <button onClick={() => downloadCsv('produits.csv', visibleRows.map(p => ({ ref: p.ref, nom: p.nom, categorie: p.categorie, stock: p.quantite, prix_achat: p.prixAchat, prix_vente: p.prixVente, droguerie: p.branchName })))} className="btn bg-white border">{L('exportCsv')}</button> : null}
+        <ExportButtons L={L} spec={() => productsExportSpec(L, visibleRows)} />
         {canWriteProduct ? <button onClick={() => setShowLists(true)} className="btn bg-white border">{L('categoriesUnits')}</button> : null}
         {canUse('stock.inventory') ? <button onClick={() => setShowInventory(true)} className="btn bg-white border">📋 {L('inventory')}</button> : null}
         {canUse('products.import') ? <button onClick={() => setShowImport(true)} className="btn bg-white border">📥 {L('importExcel')}</button> : null}
@@ -5294,7 +6469,15 @@ function InventoryModal({ L, products, branches, categories, close, done }) {
     setScan('');
   }
   function exportSheet() {
-    downloadCsv('feuille-inventaire.csv', scope.map(p => ({ ref: p.ref, produit: p.nom, unite: p.unite, stock_theorique: p.quantite, quantite_comptee: counts[p.id] ?? '' })));
+    exportExcel({
+      fileName: 'Feuille_inventaire', title: L('inventory') + (cat && cat !== 'all' ? ' — ' + cat : ''),
+      sheets: [{ name: L('inventory'), note: (branches.find(b => String(b.id) === String(invBranch))?.name || ''), totals: false, columns: [
+        { key: 'ref', header: L('ref') }, { key: 'barcode', header: L('barcode') }, { key: 'nom', header: L('product') }, { key: 'unite', header: L('unit') },
+        { key: 'quantite', header: L('inventoryTheo') || 'Stock théorique', type: 'qty' },
+        { value: p => counts[p.id] ?? '', header: L('inventoryCounted') || 'Quantité comptée', type: 'qty', width: 18 },
+        { value: () => '', header: L('note') || 'Remarque', width: 28 }
+      ], rows: scope }]
+    }).catch(e => alert(e.message));
   }
   async function validate() {
     if (!counted.length) { alert(L('inventoryNothing')); return; }
@@ -5317,7 +6500,9 @@ function InventoryModal({ L, products, branches, categories, close, done }) {
     const lines = inv.lines_json || [];
     const w = window.open('', '_blank', 'width=900,height=700');
     if (!w) return;
-    w.document.write(`<html><head><title>${escapeHtml(inv.number)}</title><style>body{font-family:Arial;font-size:12px;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:4px 6px;text-align:left}td.n{text-align:right}</style></head><body>
+    const br = getBrand();
+    w.document.write(`<html><head><title>${escapeHtml(inv.number)}</title><style>body{font-family:Arial;font-size:12px;padding:20px;border-top:5px solid ${br.accent}}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:4px 6px;text-align:left}th{background:${br.primary};color:${textOn(br.primary)};-webkit-print-color-adjust:exact;print-color-adjust:exact}td.n{text-align:right}.hd{display:flex;gap:14px;align-items:center;margin-bottom:8px}.hd img{max-height:60px;max-width:170px;object-fit:contain}.hd b{font-size:18px;color:${br.primary}}</style></head><body>
+      <div class="hd">${br.logo ? `<img src="${br.logo}">` : ''}<b>${escapeHtml(br.name || 'DrogueriePro')}</b></div>
       <h2>${escapeHtml(L('inventory'))} ${escapeHtml(inv.number)}</h2>
       <p>${escapeHtml(inv.inv_date || '')} · ${escapeHtml(inv.created_by_label || '')} ${inv.category ? '· ' + escapeHtml(inv.category) : ''}</p>
       <table><thead><tr><th>Réf</th><th>Produit</th><th>Théorique</th><th>Compté</th><th>Écart</th><th>Valeur écart</th></tr></thead><tbody>
@@ -5537,10 +6722,16 @@ async function readImportFile(file) {
   } else {
     throw new Error('Format non pris en charge : utilisez un fichier Excel .xlsx ou .csv (Excel → Enregistrer sous → Classeur Excel .xlsx)');
   }
-  if (matrix.length < 2) throw new Error('Le fichier ne contient aucune ligne de données');
-  const headers = matrix[0].map(normalizeImportHeader);
-  return matrix.slice(1).map((r, i) => {
-    const o = { __line: i + 2 };
+  // V52 : la ligne d'en-têtes peut être précédée d'un titre (fichiers exportés par DrogueriePro)
+  const known = new Set(Object.values(IMPORT_COLUMNS).flat().map(c => c[0]));
+  let hIdx = matrix.slice(0, 15).findIndex(r => r.map(normalizeImportHeader).filter(h => known.has(h)).length >= 2);
+  if (hIdx < 0) hIdx = 0;
+  // Ligne « Total » ajoutée par l'export Excel : ignorée
+  const isTotalRow = r => /^(total|المجموع)$/i.test(String(r.find(v => v !== '' && v !== null) ?? '').trim());
+  if (matrix.length - hIdx < 2) throw new Error('Le fichier ne contient aucune ligne de données');
+  const headers = matrix[hIdx].map(normalizeImportHeader);
+  return matrix.slice(hIdx + 1).filter(r => !isTotalRow(r)).map((r, i) => {
+    const o = { __line: i + hIdx + 2 };
     headers.forEach((h, j) => { if (h && o[h] === undefined) o[h] = r[j] ?? ''; });
     return o;
   });
@@ -5878,6 +7069,8 @@ function printCashClosure(L, c, branchName) {
   w.document.write(`<html><head><title>Clôture ${escapeHtml(c.closure_date || c.date)}</title><style>
     @page{size:80mm auto;margin:4mm}body{font-family:Arial;font-size:12px;width:72mm;margin:0 auto}h3{text-align:center;margin:4px 0}
     table{width:100%;border-collapse:collapse}td{padding:2px 0}td.r{text-align:right}.sep{border-top:1px dashed #000;margin:6px 0}.b{font-weight:bold}</style></head><body>
+    ${getBrand().logo ? `<div style="text-align:center"><img src="${getBrand().logo}" style="max-width:52mm;max-height:20mm;object-fit:contain;filter:grayscale(1)"></div>` : ''}
+    ${getBrand().name ? `<div style="text-align:center;font-weight:bold">${escapeHtml(getBrand().name)}</div>` : ''}
     <h3>CLÔTURE DE CAISSE</h3><div style="text-align:center">${escapeHtml(branchName || '')}<br>${escapeHtml(c.closure_date || c.date)} · ${escapeHtml(c.created_by_label || currentUserLabel())}</div>
     <div class="sep"></div><table>${modes.map(([m, v]) => `<tr><td>${escapeHtml(m)} (${v.count})</td><td class="r">+${fmt(v.in)}${v.out ? ' / -' + fmt(v.out) : ''}</td></tr>`).join('') || '<tr><td>Aucun règlement</td></tr>'}</table>
     <div class="sep"></div><table>
@@ -6189,8 +7382,11 @@ function printTicket(t) {
     .c { text-align: center; } .r { text-align: right; } .n { font-weight: bold; padding-top: 4px; }
     table { width: 100%; border-collapse: collapse; } hr { border: 0; border-top: 1px dashed #000; margin: 6px 0; }
     .tot td { font-size: 14px; font-weight: bold; } i { font-style: normal; }
+    img.logo { max-width: 56mm; max-height: 22mm; object-fit: contain; filter: grayscale(1) contrast(1.3); margin-bottom: 2px; }
   </style></head><body>
+  ${c.logo && c.ticketLogo !== false ? `<div class="c"><img class="logo" src="${c.logo}" alt=""></div>` : ''}
   <h1>${escapeHtml(c.name || 'DrogueriePro')}</h1>
+  ${c.slogan ? `<div class="c"><i>${escapeHtml(c.slogan)}</i></div>` : ''}
   <div class="c">${escapeHtml(c.address || '')}</div>
   <div class="c">${c.phone ? 'Tél : ' + escapeHtml(c.phone) : ''}</div>
   <div class="c">${c.ice ? 'ICE : ' + escapeHtml(c.ice) : ''}</div>
@@ -6206,7 +7402,7 @@ function printTicket(t) {
     <tr><td>Paiement</td><td class="r">${escapeHtml(t.payMode)}</td></tr>
     ${t.payMode === 'Espèces' && Number(t.received) > 0 ? `<tr><td>Reçu</td><td class="r">${fmt(t.received)}</td></tr><tr><td>Rendu</td><td class="r">${fmt(t.change)}</td></tr>` : ''}
   </table><hr>
-  <div class="c">Merci de votre visite</div>
+  <div class="c">${escapeHtml(c.ticketMessage || 'Merci de votre visite')}</div>
   <script>window.onload = function () { window.print(); setTimeout(function () { window.close(); }, 500); };</script>
   </body></html>`;
   const w = window.open('', '_blank', 'width=380,height=640');
@@ -6260,6 +7456,7 @@ function PosCenter({ L }) {
   const [busy, setBusy] = useState(false);
   const [camera, setCamera] = useState(false);
   const [lastTicket, setLastTicket] = useState(null);
+  const [waTicket, setWaTicket] = useState(null);
   const [err, setErr] = useState('');
   const searchRef = React.useRef(null);
 
@@ -6341,6 +7538,7 @@ function PosCenter({ L }) {
       if (payMode !== 'Crédit') await payDoc('sales', res.id, { date: today(), mode: payMode, montant: Number(res.totals.totalTTC.toFixed(2)), note: 'Caisse rapide' });
       const ticket = {
         company, number: res.number, date: new Date().toLocaleString('fr-FR'), client: client?.name || L('walkInClient'),
+        clientId: client?.id || null, clientPhone: client?.phone || '', clientName: client?.name || '',
         cashier: currentUserLabel(), lines: cart, totals: res.totals, payMode,
         received: payMode === 'Espèces' ? Number(received || res.totals.totalTTC) : 0,
         change: payMode === 'Espèces' ? Math.max(0, Number(received || 0) - res.totals.totalTTC) : 0
@@ -6378,6 +7576,7 @@ function PosCenter({ L }) {
     <>
       <Header title={L('posMod')}>
         {lastTicket ? <button onClick={() => printTicket(lastTicket)} className="btn bg-white border">🖨 {L('lastTicket')}</button> : null}
+        {lastTicket && featureOn('share') ? <button onClick={() => setWaTicket(lastTicket)} className="btn wa-send">🟢 WhatsApp</button> : null}
         <button onClick={load} className="btn bg-white border">↻</button>
       </Header>
 
@@ -6481,6 +7680,17 @@ function PosCenter({ L }) {
         </div>
       </div>
 
+      {waTicket ? (
+        <WhatsAppModal L={L} kind="ticket" close={() => setWaTicket(null)}
+          party={{ id: waTicket.clientId, name: waTicket.clientName, phone: waTicket.clientPhone, table: 'clients' }}
+          buildVars={lang => ({
+            societe: waTicket.company?.name || '', numero: waTicket.number, date: waTicket.date,
+            articles: (waTicket.lines || []).map(l => '• ' + (lang === 'ar' && l.nomAr ? l.nomAr : l.nom) + ' × ' + fmt(l.qte) + ' = ' + dh(lineNet(l))).join('\n'),
+            montant: dh(waTicket.totals?.totalTTC || 0), paiement: Lx(lang)('pm_' + waTicket.payMode) || waTicket.payMode,
+            client: waTicket.clientName || '', telephone_societe: waTicket.company?.phone || ''
+          })}
+          pdfName={waTicket.number} auditModule="Caisse" auditObject={waTicket.number} />
+      ) : null}
       {camera ? <CameraScanner L={L} close={() => setCamera(false)} onCode={code => { const p = findByCode(code); if (p) addProduct(p); else alert(L('productNotFound') + ' : ' + code); }} /> : null}
     </>
   );
@@ -6500,6 +7710,7 @@ function Docs({ L, type }) {
   const [partial, setPartial] = useState(null);
   const [preview, setPreview] = useState(null);
   const [tab, setTab] = useState('all');
+  const [showClosed, setShowClosed] = useState(false);
   const [err, setErr] = useState('');
   const [userFilter, setUserFilter] = useState(getSelectedUserFilter(type));
 
@@ -6531,12 +7742,14 @@ function Docs({ L, type }) {
     ? [['all', L('all')], ['devis', L('quotes')], ['commande', L('orders')], ['livraison', L('deliveries')], ['facture', L('invoices')], ['avoir', L('creditNotes')]]
     : [['all', L('all')], ['commande', L('orders')], ['reception', L('receipts')], ['facture', L('invoices')], ['retour', L('supplierReturns')]];
 
+  // V52 : les BL / BR sont toujours « clôturés » côté stock → ils restent affichés (avant : onglet Réceptions vide)
   const filtered = applyUserFilterToRows((tab === 'all' ? rows : rows.filter(x => x.stage === tab)).filter(x => {
-    if (tab === 'commande' && docStatus(x) === 'closed') return false;
-    if (tab === 'reception' && docStatus(x) === 'closed') return false;
-    if (tab === 'livraison' && docStatus(x) === 'closed' && x.stage === 'commande') return false;
+    if (tab === 'commande' && docStatus(x) === 'closed' && !showClosed) return false;
     return true;
   }), type);
+  const childrenOf = id => rows.filter(x => String(x.base_doc_id || '') === String(id));
+  const openReceive = d => setPartial({ doc: d, date: today(), supplierRef: '', lignes: docRemainingLines(d).filter(l => Number(l.remainingQty || 0) > 0).map(l => ({ ...l, qteToProcess: Number(l.remainingQty || 0), excluded: false })) });
+  const openInvoice = d => setPartial({ mode: 'invoice', doc: d, date: today(), supplierRef: '', dueDate: '', lignes: docInvoiceRemainingLines(d).filter(l => Number(l.remainingQty || 0) > 0).map(l => ({ ...l, qteToProcess: Number(l.remainingQty || 0), excluded: false })) });
 
   function create(start) {
     setForm({ start, date: today(), partyId: parties[0]?.id || '', lignes: [{ produitId: products[0]?.id || '', qte: 1 }] });
@@ -6574,7 +7787,8 @@ function Docs({ L, type }) {
         clientNom: party.name,
         fournisseurId: party.id,
         fournisseurNom: party.name,
-        forceCredit: !!opts.forceCredit
+        forceCredit: !!opts.forceCredit,
+        ...(isSales ? {} : { supplierRef: form.supplierRef || '', dueDate: form.dueDate || '' })
       };
 
       if (form.id) await updateDoc(type, form.id, body);
@@ -6623,7 +7837,9 @@ function Docs({ L, type }) {
         date: partial.date || today(),
         lignes: partial.lignes || [],
         restock: partial.restock !== false,
-        forceCredit: !!opts.forceCredit
+        forceCredit: !!opts.forceCredit,
+        supplierRef: partial.supplierRef || '',
+        dueDate: partial.dueDate || ''
       });
       setPartial(null);
       load();
@@ -6643,12 +7859,51 @@ function Docs({ L, type }) {
       <Header title={isSales ? L('sales') : L('purchases')}>
         <button onClick={() => create(isSales ? 'devis' : 'commande')} className="btn bg-white border">{L('create')}</button>
         <button onClick={() => create(isSales ? 'facture' : 'reception')} className="btn bg-amber-500">{L('direct')}</button>
+        <ExportButtons L={L} spec={() => {
+          const party = d => d.client_name || d.supplier_name || d.clientNom || d.fournisseurNom || '';
+          const tabLabel = (tabs.find(t => t[0] === tab) || [])[1] || '';
+          return {
+            fileName: isSales ? 'Ventes' : 'Achats', title: (isSales ? L('sales') : L('purchases')) + (tab !== 'all' ? ' — ' + tabLabel : ''),
+            sheets: [
+              { name: isSales ? L('sales') : L('purchases'), columns: [
+                { value: d => docNo(d), header: 'N°' }, { value: d => docTypeLabel(d, type, L), header: L('docType') },
+                { key: 'date', header: L('date'), type: 'date' }, { value: party, header: isSales ? L('customer') : L('supplier') },
+                { key: 'createdByLabel', header: L('createdBy') },
+                { value: d => docStatus(d) === 'closed' ? L('closed') : docStatus(d) === 'partial' ? L('partial') : L('open'), header: L('status') },
+                { key: 'totalHT', header: L('totalHT'), type: 'money' }, { key: 'tva', header: L('totalVAT'), type: 'money' },
+                { key: 'totalTTC', header: L('totalTTC'), type: 'money' },
+                { value: d => d.stage === 'facture' ? Number(d.totalTTC || 0) - Number(d.reste || 0) : null, header: L('totalPaid'), type: 'money' },
+                { value: d => d.stage === 'facture' ? Number(d.reste || 0) : null, header: L('remaining'), type: 'money' },
+                { value: d => d.stage === 'facture' ? (d.statutPaiement === 'paid' ? L('paid') : d.statutPaiement === 'partial' ? L('partial') : L('unpaid')) : '', header: L('payment') },
+                { value: d => d.baseDocId ? (d.baseDocNumber || ('#' + d.baseDocId)) : '', header: L('baseDocNo') },
+                ...(isSales ? [] : [{ key: 'supplier_ref', header: L('supplierRef') }, { key: 'due_date', header: L('dueDate'), type: 'date' }])
+              ], rows: tab === 'reception' && !isSales ? applyUserFilterToRows(rows, type).filter(d => d.stage === 'reception' || (d.stage === 'facture' && jsonValue(d.numbers_json, {}).reception)) : filtered },
+              { name: L('documentLines'), columns: [
+                { value: x => docNo(x.d), header: 'N°' }, { value: x => x.d.date, header: L('date'), type: 'date' }, { value: x => party(x.d), header: isSales ? L('customer') : L('supplier') },
+                { value: x => x.l.ref, header: L('ref') }, { value: x => x.l.nom, header: L('product') }, { value: x => x.l.unite, header: L('unit') },
+                { value: x => Number(x.l.qte || 0), header: L('quantity'), type: 'qty', total: true },
+                { value: x => Number(x.l.prixUnit || 0), header: L('unitPrice'), type: 'money', total: false },
+                { value: x => lineDiscount(x.l) || null, header: L('discount'), type: 'number', total: false },
+                { value: x => lineNet(x.l), header: L('totalTTC'), type: 'money' }
+              ], rows: (tab === 'reception' && !isSales ? applyUserFilterToRows(rows, type).filter(d => d.stage === 'reception' || (d.stage === 'facture' && jsonValue(d.numbers_json, {}).reception)) : filtered).flatMap(d => (d.lignes || []).map(l => ({ d, l }))) }
+            ]
+          };
+        }} />
       </Header>
 
-      <div className="flex gap-1 mb-4 flex-wrap">
+      <div className="flex gap-1 mb-4 flex-wrap items-center">
         {tabs.map(t => <button key={t[0]} onClick={() => setTab(t[0])} className={'px-3 py-1.5 rounded-lg text-sm ' + (tab === t[0] ? 'bg-slate-800 text-white' : 'bg-white border text-slate-500')}>{t[1]}</button>)}
+        {tab === 'commande' ? (
+          <label className="text-xs text-slate-500 flex items-center gap-1 ms-3"><input type="checkbox" checked={showClosed} onChange={e => setShowClosed(e.target.checked)} /> {L('showClosedDocs')}</label>
+        ) : null}
       </div>
 
+      {!isSales && tab === 'reception' ? (
+        <PurchaseReceptionsView L={L} rows={applyUserFilterToRows(rows, type)} allRows={rows}
+          canWriteDoc={canWriteDoc} canDeleteDoc={canDeleteDoc}
+          onPreview={setPreview} onInvoice={openInvoice} onDelete={remove}
+          onEdit={d => setForm({ id: d.id, start: d.stage, date: d.date, partyId: d.supplier_id, supplierRef: d.supplier_ref || '', dueDate: d.due_date || '', lignes: (d.lignes || []).map(l => ({ produitId: l.produitId, qte: l.qte, prixUnit: l.prixUnit, remise: l.remise || 0 })) })} />
+      ) : (
       <Table>
         <thead>
           <tr>
@@ -6683,11 +7938,19 @@ function Docs({ L, type }) {
                   <div className="font-semibold">{d.client_name || d.supplier_name || d.clientNom || d.fournisseurNom}</div>
                   <div className="text-xs text-slate-400">{isSales ? L('customer') : L('supplier')}</div>
                 </td>
-                <td><Badge tone={docStatus(d) === 'closed' ? 'green' : docStatus(d) === 'partial' ? 'amber' : 'blue'}>{docStatus(d) === 'closed' ? L('closed') : docStatus(d) === 'partial' ? L('partial') : L('open')}</Badge></td>
+                <td>{(() => { const st = docStatusView(d, type, L); return <Badge tone={st.tone}>{st.label}</Badge>; })()}</td>
                 <td className="text-xs">
                   <div>{L('quantity')}: <b>{docQty(d.lignes)}</b></div>
                   <div>{L('remainingQty')}: <b>{docRemainingQty(d)}</b></div>
                   {(d.stage === 'livraison' || d.stage === 'reception') ? <div className={docInvoiceRemainingQty(d) > 0 ? 'text-amber-600' : 'text-emerald-600'}>{L('invoicedQty')}: <b>{fmt(docInvoicedQty(d))} / {fmt(docQty(d.lignes))}</b></div> : null}
+                  {!isSales && d.stage === 'commande' ? (
+                    <div className="mt-1">
+                      <div>{L('receivedQty')}: <b>{fmt(docQty(d.lignes) - docRemainingQty(d))} / {fmt(docQty(d.lignes))}</b></div>
+                      <div className="rc-progress"><span style={{ width: Math.min(100, (docQty(d.lignes) ? (docQty(d.lignes) - docRemainingQty(d)) / docQty(d.lignes) * 100 : 0)) + '%' }} /></div>
+                      {childrenOf(d.id).filter(x => x.stage === 'reception').map(x => <div key={x.id} className="text-slate-500 font-mono">↳ {docNo(x)} · {frDate(x.date)}</div>)}
+                    </div>
+                  ) : null}
+                  {!isSales && d.supplier_ref ? <div className="text-slate-500">{L('supplierRef')}: <b>{d.supplier_ref}</b></div> : null}
                   {isReturnDoc(d) ? <div className="text-emerald-700">{L('imputed')}: <b>{dh(d.imputed_amount || 0)}</b></div> : null}
                   {isReturnDoc(d) && Number(d.totalTTC || 0) - Number(d.imputed_amount || 0) > 0.01 ? <div className="text-red-600">{isSales ? L('toRefund') : L('toReceive')}: <b>{dh(Number(d.totalTTC || 0) - Number(d.imputed_amount || 0))}</b></div> : null}
                   {isReturnDoc(d) && d.restocked === false ? <div className="text-slate-400">{L('noRestock')}</div> : null}
@@ -6695,13 +7958,15 @@ function Docs({ L, type }) {
                 <td className="font-mono font-bold">{dh(d.totalTTC)}</td>
                 {tab === 'facture' ? <td><Badge tone={tone}>{status}{d.reste > 0 ? ' · ' + L('remaining') + ' ' + dh(d.reste) : ''}</Badge></td> : null}
                 <td className="flex gap-1 flex-wrap">
-                  {canWriteDoc && !isReturnDoc(d) && d.stage !== 'facture' ? <button onClick={() => advance(d.id)} className="btn bg-slate-800 text-white">{L('advance')}</button> : null}
+                  {canWriteDoc && !isSales && d.stage === 'commande' && docRemainingQty(d) > 0 ? <button onClick={() => openReceive(d)} className="btn bg-slate-800 text-white">📦 {L('receiveAction')}</button> : null}
+                  {canWriteDoc && !isSales && d.stage === 'reception' && docInvoiceRemainingQty(d) > 0 ? <button onClick={() => openInvoice(d)} className="btn bg-slate-800 text-white">🧾 {L('invoiceAction')}</button> : null}
+                  {canWriteDoc && isSales && !isReturnDoc(d) && d.stage !== 'facture' ? <button onClick={() => advance(d.id)} className="btn bg-slate-800 text-white">{L('advance')}</button> : null}
                   <button onClick={() => setPreview(d)} className="btn bg-white border">{L('preview')}</button>
                   {canPayDoc && paymentButtonVisible(d) ? <button onClick={() => setPay({ ...d, date: today(), mode: 'Espèces', montant: d.reste || d.totalTTC, cashRegister: '', receiptNo: '', chequeNo: '', bank: '', dueDate: '', paymentStatus: 'En portefeuille', transferRef: '', valueDate: '', terminal: '', transactionNo: '', billNo: '', note: '' })} className="btn bg-emerald-600 text-white">{L('pay')}</button> : null}
-                  {canWriteDoc && d.stage !== 'facture' && !isReturnDoc(d) && docRemainingQty(d) > 0 ? <button onClick={() => setPartial({ doc: d, date: today(), lignes: docRemainingLines(d).map(l => ({ ...l, qteToProcess: Number(l.remainingQty || 0), excluded: false })) })} className="btn bg-white border">{isSales ? L('partialDelivery') : L('partialReceipt')}</button> : null}
+                  {canWriteDoc && isSales && d.stage !== 'facture' && !isReturnDoc(d) && docRemainingQty(d) > 0 ? <button onClick={() => setPartial({ doc: d, date: today(), lignes: docRemainingLines(d).map(l => ({ ...l, qteToProcess: Number(l.remainingQty || 0), excluded: false })) })} className="btn bg-white border">{isSales ? L('partialDelivery') : L('partialReceipt')}</button> : null}
                   {canWriteDoc && canUse(isSales ? 'sales.return' : 'purchases.return') && canReturnDoc(d) ? <button onClick={() => setPartial({ mode: 'return', restock: true, doc: d, date: today(), lignes: docReturnRemainingLines(d).filter(l => Number(l.remainingQty || 0) > 0).map(l => ({ ...l, qteToProcess: 0, excluded: false })) })} className="btn bg-white border">{isSales ? L('creditNote') : L('supplierReturn')}</button> : null}
-                  {canWriteDoc && canPartialInvoice(d, type) ? <button onClick={() => setPartial({ mode: 'invoice', doc: d, date: today(), lignes: docInvoiceRemainingLines(d).filter(l => Number(l.remainingQty || 0) > 0).map(l => ({ ...l, qteToProcess: Number(l.remainingQty || 0), excluded: false })) })} className="btn bg-white border">{L('partialInvoice')}</button> : null}
-                  {canWriteDoc && !isReturnDoc(d) ? <button onClick={() => setForm({ id: d.id, start: d.stage, date: d.date, partyId: isSales ? d.client_id : d.supplier_id, lignes: (d.lignes || []).map(l => ({ produitId: l.produitId, qte: l.qte, prixUnit: l.prixUnit, remise: l.remise || 0 })) })} className="btn bg-white border">{L('edit')}</button> : null}
+                  {canWriteDoc && isSales && canPartialInvoice(d, type) ? <button onClick={() => setPartial({ mode: 'invoice', doc: d, date: today(), lignes: docInvoiceRemainingLines(d).filter(l => Number(l.remainingQty || 0) > 0).map(l => ({ ...l, qteToProcess: Number(l.remainingQty || 0), excluded: false })) })} className="btn bg-white border">{L('partialInvoice')}</button> : null}
+                  {canWriteDoc && !isReturnDoc(d) ? <button onClick={() => setForm({ id: d.id, start: d.stage, date: d.date, partyId: isSales ? d.client_id : d.supplier_id, supplierRef: d.supplier_ref || '', dueDate: d.due_date || '', lignes: (d.lignes || []).map(l => ({ produitId: l.produitId, qte: l.qte, prixUnit: l.prixUnit, remise: l.remise || 0 })) })} className="btn bg-white border">{L('edit')}</button> : null}
                   {canDeleteDoc ? <button onClick={() => remove(d.id)} className="btn bg-red-600 text-white">{L('del')}</button> : null}
                 </td>
               </tr>
@@ -6709,11 +7974,162 @@ function Docs({ L, type }) {
           })}
         </tbody>
       </Table>
+      )}
 
       {form ? <DocModal L={L} isSales={isSales} form={form} setForm={setForm} products={products} parties={parties} save={save} close={() => setForm(null)} /> : null}
       {pay ? <PaymentModal L={L} isSales={isSales} pay={pay} setPay={setPay} save={settle} close={() => setPay(null)} /> : null}
       {partial ? <PartialModal L={L} isSales={isSales} partial={partial} setPartial={setPartial} save={doPartial} close={() => setPartial(null)} /> : null}
       {preview ? <DocumentPreview L={L} isSales={isSales} doc={preview} close={() => setPreview(null)} /> : null}
+    </>
+  );
+}
+
+/* ---------- V52 : statut lisible d'un document ---------- */
+function docStatusView(d, type, L) {
+  const isSales = type === 'sales';
+  if (isReturnDoc(d)) return { label: L('closed'), tone: 'green' };
+  if (d.stage === 'facture') {
+    return d.statutPaiement === 'paid' ? { label: L('paid'), tone: 'green' } : d.statutPaiement === 'partial' ? { label: L('partial'), tone: 'amber' } : { label: L('unpaid'), tone: 'red' };
+  }
+  if (d.stage === 'livraison' || d.stage === 'reception') {
+    const total = docQty(d.lignes || jsonValue(d.lines_json, [])), inv = docInvoicedQty(d);
+    if (inv <= 0.0001) return { label: L('rcToInvoice'), tone: 'blue' };
+    if (inv < total - 0.0001) return { label: L('rcPartial'), tone: 'amber' };
+    return { label: L('rcInvoiced'), tone: 'green' };
+  }
+  const st = docStatus(d);
+  if (!isSales && d.stage === 'commande') {
+    return st === 'closed' ? { label: L('poReceived'), tone: 'green' } : st === 'partial' ? { label: L('poPartial'), tone: 'amber' } : { label: L('poOpen'), tone: 'blue' };
+  }
+  return st === 'closed' ? { label: L('closed'), tone: 'green' } : st === 'partial' ? { label: L('partial'), tone: 'amber' } : { label: L('open'), tone: 'blue' };
+}
+
+/* ---------- V52 : onglet Réceptions (achats) ---------- */
+function receptionInfo(d, allRows, byId) {
+  const lines = normalizeLines(jsonValue(d.lines_json || d.lignes, []));
+  const total = docQty(lines);
+  const nums = jsonValue(d.numbers_json, {});
+  const parent = d.base_doc_id ? byId[String(d.base_doc_id)] : null;
+  const order = parent ? (docNo(parent, 'commande') || docNo(parent)) : (nums.commande || '');
+  let invoiced, invoices, invLines;
+  if (d.stage === 'facture') {
+    invoiced = total; invoices = [{ id: d.id, number: nums.facture || docNo(d), doc: d }];
+    invLines = lines.map(l => ({ ...l, processedQty: Number(l.qte || 0), remainingQty: 0 }));
+  } else {
+    invoiced = Math.min(total, docInvoicedQty(d));
+    invoices = allRows.filter(x => String(x.base_doc_id || '') === String(d.id) && x.stage === 'facture').map(x => ({ id: x.id, number: docNo(x), doc: x }));
+    invLines = docInvoiceRemainingLines(d);
+  }
+  const remainingHT = invLines.reduce((s, l) => s + lineNet({ ...l, qte: Number(l.remainingQty || 0) }), 0);
+  const status = invoiced <= 0.0001 ? 'toInvoice' : invoiced < total - 0.0001 ? 'partial' : 'invoiced';
+  return { d, number: nums.reception || docNo(d), order, total, invoiced, invoices, invLines, remainingHT, status };
+}
+
+function PurchaseReceptionsView({ L, rows, allRows, canWriteDoc, canDeleteDoc, onPreview, onInvoice, onEdit, onDelete }) {
+  const [filter, setFilter] = useState('all');
+  const [q, setQ] = useState('');
+  const [open, setOpen] = useState({});
+  const byId = Object.fromEntries(allRows.map(d => [String(d.id), d]));
+  const recs = rows
+    .filter(d => d.stage === 'reception' || (d.stage === 'facture' && jsonValue(d.numbers_json, {}).reception))
+    .map(d => receptionInfo(d, allRows, byId))
+    .sort((a, b) => String(b.d.date || '').localeCompare(String(a.d.date || '')) || Number(b.d.id) - Number(a.d.id));
+  const needle = q.trim().toLowerCase();
+  const shown = recs.filter(r => (filter === 'all' || r.status === filter) && (!needle || [r.number, r.order, r.d.supplier_name, r.d.supplier_ref, ...r.invoices.map(x => x.number), ...(r.d.lignes || []).map(l => l.nom + ' ' + l.ref)].join(' ').toLowerCase().includes(needle)));
+  const tone = { toInvoice: 'blue', partial: 'amber', invoiced: 'green' };
+  const label = { toInvoice: L('rcToInvoice'), partial: L('rcPartial'), invoiced: L('rcInvoiced') };
+  const count = k => recs.filter(r => r.status === k).length;
+  return (
+    <>
+      <div className="pro-kpi-grid mb-4">
+        <div className="pro-kpi-card"><span>{L('rcCount')}</span><b>{shown.length}</b><small>{L('receipts')}</small></div>
+        <div className="pro-kpi-card"><span>{L('rcReceivedValue')}</span><b>{dh(shown.reduce((s, r) => s + Number(r.d.totalHT || 0), 0))}</b><small>{L('totalHT')}</small></div>
+        <div className="pro-kpi-card"><span>{L('rcToInvoiceValue')}</span><b>{dh(shown.reduce((s, r) => s + r.remainingHT, 0))}</b><small>{L('rcToInvoice')}</small></div>
+        <div className="pro-kpi-card"><span>{L('rcToInvoiceCount')}</span><b>{count('toInvoice') + count('partial')}</b><small>{L('rcPartial')} : {count('partial')}</small></div>
+      </div>
+      <div className="flex flex-wrap gap-2 items-center mb-3">
+        {[['all', L('all') + ' (' + recs.length + ')'], ['toInvoice', label.toInvoice + ' (' + count('toInvoice') + ')'], ['partial', label.partial + ' (' + count('partial') + ')'], ['invoiced', label.invoiced + ' (' + count('invoiced') + ')']].map(([k, t]) => (
+          <button key={k} onClick={() => setFilter(k)} className={'px-3 py-1.5 rounded-full text-xs font-semibold ' + (filter === k ? 'bg-slate-800 text-white' : 'bg-white border text-slate-600')}>{t}</button>
+        ))}
+        <input className="input max-w-xs ms-auto" placeholder={'🔎 ' + L('rcSearch')} value={q} onChange={e => setQ(e.target.value)} />
+      </div>
+      <div className="card overflow-auto">
+        <table className="table w-full rc-table">
+          <thead>
+            <tr>
+              <th></th>
+              <th>{L('rcNumber')}</th>
+              <th>{L('date')}</th>
+              <th>{L('supplier')}</th>
+              <th>{L('supplierBlRef')}</th>
+              <th>{L('rcOrder')}</th>
+              <th>{L('rcArticles')}</th>
+              <th>{L('totalHT')}</th>
+              <th>{L('totalTTC')}</th>
+              <th>{L('rcInvoicing')}</th>
+              <th>{L('actions')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {shown.map(r => {
+              const d = r.d, isOpen = !!open[d.id];
+              return (
+                <React.Fragment key={d.id}>
+                  <tr className={isOpen ? 'rc-open' : ''}>
+                    <td><button className="rc-toggle" title={L('rcDetails')} onClick={() => setOpen({ ...open, [d.id]: !isOpen })}>{isOpen ? '▾' : '▸'}</button></td>
+                    <td className="font-mono text-xs font-bold whitespace-nowrap">{r.number}</td>
+                    <td className="whitespace-nowrap">{frDate(d.date)}</td>
+                    <td><div className="font-semibold">{d.supplier_name || '-'}</div><div className="text-xs text-slate-400">{d.createdByLabel || ''}</div></td>
+                    <td className="font-mono text-xs whitespace-nowrap">{d.supplier_ref || '-'}</td>
+                    <td className="font-mono text-xs whitespace-nowrap">{r.order || '-'}</td>
+                    <td className="text-xs whitespace-nowrap">{(d.lignes || []).length} {L('rcLines')} · <b>{fmt(r.total)}</b></td>
+                    <td className="font-mono whitespace-nowrap">{dh(d.totalHT)}</td>
+                    <td className="font-mono font-bold whitespace-nowrap">{dh(d.totalTTC)}</td>
+                    <td>
+                      <Badge tone={tone[r.status]}>{label[r.status]}</Badge>
+                      <div className="text-xs text-slate-500 mt-1 whitespace-nowrap">{fmt(r.invoiced)} / {fmt(r.total)}</div>
+                      <div className="rc-progress"><span style={{ width: (r.total ? Math.min(100, r.invoiced / r.total * 100) : 0) + '%' }} /></div>
+                      {r.invoices.map(x => <button key={x.id} onClick={() => onPreview(x.doc)} className="block text-xs text-sky-700 underline font-mono whitespace-nowrap">{x.number}</button>)}
+                    </td>
+                    <td>
+                      <div className="flex gap-1 flex-wrap">
+                        <button onClick={() => onPreview(d)} className="btn bg-white border">{L('preview')}</button>
+                        {canWriteDoc && d.stage === 'reception' && r.status !== 'invoiced' ? <button onClick={() => onInvoice(d)} className="btn bg-slate-800 text-white">🧾 {L('invoiceAction')}</button> : null}
+                        {canWriteDoc && d.stage === 'reception' && !r.invoices.length ? <button onClick={() => onEdit(d)} className="btn bg-white border">{L('edit')}</button> : null}
+                        {canDeleteDoc && d.stage === 'reception' && !r.invoices.length ? <button onClick={() => onDelete(d.id)} className="btn bg-red-600 text-white">{L('del')}</button> : null}
+                      </div>
+                    </td>
+                  </tr>
+                  {isOpen ? (
+                    <tr className="rc-detail">
+                      <td></td>
+                      <td colSpan="10">
+                        <table className="w-full text-xs">
+                          <thead><tr><th>{L('ref')}</th><th>{L('product')}</th><th>{L('receivedQty')}</th><th>{L('unitPriceHT')}</th><th>{L('totalHT')}</th><th>{L('invoicedQty')}</th><th>{L('rcToInvoice')}</th></tr></thead>
+                          <tbody>
+                            {r.invLines.map((l, i) => (
+                              <tr key={i}>
+                                <td className="font-mono">{l.ref || '-'}</td>
+                                <td>{l.nom}</td>
+                                <td>{fmt(l.qte)} {l.unite || ''}</td>
+                                <td>{dh(l.prixUnit)}</td>
+                                <td>{dh(lineNet(l))}</td>
+                                <td>{fmt(l.processedQty)}</td>
+                                <td className={Number(l.remainingQty) > 0 ? 'text-amber-700 font-bold' : 'text-emerald-700'}>{fmt(l.remainingQty)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </td>
+                    </tr>
+                  ) : null}
+                </React.Fragment>
+              );
+            })}
+            {!shown.length ? <tr><td colSpan="11" className="text-center text-slate-500 py-6">{L('rcNone')}</td></tr> : null}
+          </tbody>
+        </table>
+      </div>
     </>
   );
 }
@@ -6805,6 +8221,16 @@ function DocModal({ L, isSales, form, setForm, products, parties, save, close })
             {parties.map(p => <option key={p.id} value={p.id}>{p.name}{isSales && p.price_tier === 'gros' ? ' (' + L('wholesale') + ')' : ''}</option>)}
           </select>
         </label>
+        {!isSales && ['reception', 'facture'].includes(form.start) ? (
+          <label className="text-xs text-slate-500">{form.start === 'facture' ? L('supplierInvRef') : L('supplierBlRef')}
+            <input className="input mt-1" value={form.supplierRef || ''} onChange={e => setForm({ ...form, supplierRef: e.target.value })} placeholder="Ex. : BL-4587" />
+          </label>
+        ) : null}
+        {!isSales && form.start === 'facture' ? (
+          <label className="text-xs text-slate-500">{L('dueDate')}
+            <input type="date" className="input mt-1" value={form.dueDate || ''} onChange={e => setForm({ ...form, dueDate: e.target.value })} />
+          </label>
+        ) : null}
       </div>
 
       <div className="flex items-center gap-2 mb-2">
@@ -6827,9 +8253,9 @@ function DocModal({ L, isSales, form, setForm, products, parties, save, close })
             <tr>
               <th>{L('product')}</th>
               <th>{L('quantity')}</th>
-              <th>{L('unitPrice')}</th>
+              <th>{isSales ? L('unitPrice') : L('unitPriceHT')}</th>
               <th>{L('discount')} %</th>
-              <th>{L('totalTTC')}</th>
+              <th>{isSales ? L('totalTTC') : L('totalHT')}</th>
               <th></th>
             </tr>
           </thead>
@@ -6872,10 +8298,18 @@ function DocModal({ L, isSales, form, setForm, products, parties, save, close })
 
       <div className="flex justify-between items-center mt-4">
         <button onClick={addLine} className="btn bg-white border">+ Ligne</button>
-        <div className="text-right">
-          <p className="text-xs text-slate-400">{L('totalTTC')}</p>
-          <p className="text-xl font-black">{dh(total)}</p>
-        </div>
+        {isSales ? (
+          <div className="text-right">
+            <p className="text-xs text-slate-400">{L('totalTTC')}</p>
+            <p className="text-xl font-black">{dh(total)}</p>
+          </div>
+        ) : (
+          <div className="text-right text-sm">
+            <p className="text-slate-500">{L('totalHT')} : <b>{dh(total)}</b> · {L('totalVAT')} : <b>{dh(total * 0.2)}</b></p>
+            <p className="text-xs text-slate-400 mt-1">{L('totalTTC')}</p>
+            <p className="text-xl font-black">{dh(total * 1.2)}</p>
+          </div>
+        )}
       </div>
 
       <button onClick={save} className="btn bg-amber-500 mt-4">{L('save')}</button>
@@ -6887,26 +8321,7 @@ function DocModal({ L, isSales, form, setForm, products, parties, save, close })
 
 
 /* ===================== Partage PDF (WhatsApp / e-mail) ===================== */
-async function elementToPdfBlob(el) {
-  const [{ default: html2canvas }, { jsPDF }] = await Promise.all([import('html2canvas'), import('jspdf')]);
-  const canvas = await html2canvas(el, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false, windowWidth: Math.max(900, el.scrollWidth) });
-  const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
-  const pageW = 210, pageH = 297, margin = 8;
-  const imgW = pageW - margin * 2;
-  const pxPerMm = canvas.width / imgW;
-  const pageHeightPx = Math.floor((pageH - margin * 2) * pxPerMm);
-  let y = 0, first = true;
-  while (y < canvas.height) {
-    const sliceH = Math.min(pageHeightPx, canvas.height - y);
-    const part = document.createElement('canvas');
-    part.width = canvas.width; part.height = sliceH;
-    part.getContext('2d').drawImage(canvas, 0, y, canvas.width, sliceH, 0, 0, canvas.width, sliceH);
-    if (!first) pdf.addPage();
-    pdf.addImage(part.toDataURL('image/jpeg', 0.92), 'JPEG', margin, margin, imgW, sliceH / pxPerMm);
-    first = false; y += sliceH;
-  }
-  return pdf.output('blob');
-}
+// V52 : elementToPdfBlob est défini avec la charte graphique (rendu A4 fixe, coupes entre lignes)
 
 // 06 12 34 56 78 → 212612345678 (format attendu par WhatsApp)
 function whatsappNumber(phone) {
@@ -6934,25 +8349,22 @@ function DocumentPreview({ L, type, doc, close }) {
   const [company, setCompany] = useState(null);
   useEffect(() => { loadCompanySettings().then(setCompany).catch(() => setCompany({ name: 'DrogueriePro' })); }, []);
 
-  const c = company || { name: 'DrogueriePro' };
+  const c = company || { name: getBrand().name || 'DrogueriePro', logo: getBrand().logo };
   const third = isSales ? (doc.client_name || doc.clientName || '-') : (doc.supplier_name || doc.supplierName || '-');
   const docTitle = preciseDocTitle(doc, type, L);
   const vatRate = Number(doc.vat_rate || 20);
   const areaRef = useRef(null);
   const [contact, setContact] = useState({ phone: '' });
   const [sharing, setSharing] = useState(false);
+  const [wa, setWa] = useState(false);
+  const partyTable = isSales ? 'clients' : 'suppliers';
+  const partyId = isSales ? doc.client_id : doc.supplier_id;
   useEffect(() => {
-    const id = isSales ? doc.client_id : doc.supplier_id;
-    if (!id) return;
-    supabase.from(isSales ? 'clients' : 'suppliers').select('phone').eq('id', id).maybeSingle().then(({ data }) => setContact({ phone: data?.phone || '' }));
+    if (!partyId) return;
+    supabase.from(partyTable).select('phone').eq('id', partyId).maybeSingle().then(({ data }) => setContact({ phone: data?.phone || '' }));
   }, [doc?.id]);
   const fileName = (docNo(doc) || 'document').replace(/[^\w.-]+/g, '_') + '.pdf';
 
-  function downloadBlob(blob) {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = fileName; a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 3000);
-  }
   async function share(channel) {
     if (!areaRef.current) return;
     setSharing(true);
@@ -6961,41 +8373,37 @@ function DocumentPreview({ L, type, doc, close }) {
       const msg = docShareMessage(doc, docTitle, c.name, isSales);
       const file = typeof File !== 'undefined' ? new File([blob], fileName, { type: 'application/pdf' }) : null;
       if (channel === 'pdf') {
-        downloadBlob(blob);
+        downloadBlobFile(blob, fileName);
       } else if (channel === 'native' && file && navigator.canShare && navigator.canShare({ files: [file] })) {
         // Téléphone : la feuille de partage propose WhatsApp, Gmail… avec le PDF joint
         await navigator.share({ files: [file], title: docTitle + ' ' + docNo(doc), text: msg }).catch(() => {});
       } else if (channel === 'email') {
-        downloadBlob(blob);
+        downloadBlobFile(blob, fileName);
         window.location.href = 'mailto:?subject=' + encodeURIComponent(docTitle + ' ' + docNo(doc) + ' — ' + (c.name || '')) + '&body=' + encodeURIComponent(msg);
-      } else {
-        // Ordinateur : le PDF est téléchargé et WhatsApp s'ouvre avec le message prêt (il reste à joindre le PDF)
-        downloadBlob(blob);
-        window.open('https://wa.me/' + whatsappNumber(contact.phone) + '?text=' + encodeURIComponent(msg), '_blank');
       }
       auditLog(isSales ? 'Ventes' : 'Achats', 'SHARE', docNo(doc), 'Partage ' + channel);
     } catch (e) { alert(e.message); }
     setSharing(false);
   }
   const canNativeShare = typeof navigator !== 'undefined' && !!navigator.share && !!navigator.canShare;
+  const info = paymentInfo(doc);
+  const waVars = lang => {
+    const T = Lx(lang);
+    const title = preciseDocTitle(doc, type, T);
+    return {
+      client: third === '-' ? '' : third,
+      document: lang === 'fr' ? title.charAt(0).toLowerCase() + title.slice(1) : title,
+      numero: docNo(doc), date: frDate(doc.date || today()), montant: dh(doc.totalTTC || doc.total_ttc || 0),
+      reste: doc.stage === 'facture' && Number(info.rest || 0) > 0.009 ? dh(info.rest) : '',
+      societe: c.name || '', telephone_societe: c.phone || ''
+    };
+  };
+  const hasDiscount = (doc.lignes || []).some(l => lineDiscount(l) > 0);
 
   return (
     <Modal title={L('preview')} onClose={close} wide>
-      <div className="print-area simple-document" ref={areaRef}>
-        <div className="simple-doc-header">
-          <div>
-            <div className="simple-brand">{c.name}</div>
-            <div className="simple-muted">{c.address || '-'}</div>
-            <div className="simple-muted">{L('phone')} : {c.phone || '-'}</div>
-            <div className="simple-legal">ICE: {c.ice || '-'} · RC: {c.rc || '-'} · IF: {c.ifNumber || '-'} · Patente: {c.patente || '-'}</div>
-          </div>
-
-          <div className="simple-title-box">
-            <div className="simple-title">{docTitle}</div>
-            <div className="simple-number">{docNo(doc)}</div>
-            <div className="simple-muted">{L('date')} : {doc.date || today()}</div>
-          </div>
-        </div>
+      <div className="print-area simple-document" ref={areaRef} style={docStyle(c)}>
+        <DocBrandHeader L={L} company={c} title={docTitle} number={docNo(doc)} date={frDate(doc.date || today())} />
 
         <div className="simple-doc-meta">
           <div>
@@ -7003,9 +8411,21 @@ function DocumentPreview({ L, type, doc, close }) {
             <b>{third}</b>
           </div>
           <div>
-            <span>{L('payment')}</span>
-            <b>{paymentLabel(doc, L)}</b>
+            <span>{doc.stage === 'facture' ? L('payment') : L('status')}</span>
+            <b>{doc.stage === 'facture' ? paymentLabel(doc, L) : docStatusView(doc, isSales ? 'sales' : 'purchases', L).label}</b>
           </div>
+          {!isSales && doc.supplier_ref ? (
+            <div>
+              <span>{doc.stage === 'facture' ? L('supplierInvRef') : L('supplierBlRef')}</span>
+              <b>{doc.supplier_ref}</b>
+            </div>
+          ) : null}
+          {!isSales && doc.stage === 'facture' && doc.due_date ? (
+            <div>
+              <span>{L('dueDate')}</span>
+              <b>{frDate(doc.due_date)}</b>
+            </div>
+          ) : null}
           <div>
             <span>{L('createdBy')}</span>
             <b>{doc.createdByLabel || currentUserLabel() || '-'}</b>
@@ -7023,27 +8443,23 @@ function DocumentPreview({ L, type, doc, close }) {
               <th>{L('ref')}</th>
               <th>{L('product')}</th>
               <th>{L('quantity')}</th>
-              <th>{L('unitPrice')}</th>
-              {(doc.lignes || []).some(l => lineDiscount(l) > 0) ? <th>{L('discount')}</th> : null}
-              <th>{L('totalTTC')}</th>
+              <th>{isSales ? L('unitPrice') : L('unitPriceHT')}</th>
+              {hasDiscount ? <th>{L('discount')}</th> : null}
+              <th>{isSales ? L('totalTTC') : L('totalHT')}</th>
             </tr>
           </thead>
           <tbody>
-            {(doc.lignes || []).map((l, i) => {
-              const total = lineNet(l);
-              const hasDiscount = (doc.lignes || []).some(x => lineDiscount(x) > 0);
-              return (
-                <tr key={i}>
-                  <td>{i + 1}</td>
-                  <td className="font-mono">{l.ref || l.produitId || '-'}</td>
-                  <td>{l.nom || '-'}</td>
-                  <td>{fmt(l.qte)} {l.unite || ''}</td>
-                  <td>{dh(l.prixUnit)}</td>
-                  {hasDiscount ? <td>{lineDiscount(l) ? fmt(lineDiscount(l)) + ' %' : '-'}</td> : null}
-                  <td className="simple-bold">{dh(total)}</td>
-                </tr>
-              );
-            })}
+            {(doc.lignes || []).map((l, i) => (
+              <tr key={i}>
+                <td>{i + 1}</td>
+                <td className="font-mono">{l.ref || l.produitId || '-'}</td>
+                <td>{l.nom || '-'}</td>
+                <td>{fmt(l.qte)} {l.unite || ''}</td>
+                <td>{dh(l.prixUnit)}</td>
+                {hasDiscount ? <td>{lineDiscount(l) ? fmt(lineDiscount(l)) + ' %' : '-'}</td> : null}
+                <td className="simple-bold">{dh(lineNet(l))}</td>
+              </tr>
+            ))}
           </tbody>
         </table>
 
@@ -7065,17 +8481,25 @@ function DocumentPreview({ L, type, doc, close }) {
           <div>{L('printDate')} : {new Date().toLocaleString()}</div>
           <div className="simple-signature">{L('signature')}</div>
         </div>
+        <DocFooterText company={c} />
       </div>
 
       <div className="flex flex-wrap justify-end gap-2 mt-4 no-print">
         {sharing ? <span className="text-sm text-slate-500 self-center">{L('pdfBuilding')}</span> : null}
+        {featureOn('share') ? <button disabled={sharing} onClick={() => setWa(true)} className="btn wa-send" title={contact.phone || ''}>🟢 WhatsApp</button> : null}
         {canNativeShare && featureOn('share') ? <button disabled={sharing} onClick={() => share('native')} className="btn bg-amber-500">📤 {L('share')}</button> : null}
-        {featureOn('share') ? <button disabled={sharing} onClick={() => share('whatsapp')} className="btn bg-green-600 text-white" title={contact.phone || ''}>WhatsApp</button> : null}
         {featureOn('share') ? <button disabled={sharing} onClick={() => share('email')} className="btn bg-white border">✉ {L('email')}</button> : null}
         <button disabled={sharing} onClick={() => share('pdf')} className="btn bg-white border">📄 PDF</button>
         <button onClick={() => window.print()} className="btn bg-slate-900 text-white">{L('print')}</button>
         <button onClick={close} className="btn bg-white border">{L('closeBtn')}</button>
       </div>
+      {wa ? (
+        <WhatsAppModal L={L} kind="doc" close={() => setWa(false)}
+          party={{ id: partyId, name: third === '-' ? '' : third, phone: contact.phone, table: partyTable }}
+          buildVars={waVars} makePdf={() => elementToPdfBlob(areaRef.current)}
+          pdfFolder={isSales ? 'ventes' : 'achats'} pdfName={docNo(doc)}
+          auditModule={isSales ? 'Ventes' : 'Achats'} auditObject={docNo(doc)} />
+      ) : null}
     </Modal>
   );
 }
@@ -7134,6 +8558,19 @@ function Payments({ L }) {
         </select>
         <button onClick={load} className="btn bg-white border">↻</button>
         {canUse('cash.close') ? <button onClick={() => setClosure(true)} className="btn bg-amber-500">🧾 {L('cashClosure')}</button> : null}
+        <ExportButtons L={L} spec={() => ({
+          fileName: 'Paiements', title: L('payments'),
+          sheets: [{ name: L('payments'), columns: [
+            { key: 'date', header: L('date'), type: 'date' },
+            { value: p => p.type === 'encaissement' ? L('cashIn') : L('cashOut'), header: 'Type' },
+            { key: 'docType', header: L('docType') }, { key: 'docNumber', header: L('document') }, { key: 'tiers', header: L('customer') + ' / ' + L('supplier') },
+            { key: 'createdByLabel', header: L('createdBy') }, { key: 'mode', header: 'Mode' },
+            { value: p => [p.chequeNo, p.bank, p.transferRef, p.transactionNo, p.note].filter(Boolean).join(' · '), header: L('detail') },
+            { value: p => p.type === 'encaissement' && !p.canceled ? Number(p.montant || 0) : null, header: L('cashIn'), type: 'money' },
+            { value: p => p.type !== 'encaissement' && !p.canceled ? Number(p.montant || 0) : null, header: L('cashOut'), type: 'money' },
+            { value: p => p.canceled ? L('canceled') : 'Actif', header: L('paymentStatus') }
+          ], rows: filtered }]
+        })} />
       </Header>
 
       <div className="pro-kpi-grid mb-4">
@@ -7264,9 +8701,18 @@ function PartialModal({ L, isSales, partial, setPartial, save, close }) {
 
   const includedLines = lines.filter(l => !l.excluded);
   const totalToProcess = includedLines.reduce((s, l) => s + Number(l.qteToProcess || 0), 0);
+  // V52 : réception / facturation fournisseur → prix HT modifiable, réf. fournisseur, échéance, totaux
+  const purchaseMode = !isSales && partial.mode !== 'return';
+  const priceOf = l => (l.prixUnitEdit !== undefined && l.prixUnitEdit !== '' ? Number(l.prixUnitEdit) : Number(l.prixUnit || 0));
+  const setPrice = (i, v) => { const next = [...lines]; next[i] = { ...next[i], prixUnitEdit: v }; setPartial({ ...partial, lignes: next }); };
+  const vatRate = Number(partial.doc?.vat_rate || 20);
+  const ht = includedLines.reduce((s, l) => s + lineNet({ ...l, qte: Number(l.qteToProcess || 0), prixUnit: priceOf(l) }), 0);
+  const modalTitle = purchaseMode
+    ? (partial.mode === 'invoice' ? L('invoiceTitle') : L('receiveTitle')) + ' ' + docNo(partial.doc) + ' — ' + (partial.doc?.supplier_name || '')
+    : partial.mode === 'invoice' ? L('partialInvoice') + ' — ' + docNo(partial.doc) : partial.mode === 'return' ? (isSales ? L('creditNote') : L('supplierReturn')) + ' — ' + docNo(partial.doc) : (isSales ? L('partialDelivery') : L('partialReceipt'));
 
   return (
-    <Modal title={partial.mode === 'invoice' ? L('partialInvoice') + ' — ' + docNo(partial.doc) : partial.mode === 'return' ? (isSales ? L('creditNote') : L('supplierReturn')) + ' — ' + docNo(partial.doc) : (isSales ? L('partialDelivery') : L('partialReceipt'))} onClose={close} wide>
+    <Modal title={modalTitle} onClose={close} wide>
       {partial.mode === 'return' ? (
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-3 text-sm">
           <label className="flex items-center gap-2 font-semibold">
@@ -7276,9 +8722,21 @@ function PartialModal({ L, isSales, partial, setPartial, save, close }) {
           <p className="text-xs text-slate-500 mt-1">{L('returnHint')}</p>
         </div>
       ) : null}
-      <label className="text-xs text-slate-500">{L('date')}
-        <input className="input mt-1 mb-3" type="date" value={partial.date || today()} onChange={e => setPartial({ ...partial, date: e.target.value })} />
-      </label>
+      <div className={purchaseMode ? 'grid md:grid-cols-3 gap-3' : ''}>
+        <label className="text-xs text-slate-500 block">{L('date')}
+          <input className="input mt-1 mb-3" type="date" value={partial.date || today()} onChange={e => setPartial({ ...partial, date: e.target.value })} />
+        </label>
+        {purchaseMode ? (
+          <label className="text-xs text-slate-500 block">{partial.mode === 'invoice' ? L('supplierInvRef') : L('supplierBlRef')}
+            <input className="input mt-1 mb-3" value={partial.supplierRef || ''} onChange={e => setPartial({ ...partial, supplierRef: e.target.value })} placeholder="Ex. : BL-4587" />
+          </label>
+        ) : null}
+        {purchaseMode && partial.mode === 'invoice' ? (
+          <label className="text-xs text-slate-500 block">{L('dueDate')}
+            <input className="input mt-1 mb-3" type="date" value={partial.dueDate || ''} onChange={e => setPartial({ ...partial, dueDate: e.target.value })} />
+          </label>
+        ) : null}
+      </div>
 
       <div className="flex gap-2 flex-wrap mb-3">
         <button onClick={restoreAll} className="btn bg-white border">{L('restoreLine')}</button>
@@ -7296,6 +8754,8 @@ function PartialModal({ L, isSales, partial, setPartial, save, close }) {
               <th>{L('alreadyProcessed')}</th>
               <th>{L('remainingQty')}</th>
               <th>{L('qtyToProcess')}</th>
+              {purchaseMode ? <th title={L('unitPriceHTHint')}>{L('unitPriceHT')}</th> : null}
+              {purchaseMode ? <th>{L('totalHT')}</th> : null}
               <th>{L('actions')}</th>
             </tr>
           </thead>
@@ -7319,7 +8779,8 @@ function PartialModal({ L, isSales, partial, setPartial, save, close }) {
                 <td className="font-bold">{fmt(l.remainingQty || 0)}</td>
                 <td>
                   <input
-                    className="input max-w-xs"
+                    className="input"
+                    style={{ minWidth: 80, maxWidth: 120 }}
                     type="number"
                     min="0"
                     max={Number(l.remainingQty || 0)}
@@ -7329,6 +8790,13 @@ function PartialModal({ L, isSales, partial, setPartial, save, close }) {
                     onChange={e => updateLine(i, e.target.value)}
                   />
                 </td>
+                {purchaseMode ? (
+                  <td>
+                    <input className="input" style={{ minWidth: 90, maxWidth: 120 }} type="number" min="0" step="0.01" disabled={!!l.excluded} title={L('unitPriceHTHint')}
+                      value={l.prixUnitEdit !== undefined ? l.prixUnitEdit : Number(l.prixUnit || 0)} onChange={e => setPrice(i, e.target.value)} />
+                  </td>
+                ) : null}
+                {purchaseMode ? <td className="font-semibold whitespace-nowrap">{l.excluded ? '-' : dh(lineNet({ ...l, qte: Number(l.qteToProcess || 0), prixUnit: priceOf(l) }))}</td> : null}
                 <td>
                   <button onClick={() => toggleExclude(i)} className={l.excluded ? 'btn bg-emerald-600 text-white' : 'btn bg-red-600 text-white'}>
                     {l.excluded ? L('restoreLine') : L('removeLine')}
@@ -7343,8 +8811,9 @@ function PartialModal({ L, isSales, partial, setPartial, save, close }) {
       <div className="flex justify-between items-center">
         <div className="text-sm text-slate-500">
           {L('qtyToProcess')} : <b>{fmt(totalToProcess)}</b> · {L('includeLine')} : <b>{includedLines.length}</b> / {lines.length}
+          {purchaseMode ? <div className="mt-1">{L('totalHT')} : <b>{dh(ht)}</b> · {L('totalVAT')} ({fmt(vatRate)}%) : <b>{dh(ht * vatRate / 100)}</b> · {L('totalTTC')} : <b className="text-slate-900">{dh(ht * (1 + vatRate / 100))}</b></div> : null}
         </div>
-        <button disabled={totalToProcess <= 0} onClick={save} className="btn bg-amber-500 disabled:opacity-50">{L('save')}</button>
+        <button disabled={totalToProcess <= 0} onClick={save} className="btn bg-amber-500 disabled:opacity-50">{purchaseMode ? '✔ ' + (partial.mode === 'invoice' ? L('invoiceAction') : L('receiveAction')) : L('save')}</button>
       </div>
     </Modal>
   );
@@ -7609,6 +9078,24 @@ function ExpensesCenter({ L }) {
         <button onClick={load} className="btn bg-white border">↻</button>
         {writable && tab === 'trips' ? <button onClick={() => setTripForm({ date: today(), status: 'ouvert', branch_id: expenseBranchId() })} className="btn bg-amber-500">{L('addTrip')}</button> : null}
         {writable && tab === 'charges' ? <button onClick={() => setExpForm({ date: today(), category: 'Transport', branch_id: expenseBranchId() })} className="btn bg-amber-500">{L('addExpense')}</button> : null}
+        <ExportButtons L={L} spec={() => ({
+          fileName: 'Charges_deplacements', title: L('expensesMod'),
+          sheets: [
+            { name: L('trips'), columns: [
+              { key: 'num_dep', header: L('tripNum') }, { key: 'date', header: L('date'), type: 'date' }, { key: 'label', header: L('tripLabel') },
+              { key: 'destination', header: L('destination') }, { key: 'vehicle', header: L('vehicle') }, { key: 'manager', header: L('manager2') },
+              { value: t => tripStats(t.id).grossMargin, header: L('grossMarginLbl'), type: 'money' },
+              { value: t => tripStats(t.id).totalCharges, header: L('totalCharges'), type: 'money' },
+              { value: t => tripStats(t.id).net, header: L('netMargin'), type: 'money' }
+            ], rows: trips },
+            { name: L('charges'), columns: [
+              { key: 'num_chg', header: L('chargeNum') }, { key: 'date', header: L('date'), type: 'date' }, { key: 'category', header: L('chargeCat') },
+              { key: 'label', header: L('tripLabel') }, { key: 'beneficiary', header: L('beneficiary') },
+              { value: e => trips.find(t => String(t.id) === String(e.trip_id))?.num_dep || L('noTrip'), header: L('trip') },
+              { key: 'amount', header: L('amount'), type: 'money' }
+            ], rows: expenses }
+          ]
+        })} />
       </Header>
 
       <div className="grid md:grid-cols-4 gap-3 mb-4">
@@ -7846,7 +9333,21 @@ function Parties({ L, type }) {
     <>
       <Header title={type === 'clients' ? L('clients') : L('suppliers')}>
         <input className="input max-w-xs" placeholder={L('search')} value={search} onChange={e => setSearch(e.target.value)} />
-        {can('data.export') ? <button onClick={() => downloadCsv((type === 'clients' ? 'clients.csv' : 'fournisseurs.csv'), filteredRows.map(x => ({ nom: x.name, ice: x.ice, telephone: x.phone, ville: x.city, cree_par: x.createdByLabel, affecte_a: x.assignedToLabel })))} className="btn bg-white border">{L('exportCsv')}</button> : null}
+        <ExportButtons L={L} spec={() => ({
+          fileName: type === 'clients' ? 'Clients' : 'Fournisseurs', title: type === 'clients' ? L('clients') : L('suppliers'),
+          sheets: [{ name: type === 'clients' ? L('clients') : L('suppliers'), totals: false,
+            note: 'Fichier réimportable : ' + (type === 'clients' ? 'Clients' : 'Fournisseurs') + ' → Import Excel.',
+            columns: type === 'clients' ? [
+              { key: 'name', header: 'Nom' }, { key: 'type', header: 'Type (entreprise / particulier)' }, { key: 'phone', header: 'Téléphone' },
+              { key: 'city', header: 'Ville' }, { key: 'address', header: 'Adresse' }, { key: 'ice', header: 'ICE' },
+              { key: 'price_tier', header: 'Tarif (detail / gros)' }, { key: 'credit_limit', header: 'Plafond de crédit (DH, 0 = aucun)', type: 'money' },
+              { key: 'createdByLabel', header: L('createdBy') }, { key: 'assignedToLabel', header: L('assignedTo') }
+            ] : [
+              { key: 'name', header: 'Nom' }, { key: 'contact', header: 'Contact' }, { key: 'phone', header: 'Téléphone' },
+              { key: 'city', header: 'Ville' }, { key: 'address', header: 'Adresse' }, { key: 'ice', header: 'ICE' },
+              { key: 'createdByLabel', header: L('createdBy') }
+            ], rows: filteredRows }]
+        })} />
         {type === 'clients' ? (
           <select className="input max-w-xs" value={ownerFilter} onChange={e => setOwnerFilter(e.target.value)}>
             <option value="all">{L('all')} - {L('clientOwner')}</option>
@@ -8137,6 +9638,14 @@ function StockMovements({ L }) {
     <>
       <Header title={L('stockMoves')}>
         <button onClick={load} className="btn bg-white border">↻</button>
+        <ExportButtons L={L} spec={() => ({
+          fileName: 'Mouvements_stock', title: L('stockMoves'),
+          sheets: [{ name: L('stockMoves'), columns: [
+            { key: 'date', header: L('date'), type: 'datetime' }, { key: 'ref', header: L('ref') }, { key: 'productName', header: L('product') },
+            { key: 'branchName', header: L('location') }, { key: 'quantity', header: L('quantity'), type: 'qty', total: true },
+            { key: 'docType', header: L('docType') }, { key: 'docNumber', header: 'N° Doc' }, { key: 'userLabel', header: L('actor') }, { key: 'reason', header: L('reason') }
+          ], rows: filtered }]
+        })} />
       </Header>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
@@ -8233,6 +9742,13 @@ function AuditLog({ L }) {
     <>
       <Header title={L('audit')}>
         <button onClick={load} className="btn bg-white border">↻</button>
+        <ExportButtons L={L} spec={() => ({
+          fileName: 'Journal_activite', title: L('audit'),
+          sheets: [{ name: L('audit'), totals: false, columns: [
+            { key: 'created_at', header: L('date'), type: 'datetime' }, { key: 'user_label', header: L('actor') }, { key: 'module', header: L('module') },
+            { value: x => docActionLabel(x.action), header: L('actions') }, { key: 'object_label', header: L('object') }, { key: 'detail', header: L('detail') }
+          ], rows: filtered }]
+        })} />
       </Header>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
@@ -8359,6 +9875,7 @@ function MobileAppAdmin({ L }) {
 function Settings({ L }) {
   const [settings, setSettings] = useState(null);
   const [err, setErr] = useState('');
+  const [saving, setSaving] = useState(false);
 
   async function load() {
     try {
@@ -8372,59 +9889,64 @@ function Settings({ L }) {
   useEffect(() => { load(); }, []);
 
   async function save() {
+    setSaving(true);
     try {
       await saveSettings(settings);
+      auditLog('Paramètres', 'UPDATE', 'Paramètres', 'Société / charte graphique / messages').catch?.(() => {});
       alert('Paramètres enregistrés');
     } catch (e) {
       alert(e.message);
     }
+    setSaving(false);
   }
 
   if (err) return <ErrorBox msg={err} />;
   if (!settings) return <p>Chargement...</p>;
+  const set = (k, v) => setSettings(prev => ({ ...prev, [k]: v }));
+  const field = (k, label, props = {}) => (
+    <label className="text-xs text-slate-500 block">{label}
+      <input className="input mt-1 mb-2" value={settings[k] || ''} onChange={e => set(k, e.target.value)} {...props} />
+    </label>
+  );
 
   return (
     <>
       <Header title={L('settings') || 'Paramètres'}>
-        <button onClick={save} className="btn bg-amber-500">{L('save') || 'Enregistrer'}</button>
+        <button disabled={saving} onClick={save} className="btn bg-amber-500">{saving ? '…' : (L('save') || 'Enregistrer')}</button>
       </Header>
 
       <div className="grid md:grid-cols-2 gap-4">
         <div className="card p-5">
           <h2 className="font-bold mb-3">{L('company') || 'Société'}</h2>
-
-          <label className="text-xs text-slate-500">{L('company') || 'Société'}
-            <input className="input mt-1 mb-2" value={settings.company_name || ''} onChange={e => setSettings({ ...settings, company_name: e.target.value })} />
-          </label>
-
-          <label className="text-xs text-slate-500">{L('ice') || 'ICE'}
-            <input className="input mt-1 mb-2" value={settings.company_ice || ''} onChange={e => setSettings({ ...settings, company_ice: e.target.value })} />
-          </label>
-
-          <label className="text-xs text-slate-500">{L('phone') || 'Téléphone'}
-            <input className="input mt-1 mb-2" value={settings.company_phone || ''} onChange={e => setSettings({ ...settings, company_phone: e.target.value })} />
-          </label>
-
-          <label className="text-xs text-slate-500">{L('address') || 'Adresse'}
-            <textarea className="input mt-1" value={settings.company_address || ''} onChange={e => setSettings({ ...settings, company_address: e.target.value })} />
+          {field('company_name', L('company') || 'Société')}
+          <div className="grid grid-cols-2 gap-x-3">
+            {field('company_phone', L('phone') || 'Téléphone', { inputMode: 'tel' })}
+            {field('company_email', L('companyEmail'), { type: 'email' })}
+          </div>
+          {field('company_website', L('companyWebsite'))}
+          <label className="text-xs text-slate-500 block">{L('address') || 'Adresse'}
+            <textarea className="input mt-1" rows={2} value={settings.company_address || ''} onChange={e => set('company_address', e.target.value)} />
           </label>
         </div>
 
         <div className="card p-5">
-          <h2 className="font-bold mb-3">Paramètres généraux</h2>
-
-          <label className="text-xs text-slate-500">{L('vat') || 'TVA'} %
-            <input className="input mt-1 mb-2" type="number" value={settings.vat_rate || '20'} onChange={e => setSettings({ ...settings, vat_rate: e.target.value })} />
-          </label>
-
-          <label className="text-xs text-slate-500">{L('theme') || 'Thème'}
-            <select className="input mt-1" value={settings.theme || 'light'} onChange={e => setSettings({ ...settings, theme: e.target.value })}>
-              <option value="light">Light</option>
-              <option value="dark">Dark</option>
-              <option value="corporate">Corporate</option>
-            </select>
-          </label>
+          <h2 className="font-bold mb-3">{L('companyLegal')}</h2>
+          <div className="grid grid-cols-2 gap-x-3">
+            {field('company_ice', L('ice') || 'ICE')}
+            {field('company_rc', L('companyRc'))}
+            {field('company_if', L('companyIf'))}
+            {field('company_patente', L('companyPatente'))}
+            {field('company_cnss', L('companyCnss'))}
+            <label className="text-xs text-slate-500 block">{L('vat') || 'TVA'} %
+              <input className="input mt-1 mb-2" type="number" value={settings.vat_rate || '20'} onChange={e => set('vat_rate', e.target.value)} />
+            </label>
+          </div>
+          {field('company_rib', L('companyRib'))}
         </div>
+
+        <BrandingSettings L={L} settings={settings} set={set} />
+
+        <WaTemplatesSettings L={L} settings={settings} set={set} />
 
         <div className="card p-5 md:col-span-2">
           <h2 className="font-bold mb-1">{L('alertsSettings')}</h2>
@@ -8438,12 +9960,12 @@ function Settings({ L }) {
             ].map(([flag, label, valueKey, valueLabel]) => (
               <div key={flag} className="border rounded-xl p-3 bg-slate-50">
                 <label className="flex items-center gap-2 font-semibold text-sm">
-                  <input type="checkbox" checked={String(settings[flag] ?? '1') !== '0'} onChange={e => setSettings({ ...settings, [flag]: e.target.checked ? '1' : '0' })} />
+                  <input type="checkbox" checked={String(settings[flag] ?? '1') !== '0'} onChange={e => set(flag, e.target.checked ? '1' : '0')} />
                   {label}
                 </label>
                 {valueKey ? (
                   <label className="text-xs text-slate-500 block mt-2">{valueLabel}
-                    <input className="input mt-1" type="number" min="0" disabled={String(settings[flag] ?? '1') === '0'} value={settings[valueKey] ?? ''} onChange={e => setSettings({ ...settings, [valueKey]: e.target.value })} />
+                    <input className="input mt-1" type="number" min="0" disabled={String(settings[flag] ?? '1') === '0'} value={settings[valueKey] ?? ''} onChange={e => set(valueKey, e.target.value)} />
                   </label>
                 ) : <p className="text-xs text-slate-400 mt-2">{L('alertStockHint')}</p>}
               </div>
@@ -8452,6 +9974,167 @@ function Settings({ L }) {
         </div>
       </div>
     </>
+  );
+}
+
+/* ---------- V52 : réglages de la charte graphique ---------- */
+function BrandingSettings({ L, settings, set }) {
+  const fileRef = useRef(null);
+  const [busy, setBusy] = useState(false);
+  const b = brandFromSettings(settings);
+  const preview = { ...b, name: settings.company_name || 'DrogueriePro', phone: settings.company_phone, address: settings.company_address, email: settings.company_email, ice: settings.company_ice };
+  async function pick(file) {
+    if (!file) return;
+    setBusy(true);
+    try {
+      const r = await processLogoFile(file);
+      set('brand_logo', r.dataUrl);
+      // Premier logo avec les couleurs par défaut : on propose directement les couleurs du logo
+      if (normHex(settings.brand_primary, BRAND_DEFAULTS.primary) === BRAND_DEFAULTS.primary && normHex(settings.brand_accent, BRAND_DEFAULTS.accent) === BRAND_DEFAULTS.accent) {
+        const c = await extractLogoColors(r.dataUrl).catch(() => null);
+        if (c) { set('brand_primary', c.primary); set('brand_accent', c.accent); }
+      }
+    } catch (e) { alert(e.message); }
+    setBusy(false);
+    if (fileRef.current) fileRef.current.value = '';
+  }
+  async function fromLogo() {
+    if (!b.logo) return;
+    const c = await extractLogoColors(b.logo).catch(e => { alert(e.message); return null; });
+    if (c) { set('brand_primary', c.primary); set('brand_accent', c.accent); }
+  }
+  const colorField = (k, label, fallback) => (
+    <label className="text-xs text-slate-500 block">{label}
+      <div className="flex items-center gap-2 mt-1">
+        <input type="color" className="brand-color" value={normHex(settings[k], fallback)} onChange={e => set(k, e.target.value)} />
+        <input className="input font-mono" style={{ maxWidth: 120 }} value={settings[k] || fallback} onChange={e => set(k, e.target.value)} onBlur={e => set(k, normHex(e.target.value, fallback))} />
+      </div>
+    </label>
+  );
+  return (
+    <div className="card p-5 md:col-span-2 brand-settings">
+      <h2 className="font-bold mb-1">🎨 {L('brandTitle')}</h2>
+      <p className="text-xs text-slate-500 mb-4">{L('brandHint')}</p>
+      <div className="grid lg:grid-cols-2 gap-6">
+        <div className="space-y-4">
+          <div>
+            <div className="text-xs text-slate-500 mb-1">{L('brandLogo')}</div>
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="brand-logo-box">{b.logo ? <img src={b.logo} alt="logo" /> : <span className="text-slate-400 text-xs">—</span>}</div>
+              <div className="flex flex-col gap-2">
+                <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp,image/gif" className="hidden" onChange={e => pick(e.target.files?.[0])} />
+                <button type="button" disabled={busy} onClick={() => fileRef.current?.click()} className="btn bg-slate-900 text-white">{busy ? '…' : '🖼 ' + L('brandLogoChoose')}</button>
+                {b.logo ? <button type="button" onClick={() => set('brand_logo', '')} className="btn bg-white border text-red-600">{L('brandLogoRemove')}</button> : null}
+              </div>
+            </div>
+            <p className="text-xs text-slate-400 mt-1">{L('brandLogoHint')}</p>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {colorField('brand_primary', L('brandPrimary'), BRAND_DEFAULTS.primary)}
+            {colorField('brand_accent', L('brandAccent'), BRAND_DEFAULTS.accent)}
+          </div>
+          <div>
+            <div className="text-xs text-slate-500 mb-1">{L('brandPresets')}</div>
+            <div className="flex flex-wrap gap-2 items-center">
+              {BRAND_PRESETS.map(([p1, a1]) => (
+                <button type="button" key={p1 + a1} title={p1 + ' / ' + a1} className="brand-swatch" onClick={() => { set('brand_primary', p1); set('brand_accent', a1); }}>
+                  <span style={{ background: p1 }} /><span style={{ background: a1 }} />
+                </button>
+              ))}
+              {b.logo ? <button type="button" onClick={fromLogo} className="btn bg-white border text-sm">🎯 {L('brandFromLogo')}</button> : null}
+              <button type="button" onClick={() => { set('brand_primary', BRAND_DEFAULTS.primary); set('brand_accent', BRAND_DEFAULTS.accent); }} className="btn bg-white border text-sm">{L('brandReset')}</button>
+            </div>
+          </div>
+          <label className="text-xs text-slate-500 block">{L('brandSlogan')}
+            <input className="input mt-1" value={settings.brand_slogan || ''} onChange={e => set('brand_slogan', e.target.value)} placeholder="Ex. : Tout pour la peinture et le bâtiment" />
+          </label>
+          <label className="text-xs text-slate-500 block">{L('brandDocFooter')}
+            <textarea className="input mt-1" rows={2} value={settings.brand_doc_footer || ''} onChange={e => set('brand_doc_footer', e.target.value)} placeholder={L('brandDocFooterHint')} />
+          </label>
+          <label className="text-xs text-slate-500 block">{L('brandTicketMessage')}
+            <input className="input mt-1" value={settings.brand_ticket_message || ''} onChange={e => set('brand_ticket_message', e.target.value)} placeholder="Merci de votre visite" />
+          </label>
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={String(settings.brand_ticket_logo ?? '1') !== '0'} onChange={e => set('brand_ticket_logo', e.target.checked ? '1' : '0')} /> {L('brandTicketLogo')}</label>
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={String(settings.brand_apply_app ?? '1') !== '0'} onChange={e => set('brand_apply_app', e.target.checked ? '1' : '0')} /> {L('brandApplyApp')}</label>
+        </div>
+        <div>
+          <div className="text-xs text-slate-500 mb-1">{L('brandPreview')}</div>
+          <div className="brand-preview">
+            <div className="simple-document" style={docStyle(preview)}>
+              <DocBrandHeader L={L} company={preview} title={L('customerInvoice')} number="FAC-2026-0001" date={frDate(today())} />
+              <table className="simple-lines">
+                <thead><tr><th>{L('product')}</th><th>{L('quantity')}</th><th>{L('totalTTC')}</th></tr></thead>
+                <tbody>
+                  <tr><td>Peinture blanche 5L</td><td>2</td><td>360,00 DH</td></tr>
+                  <tr><td>Rouleau 180 mm</td><td>3</td><td>135,00 DH</td></tr>
+                </tbody>
+              </table>
+              <div className="simple-totals mt-2" style={{ maxWidth: 240, marginInlineStart: 'auto' }}>
+                <div className="simple-grand"><span>{L('netToPay')}</span><b>495,00 DH</b></div>
+              </div>
+              <DocFooterText company={{ docFooter: settings.brand_doc_footer, rib: settings.company_rib }} />
+            </div>
+            <div className="brand-app-preview" style={brandVars(b)}>
+              <div className="bap-side">
+                {b.logo ? <img src={b.logo} alt="" /> : null}
+                <b>{settings.company_name || 'DrogueriePro'}</b>
+                <span className="bap-item on">{L('dashboard')}</span>
+                <span className="bap-item">{L('sales')}</span>
+              </div>
+              <div className="bap-main">
+                <span className="bap-btn">{L('new')}</span>
+                <span className="bap-xl">📊 Excel</span>
+              </div>
+            </div>
+          </div>
+          <p className="text-xs text-slate-400 mt-2">{L('brandSaveHint')}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- V52 : modèles de messages WhatsApp ---------- */
+function WaTemplatesSettings({ L, settings, set }) {
+  const [kind, setKind] = useState('doc');
+  return (
+    <div className="card p-5 md:col-span-2">
+      <h2 className="font-bold mb-1">🟢 {L('waTemplates')}</h2>
+      <p className="text-xs text-slate-500 mb-3">{L('waTemplatesHint')}</p>
+      <div className="flex flex-wrap gap-2 mb-3">
+        {WA_KINDS.map(k => (
+          <button type="button" key={k} onClick={() => setKind(k)} className={'btn text-sm ' + (kind === k ? 'bg-slate-900 text-white' : 'bg-white border')}>{L('waKind_' + k)}</button>
+        ))}
+      </div>
+      <div className="grid md:grid-cols-2 gap-4">
+        {['fr', 'ar'].map(lang => {
+          const key = 'wa_tpl_' + kind + '_' + lang;
+          return (
+            <div key={lang}>
+              <div className="flex justify-between items-center mb-1">
+                <span className="text-xs text-slate-500 font-semibold">{lang === 'fr' ? 'Français' : 'العربية'}</span>
+                <button type="button" onClick={() => set(key, '')} className="text-xs text-sky-700 underline">{L('waRestore')}</button>
+              </div>
+              <textarea className="input font-sans" rows={9} dir={lang === 'ar' ? 'rtl' : 'ltr'}
+                value={String(settings[key] || '').trim() ? settings[key] : WA_DEFAULTS[lang][kind]}
+                onChange={e => set(key, e.target.value === WA_DEFAULTS[lang][kind] ? '' : e.target.value)} />
+            </div>
+          );
+        })}
+      </div>
+      <div className="grid md:grid-cols-2 gap-4 mt-3">
+        <label className="text-xs text-slate-500 block">{L('waDefaultLang')}
+          <select className="input mt-1" value={settings.wa_default_lang || ''} onChange={e => set('wa_default_lang', e.target.value)}>
+            <option value="">{L('lang') === 'Français' ? 'لغة التطبيق' : 'Langue de l\'application'}</option>
+            <option value="fr">Français</option>
+            <option value="ar">العربية</option>
+          </select>
+        </label>
+        <label className="text-xs text-slate-500 block">{L('waLinkDefaultDays')}
+          <input className="input mt-1" type="number" min="1" max="365" value={settings.wa_link_days || '30'} onChange={e => set('wa_link_days', e.target.value)} />
+        </label>
+      </div>
+    </div>
   );
 }
 
