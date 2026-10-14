@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { createClient } from '@supabase/supabase-js';
 import './index.css';
 
-console.log('DROGUERIEPRO V50 OK');
+console.log('DROGUERIEPRO V51 OK');
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -384,6 +384,9 @@ Object.assign(TXT.fr, {
   "bkRestore1": "Créez un projet Supabase vide.",
   "bkRestore2": "Ouvrez SQL Editor, collez le fichier « Sauvegarde complète » et cliquez sur Run.",
   "bkRestore3": "Branchez l'application sur ce projet (URL et clé dans Vercel). Les utilisateurs se reconnectent avec leurs mots de passe habituels.",
+  "bkPortable": "SQL normalisé (tout SGBD)",
+  "bkPortableHint": "Structure (tables, clés primaires, uniques, étrangères, index) + toutes les données, écrites en SQL standard ou adaptées au SGBD choisi : MySQL / MariaDB, SQL Server, Oracle, SQLite, PostgreSQL.",
+  "bkPortableNote": "Types, guillemets, booléens, dates et compteurs automatiques sont convertis pour le SGBD choisi. Les fonctions et règles de sécurité propres à PostgreSQL ne sont pas transposables : elles restent dans la sauvegarde complète Supabase.",
   "bkSecurity": "Le fichier contient toutes vos données, y compris les mots de passe chiffrés : conservez-le en lieu sûr. Les fichiers joints (Supabase Storage) ne sont pas inclus, seulement leurs références."
 });
 Object.assign(TXT.ar, {
@@ -453,6 +456,9 @@ Object.assign(TXT.ar, {
   "bkRestore1": "أنشئ مشروع Supabase فارغاً.",
   "bkRestore2": "افتح SQL Editor، الصق ملف « النسخة الكاملة » واضغط Run.",
   "bkRestore3": "اربط التطبيق بهذا المشروع (الرابط والمفتاح في Vercel). يدخل المستخدمون بكلمات مرورهم المعتادة.",
+  "bkPortable": "SQL موحّد (لكل أنظمة قواعد البيانات)",
+  "bkPortableHint": "البنية (الجداول، المفاتيح الأساسية والفريدة والخارجية، الفهارس) + كل المعطيات، بلغة SQL القياسية أو مكيّفة للنظام المختار: MySQL / MariaDB، SQL Server، Oracle، SQLite، PostgreSQL.",
+  "bkPortableNote": "تُحوَّل الأنواع وعلامات الاقتباس والقيم المنطقية والتواريخ والعدادات التلقائية حسب النظام المختار. الدوال وقواعد الأمان الخاصة بـ PostgreSQL غير قابلة للنقل: تبقى في النسخة الكاملة لـ Supabase.",
   "bkSecurity": "الملف يحتوي على كل معطياتك بما فيها كلمات المرور المشفرة: احفظه في مكان آمن. الملفات المرفقة (Supabase Storage) غير مدرجة، فقط مراجعها."
 });
 
@@ -4063,12 +4069,313 @@ async function serverBackupJson() {
   return data || { tables: {}, sequences: {} };
 }
 
+// V51 : sauvegarde en SQL normalisé (tout SGBD) — structure neutre + données
+async function serverBackupMeta() {
+  const { data, error } = await supabase.rpc('app_backup_meta');
+  if (error) throw new Error(isMissingFunctionError(error) ? 'Exécutez MAJ_V51_SUPABASE.sql pour la sauvegarde SQL normalisée.' : error.message);
+  return data || { tables: [] };
+}
+
+const SQL_DIALECTS = [
+  { key: 'ansi', label: 'SQL standard (ANSI SQL:2003)', file: 'ANSI' },
+  { key: 'mysql', label: 'MySQL / MariaDB', file: 'MySQL' },
+  { key: 'sqlserver', label: 'Microsoft SQL Server', file: 'SQLServer' },
+  { key: 'oracle', label: 'Oracle (12c et +)', file: 'Oracle' },
+  { key: 'postgres', label: 'PostgreSQL', file: 'PostgreSQL' },
+  { key: 'sqlite', label: 'SQLite', file: 'SQLite' }
+];
+
+// Nature d'une colonne PostgreSQL, indépendante du SGBD
+function portableKind(col) {
+  const b = String(col.base || '').toLowerCase();
+  if (['int2', 'int4', 'int8'].includes(b)) return b === 'int8' ? 'bigint' : b === 'int2' ? 'smallint' : 'int';
+  if (b === 'numeric') return 'numeric';
+  if (['float4', 'float8'].includes(b)) return 'float';
+  if (b === 'bool') return 'bool';
+  if (b === 'date') return 'date';
+  if (['timestamptz', 'timestamp'].includes(b)) return 'timestamp';
+  if (b === 'time' || b === 'timetz') return 'time';
+  if (b === 'json' || b === 'jsonb' || b.startsWith('_')) return 'json';
+  if (b === 'uuid') return 'uuid';
+  if (b === 'bytea') return 'binary';
+  return 'text';
+}
+
+function portableQuote(name, d) {
+  if (d === 'mysql') return '`' + String(name).replace(/`/g, '``') + '`';
+  if (d === 'sqlserver') return '[' + String(name).replace(/]/g, ']]') + ']';
+  if (d === 'oracle') return '"' + String(name).toUpperCase().replace(/"/g, '""') + '"';
+  return '"' + String(name).replace(/"/g, '""') + '"';
+}
+
+// Noms de contraintes/index : 30 caractères au plus pour Oracle
+function portableIdent(name, d) {
+  let n = String(name);
+  if (d === 'oracle' && n.length > 30) {
+    let h = 0; for (const ch of n) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+    n = n.slice(0, 23) + '_' + h.toString(36).slice(0, 6);
+  }
+  return portableQuote(n, d);
+}
+
+function portableType(col, d, ctx) {
+  const k = portableKind(col);
+  const m = /\((\d+)(?:,\s*(\d+))?\)/.exec(col.type || '');
+  const p = m ? Number(m[1]) : null, s = m && m[2] !== undefined ? Number(m[2]) : null;
+  const textLen = Math.max(255, Math.ceil((ctx.maxLen || 0) / 50) * 50);
+  switch (k) {
+    case 'smallint': return d === 'oracle' ? 'NUMBER(5)' : d === 'sqlite' ? 'INTEGER' : 'SMALLINT';
+    case 'int': return d === 'oracle' ? 'NUMBER(10)' : 'INTEGER';
+    case 'bigint': return d === 'oracle' ? 'NUMBER(19)' : d === 'sqlite' ? 'INTEGER' : 'BIGINT';
+    case 'numeric': {
+      const pp = p || 19, ss = s ?? (p ? 0 : 4);
+      return d === 'oracle' ? `NUMBER(${pp},${ss})` : d === 'sqlite' ? 'NUMERIC' : `DECIMAL(${pp},${ss})`;
+    }
+    case 'float': return d === 'oracle' ? 'BINARY_DOUBLE' : d === 'sqlserver' ? 'FLOAT' : d === 'sqlite' ? 'REAL' : 'DOUBLE PRECISION';
+    case 'bool': return d === 'mysql' ? 'TINYINT(1)' : d === 'sqlserver' ? 'BIT' : d === 'oracle' ? 'NUMBER(1)' : d === 'sqlite' ? 'INTEGER' : 'BOOLEAN';
+    case 'date': return d === 'sqlite' ? 'TEXT' : 'DATE';
+    case 'timestamp': return d === 'mysql' ? 'DATETIME(3)' : d === 'sqlserver' ? 'DATETIME2(3)' : d === 'sqlite' ? 'TEXT' : 'TIMESTAMP';
+    case 'time': return d === 'oracle' ? 'VARCHAR2(20)' : d === 'sqlite' ? 'TEXT' : 'TIME';
+    case 'uuid': return d === 'oracle' ? 'CHAR(36)' : d === 'sqlserver' ? 'CHAR(36)' : d === 'sqlite' ? 'TEXT' : d === 'postgres' ? 'UUID' : 'CHAR(36)';
+    case 'binary': return d === 'mysql' ? 'LONGBLOB' : d === 'sqlserver' ? 'VARBINARY(MAX)' : d === 'oracle' ? 'BLOB' : d === 'sqlite' ? 'BLOB' : d === 'postgres' ? 'BYTEA' : 'BLOB';
+    case 'json':
+      return d === 'mysql' ? 'LONGTEXT' : d === 'sqlserver' ? 'NVARCHAR(MAX)' : d === 'oracle' ? 'CLOB' : d === 'sqlite' ? 'TEXT' : d === 'postgres' ? (col.base === 'json' ? 'JSON' : 'JSONB') : 'CLOB';
+    default: {
+      const declared = /character varying\((\d+)\)|character\((\d+)\)/.exec(col.type || '');
+      const n = declared ? Number(declared[1] || declared[2]) : null;
+      if (d === 'sqlite') return 'TEXT';
+      if (d === 'postgres') return n ? `VARCHAR(${n})` : 'TEXT';
+      if (ctx.indexed || n) {
+        const len = Math.max(n || 0, textLen);
+        if (d === 'sqlserver') return `NVARCHAR(${Math.min(len, 450)})`;
+        if (d === 'oracle') return `VARCHAR2(${Math.min(len, 1000)} CHAR)`;
+        return `VARCHAR(${d === 'mysql' ? Math.min(len, 768) : len})`;
+      }
+      if (d === 'mysql') return (ctx.maxLen || 0) > 16000 ? 'LONGTEXT' : 'TEXT';
+      if (d === 'sqlserver') return 'NVARCHAR(MAX)';
+      if (d === 'oracle') return (ctx.maxLen || 0) > 1000 ? 'CLOB' : 'VARCHAR2(4000 CHAR)';
+      return (ctx.maxLen || 0) > 4000 ? 'CLOB' : 'VARCHAR(4000)';
+    }
+  }
+}
+
+function portableBool(v, d) {
+  if (['sqlserver', 'oracle', 'sqlite'].includes(d)) return v ? '1' : '0';
+  return v ? 'TRUE' : 'FALSE';
+}
+
+function portableString(str, d, col) {
+  let s = String(str);
+  if (d === 'oracle' && s === '' && col?.notnull) s = ' '; // Oracle : chaîne vide = NULL
+  if (d === 'mysql') s = s.replace(/\\/g, '\\\\');
+  s = s.replace(/'/g, "''");
+  if (d === 'sqlserver') return "N'" + s + "'";
+  if (d === 'oracle' && s.length > 1000) {
+    const parts = [];
+    for (let i = 0; i < s.length; i += 1000) {
+      let chunk = s.slice(i, i + 1000);
+      // ne pas couper une apostrophe doublée en deux
+      if (chunk.endsWith("'") && !chunk.endsWith("''") && s[i + 1000] === "'") { chunk = s.slice(i, i + 1001); i += 1; }
+      parts.push("TO_CLOB('" + chunk + "')");
+    }
+    return parts.join(' || ');
+  }
+  return "'" + s + "'";
+}
+
+function pad2(n) { return String(n).padStart(2, '0'); }
+
+function portableTimestamp(v) {
+  const dt = new Date(v);
+  if (isNaN(dt.getTime())) return String(v);
+  return `${dt.getUTCFullYear()}-${pad2(dt.getUTCMonth() + 1)}-${pad2(dt.getUTCDate())} ${pad2(dt.getUTCHours())}:${pad2(dt.getUTCMinutes())}:${pad2(dt.getUTCSeconds())}.${String(dt.getUTCMilliseconds()).padStart(3, '0')}`;
+}
+
+function portableValue(v, col, d) {
+  if (v === null || v === undefined) return 'NULL';
+  const k = portableKind(col);
+  if (['smallint', 'int', 'bigint', 'numeric', 'float'].includes(k)) {
+    const s = String(v);
+    return /^-?\d+(\.\d+)?(e[+-]?\d+)?$/i.test(s) ? s : 'NULL';
+  }
+  if (k === 'bool') return portableBool(v === true || v === 't' || v === 'true' || v === 1, d);
+  if (k === 'date') {
+    const s = String(v).slice(0, 10);
+    return ['ansi', 'oracle', 'postgres'].includes(d) ? `DATE '${s}'` : `'${s}'`;
+  }
+  if (k === 'timestamp') {
+    const s = portableTimestamp(v);
+    if (['ansi', 'oracle', 'postgres'].includes(d)) return `TIMESTAMP '${s}'`;
+    if (d === 'sqlserver') return `'${s.replace(' ', 'T')}'`;
+    return `'${s}'`;
+  }
+  if (k === 'json') return portableString(typeof v === 'string' ? v : JSON.stringify(v), d, col);
+  if (k === 'binary') return portableString(String(v), d, col);
+  return portableString(typeof v === 'object' ? JSON.stringify(v) : v, d, col);
+}
+
+function portableDefault(col, d, typeStr = '') {
+  const def = String(col.default || '').trim();
+  if (!def || col.identity) return '';
+  const k = portableKind(col);
+  if (/^(now\(\)|CURRENT_TIMESTAMP|transaction_timestamp\(\))$/i.test(def)) {
+    if (k !== 'timestamp') return '';
+    return d === 'mysql' ? ' DEFAULT CURRENT_TIMESTAMP(3)' : ' DEFAULT CURRENT_TIMESTAMP';
+  }
+  if (/^CURRENT_DATE$/i.test(def)) {
+    if (d === 'mysql') return '';
+    if (d === 'sqlserver') return ' DEFAULT CONVERT(date, GETDATE())';
+    return ' DEFAULT CURRENT_DATE';
+  }
+  if (def === 'true' || def === 'false') return ' DEFAULT ' + portableBool(def === 'true', d);
+  const num = /^\(?'?(-?\d+(?:\.\d+)?)'?(?:::[\w\s]+)?\)?$/.exec(def);
+  if (num && ['smallint', 'int', 'bigint', 'numeric', 'float'].includes(k)) return ' DEFAULT ' + num[1];
+  const str = /^'((?:[^']|'')*)'(?:::[\w\s"]+)?$/.exec(def);
+  if (str) {
+    if (d === 'mysql' && /TEXT|BLOB/.test(typeStr)) return ''; // MySQL : pas de valeur par défaut sur TEXT
+    const raw = str[1].replace(/''/g, "'");
+    return ' DEFAULT ' + portableString(raw, d === 'oracle' ? 'ansi' : d, null);
+  }
+  return ''; // fonction propre à PostgreSQL : pas de valeur par défaut portable
+}
+
+function portableOrder(tables) {
+  const byName = Object.fromEntries(tables.map(t => [t.name, t]));
+  const done = new Set(), visiting = new Set(), out = [];
+  const visit = t => {
+    if (done.has(t.name) || visiting.has(t.name)) return;
+    visiting.add(t.name);
+    for (const fk of t.fks || []) if (fk.refTable !== t.name && byName[fk.refTable]) visit(byName[fk.refTable]);
+    visiting.delete(t.name); done.add(t.name); out.push(t);
+  };
+  [...tables].sort((a, b) => a.name.localeCompare(b.name)).forEach(visit);
+  return out;
+}
+
+const PORTABLE_EXCLUDED_DATA = ['app_sessions'];
+
+function buildPortableSql(meta, data, d, opts = {}) {
+  const q = n => portableQuote(n, d);
+  const tables = portableOrder((meta.tables || []).filter(t => (t.columns || []).length));
+  const rowsOf = t => (PORTABLE_EXCLUDED_DATA.includes(t.name) ? [] : (data?.tables?.[t.name] || []));
+  const label = SQL_DIALECTS.find(x => x.key === d)?.label || d;
+  const L = [];
+  const nowTxt = new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
+  let totalRows = 0;
+  L.push('-- =====================================================================');
+  L.push('-- DrogueriePro — SAUVEGARDE SQL NORMALISÉE');
+  L.push('-- SGBD cible : ' + label);
+  L.push('-- Date : ' + nowTxt + (opts.company ? ' · ' + opts.company : ''));
+  L.push('-- Contenu : structure (tables, colonnes, clés primaires, uniques, étrangères, index) + données.');
+  L.push('-- Non portables, donc non inclus : fonctions, déclencheurs et règles de sécurité PostgreSQL');
+  L.push('-- (pour une restauration Supabase à l\'identique, utilisez la « Sauvegarde complète (SQL) »).');
+  L.push('-- =====================================================================');
+  L.push('');
+  if (d === 'mysql') L.push('SET NAMES utf8mb4;', 'SET FOREIGN_KEY_CHECKS = 0;', "SET SESSION sql_mode = REPLACE(@@SESSION.sql_mode, 'NO_BACKSLASH_ESCAPES', '');", '');
+  if (d === 'sqlserver') L.push('SET NOCOUNT ON;', '');
+  if (d === 'oracle') L.push('SET DEFINE OFF;', '');
+  if (d === 'sqlite') L.push('PRAGMA foreign_keys = OFF;', '');
+
+  // Colonnes indexées (pour dimensionner les textes)
+  const indexedCols = t => new Set([...(t.pk || []), ...(t.uniques || []).flatMap(u => u.cols || []), ...(t.fks || []).flatMap(f => f.cols || []), ...(t.indexes || []).flatMap(i => i.cols || [])]);
+  const maxLen = (t, c) => rowsOf(t).reduce((m, r) => { const v = r[c]; if (v === null || v === undefined) return m; const s = typeof v === 'object' ? JSON.stringify(v) : String(v); return Math.max(m, s.length); }, 0);
+
+  L.push('-- ---------- 1. Tables ----------');
+  for (const t of tables) {
+    const idx = indexedCols(t);
+    const pk = t.pk || [];
+    const lines = [];
+    let inlinePk = false;
+    for (const c of t.columns) {
+      const ctx = { indexed: idx.has(c.name), maxLen: maxLen(t, c.name) };
+      let line = '  ' + q(c.name) + ' ';
+      if (d === 'sqlite' && c.identity && pk.length === 1 && pk[0] === c.name) { line += 'INTEGER PRIMARY KEY'; inlinePk = true; lines.push(line); continue; }
+      const typeStr = portableType(c, d, ctx);
+      line += typeStr;
+      if (c.identity) {
+        if (d === 'mysql') line += ' AUTO_INCREMENT';
+        else if (d === 'sqlserver') line += ' IDENTITY(1,1)';
+        else if (d !== 'sqlite') line += ' GENERATED BY DEFAULT AS IDENTITY';
+      } else {
+        line += portableDefault(c, d, typeStr);
+      }
+      if (c.notnull || pk.includes(c.name)) line += ' NOT NULL';
+      lines.push(line);
+    }
+    if (pk.length && !inlinePk) lines.push('  CONSTRAINT ' + portableIdent(t.name + '_pkey', d) + ' PRIMARY KEY (' + pk.map(q).join(', ') + ')');
+    for (const u of t.uniques || []) lines.push('  CONSTRAINT ' + portableIdent(u.name, d) + ' UNIQUE (' + u.cols.map(q).join(', ') + ')');
+    if (d === 'sqlite') {
+      for (const f of t.fks || []) lines.push('  CONSTRAINT ' + q(f.name) + ' FOREIGN KEY (' + f.cols.map(q).join(', ') + ') REFERENCES ' + q(f.refTable) + ' (' + f.refCols.map(q).join(', ') + ')' + (f.onDelete === 'c' ? ' ON DELETE CASCADE' : f.onDelete === 'n' ? ' ON DELETE SET NULL' : ''));
+    }
+    L.push('CREATE TABLE ' + q(t.name) + ' (', lines.join(',\n'), ')' + (d === 'mysql' ? ' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4' : '') + ';', '');
+  }
+
+  L.push('-- ---------- 2. Données ----------');
+  if (d === 'mysql' || d === 'ansi') L.push('START TRANSACTION;');
+  else if (d === 'sqlserver') L.push('BEGIN TRANSACTION;');
+  else if (d === 'sqlite' || d === 'postgres') L.push('BEGIN;');
+  for (const t of tables) {
+    const rows = rowsOf(t);
+    L.push('', `-- ${t.name} : ${rows.length} ligne(s)` + (PORTABLE_EXCLUDED_DATA.includes(t.name) ? ' (sessions de connexion non sauvegardées)' : ''));
+    if (!rows.length) continue;
+    totalRows += rows.length;
+    const cols = t.columns;
+    const hasIdentity = cols.some(c => c.identity);
+    if (d === 'sqlserver' && hasIdentity) L.push('SET IDENTITY_INSERT ' + q(t.name) + ' ON;');
+    const head = 'INSERT INTO ' + q(t.name) + ' (' + cols.map(c => q(c.name)).join(', ') + ') VALUES ';
+    for (const r of rows) L.push(head + '(' + cols.map(c => portableValue(r[c.name], c, d)).join(', ') + ');');
+    if (d === 'sqlserver' && hasIdentity) L.push('SET IDENTITY_INSERT ' + q(t.name) + ' OFF;');
+  }
+  L.push('', 'COMMIT;', '');
+
+  // Compteurs automatiques : reprendre après le plus grand identifiant
+  L.push('-- ---------- 3. Compteurs automatiques ----------');
+  for (const t of tables) {
+    for (const c of t.columns.filter(x => x.identity)) {
+      const next = rowsOf(t).reduce((m, r) => Math.max(m, Number(r[c.name] || 0)), 0) + 1;
+      if (next <= 1) continue;
+      if (d === 'mysql') L.push(`ALTER TABLE ${q(t.name)} AUTO_INCREMENT = ${next};`);
+      else if (d === 'sqlserver') L.push(`DBCC CHECKIDENT ('${t.name}', RESEED, ${next - 1});`);
+      else if (d === 'oracle') L.push(`ALTER TABLE ${q(t.name)} MODIFY (${q(c.name)} GENERATED BY DEFAULT AS IDENTITY (START WITH ${next}));`);
+      else if (d !== 'sqlite') L.push(`ALTER TABLE ${q(t.name)} ALTER COLUMN ${q(c.name)} RESTART WITH ${next};`);
+    }
+  }
+  L.push('');
+
+  if (d !== 'sqlite') {
+    L.push('-- ---------- 4. Clés étrangères ----------');
+    for (const t of tables) {
+      for (const f of t.fks || []) {
+        let act = '';
+        if (f.onDelete === 'c') act = d === 'sqlserver' ? '' : ' ON DELETE CASCADE';
+        if (f.onDelete === 'n') act = d === 'sqlserver' ? '' : ' ON DELETE SET NULL';
+        L.push(`ALTER TABLE ${q(t.name)} ADD CONSTRAINT ${portableIdent(f.name, d)} FOREIGN KEY (${f.cols.map(q).join(', ')}) REFERENCES ${q(f.refTable)} (${f.refCols.map(q).join(', ')})${act};`);
+      }
+    }
+    if (d === 'sqlserver') L.push('-- SQL Server : les suppressions en cascade sont gérées par l\'application (NO ACTION).');
+    L.push('');
+  }
+
+  L.push('-- ---------- 5. Index ----------');
+  for (const t of tables) {
+    for (const i of t.indexes || []) {
+      if (i.expression || !(i.cols || []).length) { L.push(`-- Index non portable ignoré (${i.name}) : ${i.definition || ''}`); continue; }
+      L.push(`CREATE ${i.unique ? 'UNIQUE ' : ''}INDEX ${portableIdent(i.name, d)} ON ${q(t.name)} (${i.cols.map(q).join(', ')});`);
+    }
+  }
+  if (d === 'mysql') L.push('', 'SET FOREIGN_KEY_CHECKS = 1;');
+  if (d === 'sqlite') L.push('', 'PRAGMA foreign_keys = ON;');
+  L.push('', `-- Fin : ${tables.length} tables, ${totalRows} lignes.`);
+  return L.join('\n') + '\n';
+}
+
 function BackupCenter({ L }) {
   const [busy, setBusy] = useState('');
   const [server, setServer] = useState(null);
   const [err, setErr] = useState('');
   const [legacy, setLegacy] = useState(null);
   const [lastAt, setLastAt] = useState(() => { try { return localStorage.getItem('droguerie_last_backup') || ''; } catch { return ''; } });
+  const [dialect, setDialect] = useState(() => { try { return localStorage.getItem('droguerie_backup_dialect') || 'ansi'; } catch { return 'ansi'; } });
   const stamp = () => today() + '_' + new Date().toTimeString().slice(0, 5).replace(':', 'h');
 
   async function load() {
@@ -4099,6 +4406,15 @@ function BackupCenter({ L }) {
     for (const [table, rows] of Object.entries(data.tables || {})) {
       if (Array.isArray(rows) && rows.length) downloadCsv('DrogueriePro_' + table + '_' + today() + '.csv', rows.map(r => Object.fromEntries(Object.entries(r).map(([k, v]) => [k, v !== null && typeof v === 'object' ? JSON.stringify(v) : v]))));
     }
+  });
+
+  // SQL normalisé : rejouable dans un autre SGBD (MySQL, SQL Server, Oracle, SQLite, PostgreSQL ou SQL standard)
+  const portableSql = () => run('portable', async () => {
+    try { localStorage.setItem('droguerie_backup_dialect', dialect); } catch {}
+    const [meta, data, company] = await Promise.all([serverBackupMeta(), serverBackupJson(), loadCompanySettings().catch(() => null)]);
+    const sql = buildPortableSql(meta, data, dialect, { company: company?.name || '' });
+    const f = SQL_DIALECTS.find(x => x.key === dialect)?.file || dialect;
+    downloadTextFile('DrogueriePro_Sauvegarde_' + f + '_' + stamp() + '.sql', sql, 'text/sql;charset=utf-8');
   });
 
   // Ancien mode (script V50 non exécuté) : données des tables principales seulement
@@ -4161,6 +4477,17 @@ function BackupCenter({ L }) {
               <h2 className="font-black mb-1">🧱 {L('bkSchemaSql')}</h2>
               <p className="text-sm text-slate-500">{L('bkSchemaSqlHint')}</p>
               <button disabled={!!busy} onClick={schemaSql} className="btn bg-slate-900 text-white mt-4 w-full">{busy === 'schema' ? '…' : L('downloadBackup')}</button>
+            </div>
+            <div className="card p-5 md:col-span-2 border-sky-400" style={{ borderWidth: 2 }}>
+              <h2 className="font-black mb-1">🌐 {L('bkPortable')}</h2>
+              <p className="text-sm text-slate-500">{L('bkPortableHint')}</p>
+              <div className="flex flex-wrap gap-2 mt-4">
+                <select className="input" style={{ maxWidth: 320 }} value={dialect} onChange={e => setDialect(e.target.value)}>
+                  {SQL_DIALECTS.map(x => <option key={x.key} value={x.key}>{x.label}</option>)}
+                </select>
+                <button disabled={!!busy} onClick={portableSql} className="btn bg-sky-600 text-white">{busy === 'portable' ? '…' : L('downloadBackup')}</button>
+              </div>
+              <p className="text-xs text-slate-400 mt-2">{L('bkPortableNote')}</p>
             </div>
             <div className="card p-5">
               <h2 className="font-black mb-1">{L('backupJson')}</h2>
