@@ -4,7 +4,7 @@ import { flushSync } from 'react-dom';
 import { createClient } from '@supabase/supabase-js';
 import './index.css';
 
-console.log('DROGUERIEPRO V52 OK');
+console.log('DROGUERIEPRO V53 OK');
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -537,6 +537,33 @@ Object.assign(TXT.fr, {
   shareStatement: 'WhatsApp',
   docPdfShared: 'PDF partagé',
   rcNumber: 'N° BR',
+  pBranch: 'Droguerie',
+  pScope: 'Drogueries',
+  pScopeAll: 'Toutes les drogueries',
+  pScopeOnly: 'Seulement certaines drogueries',
+  pScopeHint: 'Une seule fiche pour toutes les drogueries : mêmes coordonnées, même encours, même plafond de crédit.',
+  pOrigin: 'Créé dans',
+  pWalkIn: 'Comptoir',
+  pWalkInHint: 'Fiche comptoir de la droguerie : utilisée pour les ventes sans client nommé. Elle ne se supprime pas.',
+  pSupplierWalkInHint: 'Fiche « fournisseur divers » de la droguerie : achats ponctuels sans fournisseur habituel. Elle ne se supprime pas.',
+  pDupTitle: 'Fiche déjà existante',
+  pDupHint: 'Une fiche semblable existe déjà. Utilisez-la plutôt que de créer un doublon.',
+  pDupUse: 'Utiliser cette fiche',
+  pDupShare: 'Utiliser et rendre disponible dans ma droguerie',
+  pDupCreate: 'Créer quand même',
+  pDupReason_ICE: 'même ICE',
+  pDupReason_phone: 'même téléphone',
+  pDupReason_name: 'même nom',
+  pMerge: 'Fusionner',
+  pMergeTitle: 'Fusionner deux fiches',
+  pMergeHint: 'Toutes les ventes / achats, pièces jointes et l\'encours de la fiche supprimée passent sur la fiche conservée. Action définitive.',
+  pMergeKeep: 'Fiche conservée',
+  pMergeRemove: 'Fiche supprimée (doublon)',
+  pMergeDone: 'Fusion terminée',
+  pBalances: 'Encours par droguerie',
+  pHasDocs: 'Cette fiche a des documents : elle ne peut pas être supprimée. Fusionnez-la avec une autre fiche si c\'est un doublon.',
+  pContact: 'Contact',
+  pDuplicatesFound: 'doublons possibles',
   receiveAction: 'Réceptionner',
   invoiceAction: 'Facturer',
   receiveTitle: 'Réception de la commande',
@@ -638,6 +665,33 @@ Object.assign(TXT.ar, {
   shareStatement: 'واتساب',
   docPdfShared: 'تمت مشاركة PDF',
   rcNumber: 'رقم وصل الاستلام',
+  pBranch: 'المحل',
+  pScope: 'المحلات',
+  pScopeAll: 'كل المحلات',
+  pScopeOnly: 'محلات محددة فقط',
+  pScopeHint: 'بطاقة واحدة لكل المحلات: نفس المعلومات، نفس الرصيد ونفس سقف الكريدي.',
+  pOrigin: 'أُنشئ في',
+  pWalkIn: 'زبون عابر',
+  pWalkInHint: 'بطاقة الزبون العابر للمحل: تُستعمل للبيع بدون زبون مسمى. لا يمكن حذفها.',
+  pSupplierWalkInHint: 'بطاقة « مورد متنوع » للمحل: مشتريات عرضية. لا يمكن حذفها.',
+  pDupTitle: 'البطاقة موجودة مسبقاً',
+  pDupHint: 'توجد بطاقة مشابهة. استعملها بدل إنشاء بطاقة مكررة.',
+  pDupUse: 'استعمال هذه البطاقة',
+  pDupShare: 'استعمالها وإتاحتها في محلي',
+  pDupCreate: 'الإنشاء رغم ذلك',
+  pDupReason_ICE: 'نفس ICE',
+  pDupReason_phone: 'نفس الهاتف',
+  pDupReason_name: 'نفس الاسم',
+  pMerge: 'دمج',
+  pMergeTitle: 'دمج بطاقتين',
+  pMergeHint: 'تنتقل كل المبيعات/المشتريات والمرفقات والرصيد من البطاقة المحذوفة إلى البطاقة المحتفظ بها. عملية نهائية.',
+  pMergeKeep: 'البطاقة المحتفظ بها',
+  pMergeRemove: 'البطاقة المحذوفة (مكررة)',
+  pMergeDone: 'تم الدمج',
+  pBalances: 'الرصيد حسب المحل',
+  pHasDocs: 'لهذه البطاقة وثائق: لا يمكن حذفها. ادمجها مع بطاقة أخرى إن كانت مكررة.',
+  pContact: 'المخاطَب',
+  pDuplicatesFound: 'بطاقات مكررة محتملة',
   receiveAction: 'استلام',
   invoiceAction: 'فوترة',
   receiveTitle: 'استلام الطلبية',
@@ -1361,7 +1415,9 @@ function WhatsAppModal({ L, kind, party, buildVars, makePdf, pdfFolder, pdfName,
 }
 
 /* ---------- Relevé de compte (document A4) ---------- */
-function StatementDocument({ L, company, party, st, docRef }) {
+function StatementDocument({ L, company, party, st, docRef, branchNames = {} }) {
+  // V53 : client commun à plusieurs drogueries → colonne « Droguerie »
+  const multi = new Set(st.lines.map(e => String(e.branchId || ''))).size > 1;
   return (
     <div className="print-area simple-document" style={docStyle(company)} ref={docRef}>
       <DocBrandHeader L={L} company={company} title={L('statement')} number={party.name} date={frDate(today())} />
@@ -1372,13 +1428,14 @@ function StatementDocument({ L, company, party, st, docRef }) {
       </div>
       <table className="simple-lines">
         <thead>
-          <tr><th>{L('date')}</th><th>{L('ref')}</th><th>{L('movement')}</th><th>{L('totalInvoiced')}</th><th>{L('totalPaid')}</th><th>{L('balanceDue')}</th></tr>
+          <tr><th>{L('date')}</th><th>{L('ref')}</th>{multi ? <th>{L('pBranch')}</th> : null}<th>{L('movement')}</th><th>{L('totalInvoiced')}</th><th>{L('totalPaid')}</th><th>{L('balanceDue')}</th></tr>
         </thead>
         <tbody>
           {st.lines.map((e, i) => (
             <tr key={i}>
               <td>{frDate(e.date) || '-'}</td>
               <td className="font-mono">{e.ref}</td>
+              {multi ? <td>{branchNames[e.branchId] || '-'}</td> : null}
               <td>{e.kind}</td>
               <td>{e.debit ? dh(e.debit) : '-'}</td>
               <td>{e.credit ? dh(e.credit) : '-'}</td>
@@ -1750,16 +1807,34 @@ function canManageAllBranchData(session = getStoredSession()) {
   return isAdmin(session) || isManager(session);
 }
 
+// V53 : un client / fournisseur peut être commun à plusieurs drogueries.
+// branch_ids vide (ou absent après la MAJ) = toutes les drogueries ; avant la MAJ V53 : sa droguerie (branch_id).
+function partyBranchIds(p) {
+  if (!p) return [];
+  if (Array.isArray(p.branch_ids)) return p.branch_ids.map(Number).filter(Boolean);
+  if (p.branch_ids === undefined && p.branch_id) return [Number(p.branch_id)];
+  return [];
+}
+function partyInBranch(p, bId) {
+  if (!bId) return true;
+  const ids = partyBranchIds(p);
+  return !ids.length || ids.includes(Number(bId));
+}
+function isWalkInParty(p) { return !!p?.is_walk_in; }
+
 function canSeePartyRecord(record, type, session = getStoredSession()) {
   if (isAdmin(session)) return true;
-  if (isManager(session)) return Number(record.branch_id || 0) === Number(branchId(session) || 0);
+  if (!partyInBranch(record, branchId(session))) return false;
+  if (isManager(session)) return true;
 
   if (type === 'clients') {
-    return Number(record.assigned_to || 0) === Number(session?.user?.id || 0)
+    // Vendeur : son portefeuille, plus la fiche comptoir de sa droguerie
+    return isWalkInParty(record)
+      || Number(record.assigned_to || 0) === Number(session?.user?.id || 0)
       || Number(record.created_by || 0) === Number(session?.user?.id || 0);
   }
 
-  return Number(record.branch_id || 0) === Number(branchId(session) || 0);
+  return true;
 }
 
 function enrichParties(rows, usersMap = {}) {
@@ -3705,7 +3780,23 @@ function canOverrideCreditLimit() {
   return can('sales.credit_override');
 }
 
+// V53 : encours de tous les clients / fournisseurs, par droguerie (toutes drogueries, même pour un utilisateur de filiale)
+async function loadPartyBalances(type) {
+  const { data, error } = await supabase.rpc('app_party_balances', { p_type: type });
+  if (error) return null;
+  const m = {};
+  (data || []).forEach(r => {
+    const k = String(r.party_id);
+    const e = m[k] || (m[k] = { invoiced: 0, paid: 0, outstanding: 0, docs: 0, byBranch: [] });
+    e.invoiced += Number(r.invoiced || 0); e.paid += Number(r.paid || 0); e.outstanding += Number(r.outstanding || 0); e.docs += Number(r.docs || 0);
+    e.byBranch.push({ branchId: r.branch_id, outstanding: Number(r.outstanding || 0), invoiced: Number(r.invoiced || 0) });
+  });
+  return m;
+}
+
 async function clientOutstanding(clientId) {
+  const { data: rpc, error: rpcErr } = await supabase.rpc('app_party_balances', { p_type: 'clients' });
+  if (!rpcErr && Array.isArray(rpc)) return rpc.filter(r => String(r.party_id) === String(clientId)).reduce((t, r) => t + Number(r.outstanding || 0), 0);
   const { data, error } = await supabase.from('sales').select('id, stage, total_ttc, payments_json').eq('client_id', clientId).eq('stage', 'facture');
   if (error) throw new Error(error.message);
   return (data || []).reduce((s, d) => s + Number(paymentInfo(d).rest || 0), 0);
@@ -4299,19 +4390,13 @@ async function loadPayments() {
 
 async function loadParties(type) {
   const session = getStoredSession();
-  let q = supabase.from(type).select('*').order('name');
-
-  if (isAdmin(session) || isSuperAdmin(session)) {
-    q = applyBranchFilterToQuery(q, session);
-  } else if (branchId(session)) {
-    q = q.eq('branch_id', branchId(session));
-  }
-
-  const { data, error } = await q;
+  const { data, error } = await supabase.from(type).select('*').order('name');
   if (error) throw new Error(error.message);
-
+  // V53 : fiches communes à plusieurs drogueries → filtrage par droguerie sur branch_ids
+  const bId = (isAdmin(session) || isSuperAdmin(session)) ? selectedBranchId(session) : branchId(session);
   const labels = await loadUserLabels();
-  return enrichParties((data || []).filter(x => canSeePartyRecord(x, type, session)), labels);
+  return enrichParties((data || []).filter(x => partyInBranch(x, bId) && canSeePartyRecord(x, type, session)), labels)
+    .sort((a, b) => Number(!!b.is_walk_in) - Number(!!a.is_walk_in));
 }
 
 async function saveParty(type, body) {
@@ -4325,9 +4410,16 @@ async function saveParty(type, body) {
     phone: body.phone || '',
     city: body.city || '',
     address: body.address || '',
-    branch_id: isAdmin(session) ? (body.branch_id || body.branchId || branchId(session)) : branchId(session),
     assigned_to: type === 'clients' ? (body.assigned_to || body.assignedTo || session?.user?.id || null) : null
   };
+  // Droguerie d'origine : fixée à la création (l'administrateur peut la changer)
+  if (!body.id) common.branch_id = isAdmin(session) ? (body.branch_id || body.branchId || branchId(session)) : branchId(session);
+  else if (isAdmin(session) && (body.branch_id || body.branchId)) common.branch_id = body.branch_id || body.branchId;
+  // V53 : drogueries où la fiche est utilisable (vide = toutes)
+  if (body.branch_ids !== undefined && !body.is_walk_in) {
+    const ids = Array.isArray(body.branch_ids) ? [...new Set(body.branch_ids.map(Number).filter(Boolean))] : [];
+    common.branch_ids = ids.length ? ids : null;
+  }
 
   if (!body.id) {
     common.created_by = session?.user?.id || null;
@@ -4338,17 +4430,23 @@ async function saveParty(type, body) {
     ? { ...common, type: body.type || 'entreprise', price_tier: body.price_tier === 'gros' ? 'gros' : 'detail', credit_limit: Math.max(0, Number(body.credit_limit || 0)) }
     : { ...common, contact: body.contact || '' };
 
-  const q = body.id ? supabase.from(type).update(payload).eq('id', body.id) : supabase.from(type).insert(payload);
-  const { error } = await q;
+  const run = pl => (body.id ? supabase.from(type).update(pl).eq('id', body.id) : supabase.from(type).insert(pl).select('id').single());
+  let { data, error } = await run(payload);
+  if (error && /branch_ids|is_walk_in/.test(error.message || '')) { const pl = { ...payload }; delete pl.branch_ids; ({ data, error } = await run(pl)); }
   if (error) throw new Error(error.message);
 
   await auditLog(type === 'clients' ? 'Clients' : 'Fournisseurs', body.id ? 'UPDATE' : 'CREATE', payload.name, body.id ? 'Modification tiers' : 'Création tiers');
+  return body.id || data?.id;
 }
 async function deleteParty(type, id) {
   const delPerm = type === 'clients' ? 'clients.delete' : 'suppliers.delete';
   requirePerm(delPerm, type === 'clients' ? 'Suppression client' : 'Suppression fournisseur');
 
-  const { data: row } = await supabase.from(type).select('name').eq('id', id).maybeSingle();
+  const { data: row } = await supabase.from(type).select('*').eq('id', id).maybeSingle();
+  if (row?.is_walk_in) throw new Error(Lc('pWalkInHint'));
+  const docTable = type === 'clients' ? 'sales' : 'purchases';
+  const { count } = await supabase.from(docTable).select('id', { count: 'exact', head: true }).eq(type === 'clients' ? 'client_id' : 'supplier_id', id);
+  if (count) throw new Error(Lc('pHasDocs'));
   const { error } = await supabase.from(type).delete().eq('id', id);
   if (error) throw new Error(error.message);
 
@@ -4630,9 +4728,9 @@ function ChangePasswordModal({ L, close }) {
 
 function Header({ title, children }) {
   return (
-    <div className="flex justify-between items-end mb-5">
+    <div className="flex justify-between items-end gap-3 mb-5">
       <h1 className="text-2xl font-bold text-slate-800">{title}</h1>
-      <div className="flex gap-2">{children}</div>
+      <div className="flex gap-2 flex-wrap justify-end">{children}</div>
     </div>
   );
 }
@@ -4956,9 +5054,9 @@ function buildStatement(docs, type, partyKey) {
   });
   const events = [];
   matches.forEach(d => {
-    events.push({ date: d.date || '', ref: docNo(d), kind: 'facture', debit: Number(d.totalTTC || 0), credit: 0 });
+    events.push({ date: d.date || '', ref: docNo(d), kind: 'facture', debit: Number(d.totalTTC || 0), credit: 0, branchId: d.branch_id });
     (d.paiements || jsonValue(d.payments_json, [])).filter(p => !p.canceled).forEach(p => {
-      events.push({ date: p.date || d.date || '', ref: docNo(d), kind: p.mode || 'règlement', debit: 0, credit: Number(p.montant || 0) });
+      events.push({ date: p.date || d.date || '', ref: docNo(d), kind: p.mode || 'règlement', debit: 0, credit: Number(p.montant || 0), branchId: d.branch_id });
     });
   });
   events.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
@@ -4975,8 +5073,10 @@ function StatementModal({ L, title, docs, type, party, close }) {
   const [phone, setPhone] = useState('');
   const [wa, setWa] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [branchNames, setBranchNames] = useState({});
   const ref = useRef(null);
   const table = type === 'clients' ? 'clients' : 'suppliers';
+  useEffect(() => { loadBranches().then(bs => setBranchNames(Object.fromEntries(bs.map(b => [b.id, b.name])))).catch(() => {}); }, []);
   const numericId = /^\d+$/.test(String(party.id || ''));
   useEffect(() => {
     loadCompanySettings().then(setCompany).catch(() => setCompany({ name: 'DrogueriePro' }));
@@ -4991,7 +5091,7 @@ function StatementModal({ L, title, docs, type, party, close }) {
   }
   return (
     <Modal title={L('statement') + ' — ' + party.name} onClose={close} wide>
-      <StatementDocument L={L} company={c} party={party} st={st} docRef={ref} />
+      <StatementDocument L={L} company={c} party={party} st={st} docRef={ref} branchNames={branchNames} />
       <div className="flex flex-wrap justify-end gap-2 mt-4 no-print">
         <ExportButtons L={L} spec={() => ({
           fileName: 'Releve_' + storageSafe(party.name), title: L('statement') + ' — ' + party.name,
@@ -5027,7 +5127,8 @@ function ReminderButton({ L, docs, party }) {
       phone = data?.phone || '';
     }
     const company = await loadCompanySettings().catch(() => ({ name: 'DrogueriePro' }));
-    setOpen({ phone, company });
+    const bs = await loadBranches().catch(() => []);
+    setOpen({ phone, company, branchNames: Object.fromEntries(bs.map(b => [b.id, b.name])) });
   }
   if (!featureOn('share')) return null;
   const unpaid = (docs || []).filter(d => d.stage === 'facture' && String(d.client_id || d.client_name || 'unknown') === String(party.id))
@@ -5045,7 +5146,7 @@ function ReminderButton({ L, docs, party }) {
             factures: unpaid.map(x => '• ' + docNo(x.d) + ' (' + frDate(x.d.date) + ') : ' + dh(x.rest)).join('\n'),
             societe: open.company.name || '', telephone_societe: open.company.phone || ''
           })}
-          makePdf={() => jsxToPdfBlob(<StatementDocument L={L} company={open.company} party={party} st={st} />)}
+          makePdf={() => jsxToPdfBlob(<StatementDocument L={L} company={open.company} party={party} st={st} branchNames={open.branchNames} />)}
           pdfFolder="releves_clients" pdfName={'releve_' + party.id}
           auditModule="Reporting" auditObject={'Relance ' + party.name} />
       ) : null}
@@ -7442,6 +7543,21 @@ function CameraScanner({ L, onCode, close }) {
   );
 }
 
+// V53 : caisse rapide → tous les clients disponibles dans la droguerie (pas seulement le portefeuille du vendeur)
+async function loadCounterClients() {
+  const session = getStoredSession();
+  const { data, error } = await supabase.from('clients').select('*').order('name');
+  if (error) throw new Error(error.message);
+  const bId = isAdmin(session) ? selectedBranchId(session) : branchId(session);
+  return (data || []).filter(x => partyInBranch(x, bId)).sort((a, b) => Number(!!b.is_walk_in) - Number(!!a.is_walk_in));
+}
+function counterWalkIn(clients) {
+  const session = getStoredSession();
+  const bId = isAdmin(session) ? (selectedBranchId(session) || branchId(session)) : branchId(session);
+  const walks = (clients || []).filter(c => c.is_walk_in);
+  return walks.find(c => Number(c.branch_id) === Number(bId)) || walks[0] || null;
+}
+
 function PosCenter({ L }) {
   const [products, setProducts] = useState([]);
   const [clients, setClients] = useState([]);
@@ -7465,13 +7581,16 @@ function PosCenter({ L }) {
       const session = getStoredSession();
       const [{ data, error }, cl, comp, vat] = await Promise.all([
         applyProductScope(supabase.from('products').select('*, branches(name)'), session).order('name'),
-        loadParties('clients').catch(() => []),
+        loadCounterClients().catch(() => []),
         loadCompanySettings().catch(() => ({ name: 'DrogueriePro' })),
         getVatRate()
       ]);
       if (error) throw error;
       setProducts((data || []).map(mapProduct));
       setClients(cl || []);
+      // V53 : la fiche « Client comptoir » de la droguerie est sélectionnée par défaut
+      const walk = counterWalkIn(cl || []);
+      if (walk) setClientId(prev => (prev && (cl || []).some(c => String(c.id) === String(prev)) ? prev : String(walk.id)));
       setCompany(comp);
       setVatRate(Number(vat || 20));
     } catch (e) { setErr(e.message); }
@@ -7519,7 +7638,7 @@ function PosCenter({ L }) {
 
   async function validate(opts = {}) {
     if (!cart.length) return alert(L('emptyCart'));
-    if (payMode === 'Crédit' && !client) return alert(L('creditNeedsClient'));
+    if (payMode === 'Crédit' && (!client || client.is_walk_in)) return alert(L('creditNeedsClient'));
     if (payMode !== 'Crédit' && !can('sales.pay')) return alert('Autorisation insuffisante : sales.pay');
     if (payMode === 'Crédit' && !can('pos.credit')) return alert('Autorisation insuffisante : pos.credit');
     if (payMode === 'Espèces' && received !== '' && Number(received) + 0.001 < totals.totalTTC) return alert(L('notEnoughCash'));
@@ -7538,7 +7657,7 @@ function PosCenter({ L }) {
       if (payMode !== 'Crédit') await payDoc('sales', res.id, { date: today(), mode: payMode, montant: Number(res.totals.totalTTC.toFixed(2)), note: 'Caisse rapide' });
       const ticket = {
         company, number: res.number, date: new Date().toLocaleString('fr-FR'), client: client?.name || L('walkInClient'),
-        clientId: client?.id || null, clientPhone: client?.phone || '', clientName: client?.name || '',
+        clientId: client && !client.is_walk_in ? client.id : null, clientPhone: client && !client.is_walk_in ? (client.phone || '') : '', clientName: client && !client.is_walk_in ? client.name : '',
         cashier: currentUserLabel(), lines: cart, totals: res.totals, payMode,
         received: payMode === 'Espèces' ? Number(received || res.totals.totalTTC) : 0,
         change: payMode === 'Espèces' ? Math.max(0, Number(received || 0) - res.totals.totalTTC) : 0
@@ -7546,6 +7665,7 @@ function PosCenter({ L }) {
       setLastTicket(ticket);
       printTicket(ticket);
       setCart([]); setReceived(''); setGlobalDiscount(''); setSearch('');
+      { const walk = counterWalkIn(clients); if (walk) setClientId(String(walk.id)); }
       load();
       setTimeout(() => searchRef.current?.focus(), 100);
     } catch (e) {
@@ -7614,8 +7734,8 @@ function PosCenter({ L }) {
           <div className="card p-4" style={{ position: 'sticky', top: 12 }}>
             <label className="text-xs text-slate-500">{L('customer')}
               <select className="input mt-1 mb-3" value={clientId} onChange={e => changeClient(e.target.value)}>
-                <option value="">{L('walkInClient')}</option>
-                {clients.map(c => <option key={c.id} value={c.id}>{c.name}{c.price_tier === 'gros' ? ' (' + L('wholesale') + ')' : ''}</option>)}
+                {!counterWalkIn(clients) ? <option value="">{L('walkInClient')}</option> : null}
+                {clients.map(c => <option key={c.id} value={c.id}>{c.is_walk_in ? '🏪 ' : ''}{c.name}{c.price_tier === 'gros' ? ' (' + L('wholesale') + ')' : ''}</option>)}
               </select>
             </label>
 
@@ -7717,8 +7837,8 @@ function Docs({ L, type }) {
   async function load() {
     try {
       const session = getStoredSession();
-      const partiesQueryBase = supabase.from(isSales ? 'clients' : 'suppliers').select('*').order('name');
-      const partiesQuery = (!isAdmin(session) && branchId(session)) ? partiesQueryBase.eq('branch_id', branchId(session)) : partiesQueryBase;
+      // V53 : clients / fournisseurs communs à plusieurs drogueries
+      const partiesQuery = supabase.from(isSales ? 'clients' : 'suppliers').select('*').order('name');
 
       const [{ data: docs, error: dErr }, { data: prod, error: pErr }, { data: party, error: tErr }, userLabels] = await Promise.all([
         applyDocScope(supabase.from(type).select('*'), type, session).order('id', { ascending: false }),
@@ -7731,8 +7851,10 @@ function Docs({ L, type }) {
       if (tErr) throw tErr;
       setRows(enrichDocs(docs || [], userLabels));
       setProducts((prod || []).map(mapProduct));
-      // Vendeur : uniquement ses clients (affectés à lui ou créés par lui). Admin/Gérant : tous.
-      setParties(isSales ? (party || []).filter(x => canSeePartyRecord(x, 'clients', session)) : (party || []));
+      // Vendeur : uniquement ses clients (affectés à lui ou créés par lui) + fiche comptoir. Admin/Gérant : tous.
+      const docBranch = isAdmin(session) ? selectedBranchId(session) : branchId(session);
+      setParties((party || []).filter(x => partyInBranch(x, docBranch) && canSeePartyRecord(x, isSales ? 'clients' : 'suppliers', session))
+        .sort((a, b) => Number(!!b.is_walk_in) - Number(!!a.is_walk_in)));
     } catch (e) { setErr(e.message); }
   }
 
@@ -7752,7 +7874,7 @@ function Docs({ L, type }) {
   const openInvoice = d => setPartial({ mode: 'invoice', doc: d, date: today(), supplierRef: '', dueDate: '', lignes: docInvoiceRemainingLines(d).filter(l => Number(l.remainingQty || 0) > 0).map(l => ({ ...l, qteToProcess: Number(l.remainingQty || 0), excluded: false })) });
 
   function create(start) {
-    setForm({ start, date: today(), partyId: parties[0]?.id || '', lignes: [{ produitId: products[0]?.id || '', qte: 1 }] });
+    setForm({ start, date: today(), partyId: (parties.find(p => !p.is_walk_in) || parties[0])?.id || '', lignes: [{ produitId: products[0]?.id || '', qte: 1 }] });
   }
 
   async function save(opts = {}) {
@@ -9257,19 +9379,25 @@ function ExpensesCenter({ L }) {
 }
 
 function Parties({ L, type }) {
-  const canWriteParty = can(type === 'clients' ? 'clients.write' : 'suppliers.write');
-  const canDeleteParty = can(type === 'clients' ? 'clients.delete' : 'suppliers.delete');
-  const canAssignParty = can(type === 'clients' ? 'clients.assign' : 'suppliers.write');
+  const isClients = type === 'clients';
+  const session = getStoredSession();
+  const admin = isAdmin(session);
+  const canWriteParty = can(isClients ? 'clients.write' : 'suppliers.write');
+  const canDeleteParty = can(isClients ? 'clients.delete' : 'suppliers.delete');
+  const canAssignParty = can(isClients ? 'clients.assign' : 'suppliers.write');
   const [rows, setRows] = useState([]);
   const [users, setUsers] = useState([]);
   const [branches, setBranches] = useState([]);
   const [form, setForm] = useState(null);
   const [ownerFilter, setOwnerFilter] = useState('all');
+  const [scopeFilter, setScopeFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [showImport, setShowImport] = useState(false);
   const [err, setErr] = useState('');
-
-  const [outstanding, setOutstanding] = useState({});
+  const [balances, setBalances] = useState({});
+  const [dups, setDups] = useState(null);
+  const [merge, setMerge] = useState(null);
+  const [busy, setBusy] = useState(false);
 
   async function load() {
     try {
@@ -9277,78 +9405,134 @@ function Parties({ L, type }) {
       setRows(data);
       setUsers(usersData);
       setBranches(branchesData);
-      if (type === 'clients') {
-        const { data: inv } = await supabase.from('sales').select('client_id, total_ttc, payments_json').eq('stage', 'facture');
-        const m = {};
-        (inv || []).forEach(d => { if (d.client_id) m[d.client_id] = Number(m[d.client_id] || 0) + Number(paymentInfo(d).rest || 0); });
-        setOutstanding(m);
+      let bal = await loadPartyBalances(type);
+      if (!bal) {
+        // Ancienne base (avant V53) : calcul limité aux documents visibles
+        const { data: inv } = await supabase.from(isClients ? 'sales' : 'purchases').select(isClients ? 'client_id, branch_id, total_ttc, payments_json' : 'supplier_id, branch_id, total_ttc, payments_json').eq('stage', 'facture');
+        bal = {};
+        (inv || []).forEach(d => {
+          const pid = isClients ? d.client_id : d.supplier_id; if (!pid) return;
+          const e = bal[pid] || (bal[pid] = { outstanding: 0, invoiced: 0, byBranch: [] });
+          const rest = Number(paymentInfo(d).rest || 0);
+          e.outstanding += rest; e.invoiced += Number(d.total_ttc || 0); e.byBranch.push({ branchId: d.branch_id, outstanding: rest });
+        });
       }
+      setBalances(bal);
     } catch (e) { setErr(e.message); }
   }
 
   useEffect(() => { load(); }, [type]);
 
-  async function save() {
+  const branchName = id => branches.find(b => Number(b.id) === Number(id))?.name || '-';
+  const scopeLabel = x => { const ids = partyBranchIds(x); return ids.length ? ids.map(branchName).join(', ') : L('pScopeAll'); };
+
+  async function save(force = false) {
+    if (!form.name || !String(form.name).trim()) return alert(L('name') + ' ?');
+    setBusy(true);
     try {
+      // V53 : doublon dans une autre droguerie ? On propose la fiche existante plutôt qu'une deuxième fiche.
+      if (!form.id && !force) {
+        const { data: found, error } = await supabase.rpc('app_find_party_duplicates', { p_type: type, p_name: form.name, p_ice: form.ice || '', p_phone: form.phone || '', p_exclude: null });
+        if (!error && (found || []).length) { setDups(found); setBusy(false); return; }
+      }
       await saveParty(type, form);
-      setForm(null);
+      setForm(null); setDups(null);
+      load();
+    } catch (e) { alert(e.message); }
+    setBusy(false);
+  }
+
+  async function useExisting(d, share) {
+    setBusy(true);
+    try {
+      if (share || !d.visible) {
+        const { error } = await supabase.rpc('app_share_party', { p_type: type, p_id: d.id });
+        if (error) throw new Error(error.message);
+        await auditLog(isClients ? 'Clients' : 'Fournisseurs', 'UPDATE', d.name, 'Fiche rendue disponible dans la droguerie');
+      }
+      setForm(null); setDups(null);
+      await load();
+    } catch (e) { alert(e.message); }
+    setBusy(false);
+  }
+
+  async function remove(x) {
+    if (!canDeleteParty) return alert('Suppression non autorisée');
+    if (!confirm('Supprimer ?')) return;
+    try {
+      await deleteParty(type, x.id);
       load();
     } catch (e) { alert(e.message); }
   }
 
-  async function remove(id) {
-    if (!canDeleteParty) return alert('Suppression non autorisée');
-    if (!confirm('Supprimer ?')) return;
+  async function doMerge() {
+    if (!merge?.removeId || String(merge.removeId) === String(merge.keep.id)) return;
+    const removed = rows.find(r => String(r.id) === String(merge.removeId));
+    if (!confirm(L('pMergeTitle') + ' : « ' + (removed?.name || '') + ' » → « ' + merge.keep.name + ' » ?')) return;
+    setBusy(true);
     try {
-      await deleteParty(type, id);
+      const { data, error } = await supabase.rpc('app_merge_parties', { p_type: type, p_keep: merge.keep.id, p_remove: Number(merge.removeId) });
+      if (error) throw new Error(error.message);
+      await auditLog(isClients ? 'Clients' : 'Fournisseurs', 'UPDATE', merge.keep.name, 'Fusion avec « ' + (data?.removed || '') + ' » : ' + (data?.documents || 0) + ' document(s)');
+      alert(L('pMergeDone') + ' : ' + (data?.documents || 0) + ' document(s)');
+      setMerge(null);
       load();
     } catch (e) { alert(e.message); }
+    setBusy(false);
   }
 
   function newParty() {
     if (!canWriteParty) return;
     setForm({
-      name: '',
-      type: 'entreprise',
-      ice: '',
-      phone: '',
-      city: '',
-      address: '',
-      contact: '',
-      assigned_to: getStoredSession()?.user?.id || '',
-      branch_id: currentBranchId() || branches[0]?.id || ''
+      name: '', type: 'entreprise', ice: '', phone: '', city: '', address: '', contact: '',
+      assigned_to: session?.user?.id || '',
+      branch_id: currentBranchId() || branches[0]?.id || '',
+      branch_ids: []
     });
   }
 
   if (err) return <ErrorBox msg={err} />;
 
-  const filteredRows = (ownerFilter === 'all'
-    ? rows
-    : rows.filter(x => String(x.assigned_to || '') === String(ownerFilter)))
-    .filter(x => !search || [x.name, x.ice, x.phone, x.city, x.assignedToLabel].join(' ').toLowerCase().includes(search.toLowerCase()));
+  const norm = v => String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+  const nameCount = {};
+  rows.forEach(r => { if (!r.is_walk_in) nameCount[norm(r.name)] = (nameCount[norm(r.name)] || 0) + 1; });
+  const isDup = x => !x.is_walk_in && nameCount[norm(x.name)] > 1;
+
+  const filteredRows = (ownerFilter === 'all' ? rows : rows.filter(x => String(x.assigned_to || '') === String(ownerFilter)))
+    .filter(x => scopeFilter === 'all' || (scopeFilter === 'shared' ? !partyBranchIds(x).length && !x.is_walk_in : scopeFilter === 'walkin' ? x.is_walk_in : scopeFilter === 'dups' ? isDup(x) : partyBranchIds(x).length && !x.is_walk_in))
+    .filter(x => !search || [x.name, x.ice, x.phone, x.city, x.contact, x.assignedToLabel].join(' ').toLowerCase().includes(search.toLowerCase()));
 
   const uniqueOwners = users.filter(u => rows.some(x => String(x.assigned_to || '') === String(u.id)));
+  const sharedCount = rows.filter(x => !x.is_walk_in && !partyBranchIds(x).length).length;
+  const dupCount = rows.filter(isDup).length;
+  const totalOutstanding = filteredRows.reduce((t, x) => t + Number(balances[x.id]?.outstanding || 0), 0);
+  const formScopeOnly = form && (Array.isArray(form.branch_ids) ? form.branch_ids.length > 0 : partyBranchIds(form).length > 0);
+  const formIds = form ? (Array.isArray(form.branch_ids) ? form.branch_ids.map(Number) : partyBranchIds(form)) : [];
 
   return (
     <>
-      <Header title={type === 'clients' ? L('clients') : L('suppliers')}>
+      <Header title={isClients ? L('clients') : L('suppliers')}>
         <input className="input max-w-xs" placeholder={L('search')} value={search} onChange={e => setSearch(e.target.value)} />
         <ExportButtons L={L} spec={() => ({
-          fileName: type === 'clients' ? 'Clients' : 'Fournisseurs', title: type === 'clients' ? L('clients') : L('suppliers'),
-          sheets: [{ name: type === 'clients' ? L('clients') : L('suppliers'), totals: false,
-            note: 'Fichier réimportable : ' + (type === 'clients' ? 'Clients' : 'Fournisseurs') + ' → Import Excel.',
-            columns: type === 'clients' ? [
+          fileName: isClients ? 'Clients' : 'Fournisseurs', title: isClients ? L('clients') : L('suppliers'),
+          sheets: [{ name: isClients ? L('clients') : L('suppliers'), totals: false,
+            note: 'Fichier réimportable : ' + (isClients ? 'Clients' : 'Fournisseurs') + ' → Import Excel.',
+            columns: isClients ? [
               { key: 'name', header: 'Nom' }, { key: 'type', header: 'Type (entreprise / particulier)' }, { key: 'phone', header: 'Téléphone' },
               { key: 'city', header: 'Ville' }, { key: 'address', header: 'Adresse' }, { key: 'ice', header: 'ICE' },
               { key: 'price_tier', header: 'Tarif (detail / gros)' }, { key: 'credit_limit', header: 'Plafond de crédit (DH, 0 = aucun)', type: 'money' },
+              { value: x => Number(balances[x.id]?.outstanding || 0), header: L('outstanding'), type: 'money', total: true },
+              { value: x => scopeLabel(x), header: L('pScope') }, { value: x => branchName(x.branch_id), header: L('pOrigin') },
               { key: 'createdByLabel', header: L('createdBy') }, { key: 'assignedToLabel', header: L('assignedTo') }
             ] : [
               { key: 'name', header: 'Nom' }, { key: 'contact', header: 'Contact' }, { key: 'phone', header: 'Téléphone' },
               { key: 'city', header: 'Ville' }, { key: 'address', header: 'Adresse' }, { key: 'ice', header: 'ICE' },
+              { value: x => Number(balances[x.id]?.outstanding || 0), header: L('outstanding'), type: 'money', total: true },
+              { value: x => scopeLabel(x), header: L('pScope') }, { value: x => branchName(x.branch_id), header: L('pOrigin') },
               { key: 'createdByLabel', header: L('createdBy') }
             ], rows: filteredRows }]
         })} />
-        {type === 'clients' ? (
+        {isClients ? (
           <select className="input max-w-xs" value={ownerFilter} onChange={e => setOwnerFilter(e.target.value)}>
             <option value="all">{L('all')} - {L('clientOwner')}</option>
             {uniqueOwners.map(u => <option key={u.id} value={u.id}>{u.full_name || u.username}</option>)}
@@ -9358,59 +9542,97 @@ function Parties({ L, type }) {
         {canWriteParty ? <button onClick={newParty} className="btn bg-amber-500">{L('new')}</button> : null}
       </Header>
 
-      <div className="grid md:grid-cols-4 gap-3 mb-4">
-        <div className="card p-4"><p className="text-xs text-slate-400">{L('all')}</p><p className="text-2xl font-black">{filteredRows.length}</p></div>
-        <div className="card p-4"><p className="text-xs text-slate-400">{L('clientOwner')}</p><p className="text-2xl font-black">{uniqueOwners.length}</p></div>
-        <div className="card p-4"><p className="text-xs text-slate-400">{L('branch')}</p><p className="text-2xl font-black">{new Set(filteredRows.map(x => x.branch_id).filter(Boolean)).size}</p></div>
-        <div className="card p-4"><p className="text-xs text-slate-400">{L('createdBy')}</p><p className="text-2xl font-black">{new Set(filteredRows.map(x => x.created_by).filter(Boolean)).size}</p></div>
+      <div className="pro-kpi-grid mb-4">
+        <div className="pro-kpi-card"><span>{isClients ? L('clients') : L('suppliers')}</span><b>{filteredRows.length}</b><small>{L('all')}</small></div>
+        <div className="pro-kpi-card"><span>{L('pScopeAll')}</span><b>{sharedCount}</b><small>{L('pScopeHint').split(':')[0]}</small></div>
+        <div className="pro-kpi-card"><span>{L('outstanding')}</span><b>{dh(totalOutstanding)}</b><small>{L('pBalances')}</small></div>
+        <div className="pro-kpi-card"><span>{L('pDuplicatesFound')}</span><b>{dupCount}</b><small>{admin ? L('pMerge') : L('name')}</small></div>
+      </div>
+
+      <div className="flex flex-wrap gap-2 mb-3">
+        {[['all', L('all')], ['shared', L('pScopeAll')], ['only', L('pScopeOnly')], ['walkin', L('pWalkIn')], ['dups', L('pDuplicatesFound') + ' (' + dupCount + ')']].map(([k, t]) => (
+          <button key={k} onClick={() => setScopeFilter(k)} className={'px-3 py-1.5 rounded-full text-xs font-semibold ' + (scopeFilter === k ? 'bg-slate-800 text-white' : 'bg-white border text-slate-600')}>{t}</button>
+        ))}
       </div>
 
       <Table>
         <thead>
           <tr>
             <th>{L('name')}</th>
-            <th>ICE / Contact</th>
+            <th>{isClients ? 'ICE' : L('pContact') + ' / ICE'}</th>
             <th>{L('phone')}</th>
             <th>{L('city')}</th>
-            <th>{L('createdBy')}</th>
-            {type === 'clients' ? <th>{L('assignedTo')}</th> : null}
-            {type === 'clients' ? <th>{L('outstanding')} / {L('creditLimit')}</th> : null}
-            <th>{L('branch')}</th>
+            {isClients ? <th>{L('assignedTo')}</th> : null}
+            <th>{L('outstanding')}{isClients ? ' / ' + L('creditLimit') : ''}</th>
+            <th>{L('pScope')}</th>
             <th>{L('actions')}</th>
           </tr>
         </thead>
         <tbody>
-          {filteredRows.map(x => (
-            <tr key={x.id}>
-              <td className="font-semibold">{x.name}</td>
-              <td className="text-xs text-slate-500">{x.ice || x.contact || '-'}</td>
-              <td>{x.phone || '-'}</td>
-              <td>{x.city || '-'}</td>
-              <td>{x.createdByLabel || '-'}</td>
-              {type === 'clients' ? <td><Badge tone="blue">{x.assignedToLabel || '-'}</Badge></td> : null}
-              {type === 'clients' ? (
+          {filteredRows.map(x => {
+            const b = balances[x.id];
+            const over = isClients && Number(x.credit_limit || 0) > 0 && Number(b?.outstanding || 0) > Number(x.credit_limit);
+            return (
+              <tr key={x.id} className={x.is_walk_in ? 'party-walkin' : ''}>
                 <td>
-                  <div className={Number(x.credit_limit || 0) > 0 && Number(outstanding[x.id] || 0) > Number(x.credit_limit) ? 'text-red-600 font-bold' : 'font-semibold'}>{dh(outstanding[x.id] || 0)}</div>
-                  <div className="text-xs text-slate-400">{Number(x.credit_limit || 0) > 0 ? '/ ' + dh(x.credit_limit) : L('noLimit')}{x.price_tier === 'gros' ? ' · ' + L('wholesale') : ''}</div>
+                  <div className="font-semibold">{x.is_walk_in ? '🏪 ' : ''}{x.name}</div>
+                  <div className="text-xs text-slate-400">{x.is_walk_in ? <Badge tone="amber">{L('pWalkIn')}</Badge> : (L('createdBy') + ' ' + (x.createdByLabel || '-'))}{isDup(x) ? <> <Badge tone="red">{L('pDuplicatesFound')}</Badge></> : null}</div>
                 </td>
-              ) : null}
-              <td>{branches.find(b => Number(b.id) === Number(x.branch_id))?.name || '-'}</td>
-              <td className="flex gap-1 flex-wrap">
-                {canWriteParty ? <button onClick={() => setForm(x)} className="btn bg-white border">{L('edit')}</button> : null}
-                {canDeleteParty ? <button onClick={() => remove(x.id)} className="btn bg-red-600 text-white">{L('del')}</button> : null}
-              </td>
-            </tr>
-          ))}
+                <td className="text-xs text-slate-500">{isClients ? (x.ice || '-') : [x.contact, x.ice].filter(Boolean).join(' · ') || '-'}</td>
+                <td>{x.phone || '-'}</td>
+                <td>{x.city || '-'}</td>
+                {isClients ? <td>{x.is_walk_in ? '-' : <Badge tone="blue">{x.assignedToLabel || '-'}</Badge>}</td> : null}
+                <td title={(b?.byBranch || []).filter(v => v.outstanding > 0.009).map(v => branchName(v.branchId) + ' : ' + dh(v.outstanding)).join('\n')}>
+                  <div className={over ? 'text-red-600 font-bold' : 'font-semibold'}>{dh(b?.outstanding || 0)}</div>
+                  {(b?.byBranch || []).filter(v => v.outstanding > 0.009).length > 1 ? (
+                    <div className="text-xs text-slate-500">{(b.byBranch || []).filter(v => v.outstanding > 0.009).map(v => branchName(v.branchId) + ' ' + fmt(v.outstanding)).join(' · ')}</div>
+                  ) : null}
+                  {isClients && !x.is_walk_in ? <div className="text-xs text-slate-400">{Number(x.credit_limit || 0) > 0 ? '/ ' + dh(x.credit_limit) : L('noLimit')}{x.price_tier === 'gros' ? ' · ' + L('wholesale') : ''}</div> : null}
+                </td>
+                <td>
+                  {x.is_walk_in ? <Badge tone="slate">{branchName(x.branch_id)}</Badge>
+                    : partyBranchIds(x).length ? <Badge tone="blue">{scopeLabel(x)}</Badge> : <Badge tone="green">{L('pScopeAll')}</Badge>}
+                  <div className="text-xs text-slate-400 mt-1">{L('pOrigin')} : {branchName(x.branch_id)}</div>
+                </td>
+                <td className="flex gap-1 flex-wrap">
+                  {canWriteParty ? <button onClick={() => setForm({ ...x, branch_ids: partyBranchIds(x) })} className="btn bg-white border">{L('edit')}</button> : null}
+                  {admin && canDeleteParty && !x.is_walk_in ? <button onClick={() => setMerge({ keep: x, removeId: '' })} className="btn bg-white border" title={L('pMergeTitle')}>⇄ {L('pMerge')}</button> : null}
+                  {canDeleteParty && !x.is_walk_in ? <button onClick={() => remove(x)} className="btn bg-red-600 text-white">{L('del')}</button> : null}
+                </td>
+              </tr>
+            );
+          })}
+          {!filteredRows.length ? <tr><td colSpan="8" className="text-center text-slate-500 py-6">{L('noData')}</td></tr> : null}
         </tbody>
       </Table>
 
       {form ? (
-        <Modal title={type === 'clients' ? L('clients') : L('suppliers')} onClose={() => setForm(null)}>
-          {['name', 'ice', 'phone', 'city', 'address'].map(k => (
-            <input key={k} className="input mb-2" placeholder={k} value={form[k] || ''} onChange={e => setForm({ ...form, [k]: e.target.value })} />
-          ))}
+        <Modal title={(form.id ? L('edit') : L('new')) + ' — ' + (isClients ? L('clients') : L('suppliers'))} onClose={() => { setForm(null); setDups(null); }}>
+          {form.is_walk_in ? <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-xl p-3 mb-3 text-sm">{isClients ? L('pWalkInHint') : L('pSupplierWalkInHint')}</div> : null}
+          <div className="grid grid-cols-2 gap-x-3">
+            <label className="text-xs text-slate-500 col-span-2">{L('name')}
+              <input className="input mt-1 mb-2" value={form.name || ''} onChange={e => setForm({ ...form, name: e.target.value })} />
+            </label>
+            {!isClients ? (
+              <label className="text-xs text-slate-500 col-span-2">{L('pContact')}
+                <input className="input mt-1 mb-2" value={form.contact || ''} onChange={e => setForm({ ...form, contact: e.target.value })} />
+              </label>
+            ) : null}
+            <label className="text-xs text-slate-500">{L('phone')}
+              <input className="input mt-1 mb-2" inputMode="tel" value={form.phone || ''} onChange={e => setForm({ ...form, phone: e.target.value })} />
+            </label>
+            <label className="text-xs text-slate-500">ICE
+              <input className="input mt-1 mb-2" value={form.ice || ''} onChange={e => setForm({ ...form, ice: e.target.value })} />
+            </label>
+            <label className="text-xs text-slate-500">{L('city')}
+              <input className="input mt-1 mb-2" value={form.city || ''} onChange={e => setForm({ ...form, city: e.target.value })} />
+            </label>
+            <label className="text-xs text-slate-500">{L('address') || 'Adresse'}
+              <input className="input mt-1 mb-2" value={form.address || ''} onChange={e => setForm({ ...form, address: e.target.value })} />
+            </label>
+          </div>
 
-          {type === 'clients' ? (
+          {isClients && !form.is_walk_in ? (
             <div className="grid grid-cols-2 gap-2 mb-2">
               <label className="text-xs text-slate-500">{L('priceTier')}
                 <select className="input mt-1" disabled={!can('clients.credit_limit')} value={form.price_tier || 'detail'} onChange={e => setForm({ ...form, price_tier: e.target.value })}>
@@ -9425,8 +9647,8 @@ function Parties({ L, type }) {
             </div>
           ) : null}
 
-          {type === 'clients' ? (
-            <label className="text-xs text-slate-500">{L('assignedTo')}
+          {isClients && !form.is_walk_in ? (
+            <label className="text-xs text-slate-500 block">{L('assignedTo')}
               <select className="input mt-1 mb-2" value={form.assigned_to || ''} disabled={!canAssignParty} onChange={e => setForm({ ...form, assigned_to: e.target.value ? Number(e.target.value) : null })}>
                 <option value="">--</option>
                 {users.map(u => <option key={u.id} value={u.id}>{u.full_name || u.username}</option>)}
@@ -9434,25 +9656,80 @@ function Parties({ L, type }) {
             </label>
           ) : null}
 
-          {isAdmin(getStoredSession()) ? (
-            <label className="text-xs text-slate-500">{L('branch')}
-              <select className="input mt-1 mb-2" value={form.branch_id || ''} onChange={e => setForm({ ...form, branch_id: e.target.value ? Number(e.target.value) : null })}>
-                <option value="">--</option>
-                {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-              </select>
-            </label>
+          {!form.is_walk_in && branches.length > 1 ? (
+            <div className="border rounded-xl p-3 mb-3 space-y-2">
+              <div className="text-xs text-slate-500 font-semibold">{L('pScope')}</div>
+              <label className="flex items-center gap-2 text-sm"><input type="radio" name="pscope" checked={!formScopeOnly} onChange={() => setForm({ ...form, branch_ids: [] })} /> {L('pScopeAll')}</label>
+              <label className="flex items-center gap-2 text-sm"><input type="radio" name="pscope" checked={!!formScopeOnly} onChange={() => setForm({ ...form, branch_ids: [Number(form.branch_id || currentBranchId() || branches[0]?.id)] })} /> {L('pScopeOnly')}</label>
+              {formScopeOnly ? (
+                <div className="flex flex-wrap gap-3 ps-6">
+                  {branches.map(b => {
+                    const mine = !admin && Number(b.id) === Number(currentBranchId());
+                    return (
+                      <label key={b.id} className="flex items-center gap-1 text-sm">
+                        <input type="checkbox" disabled={mine} checked={formIds.includes(Number(b.id))}
+                          onChange={e => setForm({ ...form, branch_ids: e.target.checked ? [...formIds, Number(b.id)] : formIds.filter(v => v !== Number(b.id)) })} />
+                        {b.name}
+                      </label>
+                    );
+                  })}
+                </div>
+              ) : null}
+              <p className="text-xs text-slate-400">{L('pScopeHint')}</p>
+              {admin ? (
+                <label className="text-xs text-slate-500 block">{L('pOrigin')}
+                  <select className="input mt-1" value={form.branch_id || ''} onChange={e => setForm({ ...form, branch_id: e.target.value ? Number(e.target.value) : null })}>
+                    <option value="">--</option>
+                    {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                  </select>
+                </label>
+              ) : null}
+            </div>
           ) : null}
 
-          {form.id ? <AttachmentsPanel L={L} entityType={type === 'clients' ? 'client' : 'supplier'} entityId={form.id} branchId={form.branch_id} /> : null}
+          {dups ? (
+            <div className="bg-amber-50 border border-amber-300 rounded-xl p-3 mb-3 text-sm space-y-2">
+              <div className="font-bold text-amber-900">⚠ {L('pDupTitle')}</div>
+              <div className="text-amber-800 text-xs">{L('pDupHint')}</div>
+              {dups.map(d => (
+                <div key={d.id} className="bg-white rounded-lg border p-2 flex flex-wrap items-center gap-2 justify-between">
+                  <div>
+                    <b>{d.name}</b> <span className="text-xs text-slate-500">{[d.phone, d.ice, d.city].filter(Boolean).join(' · ')}</span>
+                    <div className="text-xs text-slate-500">{L('pOrigin')} : {d.branch_name || '-'} · {d.shared ? L('pScopeAll') : L('pScopeOnly')} · <b>{L('pDupReason_' + d.reason)}</b></div>
+                  </div>
+                  <button disabled={busy} onClick={() => useExisting(d, !d.visible)} className="btn bg-slate-900 text-white text-xs">{d.visible ? L('pDupUse') : L('pDupShare')}</button>
+                </div>
+              ))}
+              <button disabled={busy} onClick={() => save(true)} className="btn bg-white border text-xs">{L('pDupCreate')}</button>
+            </div>
+          ) : null}
 
-          <button onClick={save} className="btn bg-amber-500">{L('save')}</button>
+          {form.id ? <AttachmentsPanel L={L} entityType={isClients ? 'client' : 'supplier'} entityId={form.id} branchId={form.branch_id} /> : null}
+
+          <button disabled={busy} onClick={() => save(false)} className="btn bg-amber-500 mt-2">{busy ? '…' : L('save')}</button>
+        </Modal>
+      ) : null}
+
+      {merge ? (
+        <Modal title={L('pMergeTitle')} onClose={() => setMerge(null)}>
+          <p className="text-sm text-slate-600 mb-3">{L('pMergeHint')}</p>
+          <div className="text-xs text-slate-500">{L('pMergeKeep')}</div>
+          <div className="font-bold mb-3">{merge.keep.is_walk_in ? '🏪 ' : ''}{merge.keep.name} <span className="text-xs text-slate-500">{merge.keep.phone || ''} · {branchName(merge.keep.branch_id)}</span></div>
+          <label className="text-xs text-slate-500 block">{L('pMergeRemove')}
+            <select className="input mt-1 mb-3" value={merge.removeId} onChange={e => setMerge({ ...merge, removeId: e.target.value })}>
+              <option value="">--</option>
+              {rows.filter(r => r.id !== merge.keep.id && !r.is_walk_in)
+                .sort((a, b) => Number(norm(b.name) === norm(merge.keep.name)) - Number(norm(a.name) === norm(merge.keep.name)))
+                .map(r => <option key={r.id} value={r.id}>{r.name} — {r.phone || '-'} · {branchName(r.branch_id)} · {dh(balances[r.id]?.outstanding || 0)}</option>)}
+            </select>
+          </label>
+          <button disabled={busy || !merge.removeId} onClick={doMerge} className="btn bg-red-600 text-white">⇄ {L('pMerge')}</button>
         </Modal>
       ) : null}
       {showImport ? <ImportModal L={L} kind={type} branches={branches} close={() => setShowImport(false)} done={load} /> : null}
     </>
   );
 }
-
 
 function canEditUserRow(row) {
   const session = getStoredSession();

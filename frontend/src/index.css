@@ -1170,3 +1170,6 @@ body {
 .brand-preview .simple-title-box { min-width: 0; }
 .brand-preview .simple-doc-header { gap: 10px; }
 .brand-preview .simple-brand { white-space: nowrap; }
+
+/* V53 : clients / fournisseurs communs */
+tr.party-walkin > td { background: #fffbeb; }
