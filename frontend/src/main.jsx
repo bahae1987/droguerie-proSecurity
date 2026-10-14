@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { createClient } from '@supabase/supabase-js';
 import './index.css';
 
-console.log('DROGUERIEPRO V48 OK');
+console.log('DROGUERIEPRO V50 OK');
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -316,18 +316,356 @@ Object.assign(TXT.ar, {
   });
 
 
-const PERMS = [
-  'dashboard.read', 'products.read', 'products.write', 'products.delete',
-  'clients.read', 'clients.write', 'clients.delete', 'clients.assign',
-  'suppliers.read', 'suppliers.write', 'suppliers.delete',
-  'sales.read', 'sales.write', 'sales.delete',
-  'purchases.read', 'purchases.write', 'purchases.delete',
-  'users.read', 'users.write', 'stock.read', 'stock.adjust', 'stock.transfer', 'audit.read', 'payments.read', 'payments.cancel', 'mobile.manage', 'superadmin.manage', 'modules.manage', 'database.manage', 'backup.manage', 'reporting.read', 'sales.pay', 'purchases.pay'
+// V49 — libellés du module Autorisations
+Object.assign(TXT.fr, {
+  "permProfiles": "Profils",
+  "permByProfile": "Droits par profil",
+  "permOverview": "Vue d'ensemble",
+  "permFeatures": "Fonctions activées",
+  "permSave": "Enregistrer",
+  "permCancel": "Annuler les modifications",
+  "permPending": "modification(s) non enregistrée(s)",
+  "permSaved": "Droits enregistrés.",
+  "permTemplate": "Appliquer un modèle",
+  "permCopyFrom": "Copier les droits de…",
+  "permAll": "Tout cocher",
+  "permNone": "Tout décocher",
+  "permNewProfile": "Nouveau profil",
+  "permProfileName": "Nom du profil",
+  "permProfileDesc": "Description",
+  "permRename": "Renommer",
+  "permDeleteProfile": "Supprimer le profil",
+  "permDeleteConfirm": "Supprimer ce profil ? Ses droits seront perdus.",
+  "permHasUsers": "Impossible : des utilisateurs ont encore ce profil.",
+  "permBuiltIn": "Profil du système",
+  "permUsersCount": "utilisateur(s)",
+  "permRightsCount": "droit(s)",
+  "permAlsoOn": "Activé aussi (nécessaire) :",
+  "permAlsoOff": "Désactivé aussi (dépend de ce droit) :",
+  "permLocked": "Verrouillé : vous ne pouvez pas retirer ce droit à votre propre profil ni à l'administrateur.",
+  "permFeatureOff": "Fonction désactivée",
+  "permFeatureOffHint": "Cette fonction est désactivée pour toute la droguerie (onglet Fonctions activées).",
+  "permNotInPlan": "Non incluse dans l'abonnement",
+  "permFeaturesHint": "Une fonction désactivée disparaît pour tous les utilisateurs, quels que soient leurs droits. Les données déjà saisies sont conservées.",
+  "permFeaturesSaved": "Fonctions mises à jour.",
+  "permSearch": "Rechercher un droit…",
+  "permSuperAdminHidden": "Les droits de la plateforme SaaS sont masqués pour les profils métier.",
+  "permModuleAll": "Tout le module",
+  "permRequires": "Nécessite",
+  "permUnsaved": "Des modifications ne sont pas enregistrées. Les abandonner ?",
+  "permTplCashier": "Caissier",
+  "permTplSeller": "Vendeur",
+  "permTplStore": "Magasinier",
+  "permTplManager": "Gérant",
+  "permTplReadOnly": "Consultation seule",
+  "permSqlMissing": "Le script SQL V49 n'est pas encore exécuté : certains droits n'existent pas dans la base. Exécutez MAJ_V49_SUPABASE.sql.",
+  "permSelectProfile": "Choisissez un profil",
+  "closureLocked": "Journée déjà clôturée : seuls les profils autorisés peuvent la modifier.",
+  "bkTitle": "Sauvegarde complète : structure + données",
+  "bkIntro": "La base génère elle-même un script qui recrée toutes les tables, contraintes, index, fonctions, règles de sécurité et toutes les données.",
+  "bkLast": "Dernière sauvegarde depuis ce poste",
+  "bkNeedSql": "Le script MAJ_V50_SUPABASE.sql n'est pas encore exécuté : seules les données des tables principales peuvent être sauvegardées (sans la structure). Exécutez-le dans Supabase pour la sauvegarde complète.",
+  "bkTables": "Tables",
+  "bkConstraints": "Contraintes",
+  "bkIndexes": "Index",
+  "bkFunctions": "Fonctions",
+  "bkPolicies": "Règles de sécurité",
+  "bkStructure": "Structure",
+  "bkData": "Données",
+  "bkFullSql": "Sauvegarde complète (SQL)",
+  "bkFullSqlHint": "Structure + données dans un seul fichier. À rejouer dans un projet Supabase vide pour tout restaurer, comptes et mots de passe compris.",
+  "bkSchemaSql": "Structure seule (SQL)",
+  "bkSchemaSqlHint": "Tables, contraintes, index, séquences, fonctions, déclencheurs et sécurité, sans les données. Pour créer une base vierge identique.",
+  "bkJsonHint": "Structure (script SQL) + données de toutes les tables au format JSON, pour un traitement automatique.",
+  "bkCsvHint": "Un fichier CSV par table (données seulement), pour Excel.",
+  "bkIncluded": "Contenu",
+  "bkStructureOnly": "Structure seule (sessions)",
+  "bkLegacyHint": "Données des tables principales uniquement, sans la structure.",
+  "bkRestore1": "Créez un projet Supabase vide.",
+  "bkRestore2": "Ouvrez SQL Editor, collez le fichier « Sauvegarde complète » et cliquez sur Run.",
+  "bkRestore3": "Branchez l'application sur ce projet (URL et clé dans Vercel). Les utilisateurs se reconnectent avec leurs mots de passe habituels.",
+  "bkSecurity": "Le fichier contient toutes vos données, y compris les mots de passe chiffrés : conservez-le en lieu sûr. Les fichiers joints (Supabase Storage) ne sont pas inclus, seulement leurs références."
+});
+Object.assign(TXT.ar, {
+  "permProfiles": "الأدوار",
+  "permByProfile": "الصلاحيات حسب الدور",
+  "permOverview": "نظرة شاملة",
+  "permFeatures": "الوظائف المفعّلة",
+  "permSave": "حفظ",
+  "permCancel": "إلغاء التعديلات",
+  "permPending": "تعديل(ات) غير محفوظة",
+  "permSaved": "تم حفظ الصلاحيات.",
+  "permTemplate": "تطبيق نموذج",
+  "permCopyFrom": "نسخ صلاحيات…",
+  "permAll": "تحديد الكل",
+  "permNone": "إلغاء الكل",
+  "permNewProfile": "دور جديد",
+  "permProfileName": "اسم الدور",
+  "permProfileDesc": "الوصف",
+  "permRename": "إعادة التسمية",
+  "permDeleteProfile": "حذف الدور",
+  "permDeleteConfirm": "حذف هذا الدور؟ ستضيع صلاحياته.",
+  "permHasUsers": "غير ممكن: ما زال مستخدمون مرتبطين بهذا الدور.",
+  "permBuiltIn": "دور النظام",
+  "permUsersCount": "مستخدم",
+  "permRightsCount": "صلاحية",
+  "permAlsoOn": "تم تفعيل (ضروري) أيضاً:",
+  "permAlsoOff": "تم إلغاء (مرتبط بهذه الصلاحية) أيضاً:",
+  "permLocked": "مقفل: لا يمكنك سحب هذه الصلاحية من دورك أو من المدير.",
+  "permFeatureOff": "وظيفة معطّلة",
+  "permFeatureOffHint": "هذه الوظيفة معطّلة لكل المحل (تبويب الوظائف المفعّلة).",
+  "permNotInPlan": "غير مدرجة في الاشتراك",
+  "permFeaturesHint": "الوظيفة المعطّلة تختفي عند كل المستخدمين مهما كانت صلاحياتهم. المعطيات المسجلة تبقى محفوظة.",
+  "permFeaturesSaved": "تم تحديث الوظائف.",
+  "permSearch": "البحث عن صلاحية…",
+  "permSuperAdminHidden": "صلاحيات منصة SaaS مخفية بالنسبة لأدوار العمل.",
+  "permModuleAll": "كل الوحدة",
+  "permRequires": "تتطلب",
+  "permUnsaved": "هناك تعديلات غير محفوظة. هل تريد التخلي عنها؟",
+  "permTplCashier": "أمين الصندوق",
+  "permTplSeller": "بائع",
+  "permTplStore": "أمين المخزن",
+  "permTplManager": "مسيّر",
+  "permTplReadOnly": "اطلاع فقط",
+  "permSqlMissing": "لم يتم تنفيذ سكريبت SQL V49 بعد: بعض الصلاحيات غير موجودة في قاعدة البيانات. نفّذ MAJ_V49_SUPABASE.sql.",
+  "permSelectProfile": "اختر دوراً",
+  "closureLocked": "اليوم مغلق: التعديل مسموح فقط للأدوار المرخص لها.",
+  "bkTitle": "نسخة احتياطية كاملة: البنية + المعطيات",
+  "bkIntro": "قاعدة البيانات تُنشئ بنفسها سكريبت يعيد إنشاء كل الجداول والقيود والفهارس والدوال وقواعد الأمان وكل المعطيات.",
+  "bkLast": "آخر نسخة من هذا الجهاز",
+  "bkNeedSql": "لم يتم تنفيذ MAJ_V50_SUPABASE.sql بعد: يمكن حفظ معطيات الجداول الرئيسية فقط (بدون البنية). نفّذه في Supabase للحصول على النسخة الكاملة.",
+  "bkTables": "الجداول",
+  "bkConstraints": "القيود",
+  "bkIndexes": "الفهارس",
+  "bkFunctions": "الدوال",
+  "bkPolicies": "قواعد الأمان",
+  "bkStructure": "البنية",
+  "bkData": "المعطيات",
+  "bkFullSql": "نسخة كاملة (SQL)",
+  "bkFullSqlHint": "البنية + المعطيات في ملف واحد. يُنفَّذ في مشروع Supabase فارغ لاسترجاع كل شيء، بما فيه الحسابات وكلمات المرور.",
+  "bkSchemaSql": "البنية فقط (SQL)",
+  "bkSchemaSqlHint": "الجداول والقيود والفهارس والتسلسلات والدوال والمشغلات والأمان، بدون معطيات.",
+  "bkJsonHint": "البنية (سكريبت SQL) + معطيات كل الجداول بصيغة JSON.",
+  "bkCsvHint": "ملف CSV لكل جدول (المعطيات فقط)، لـ Excel.",
+  "bkIncluded": "المحتوى",
+  "bkStructureOnly": "البنية فقط (الجلسات)",
+  "bkLegacyHint": "معطيات الجداول الرئيسية فقط، بدون البنية.",
+  "bkRestore1": "أنشئ مشروع Supabase فارغاً.",
+  "bkRestore2": "افتح SQL Editor، الصق ملف « النسخة الكاملة » واضغط Run.",
+  "bkRestore3": "اربط التطبيق بهذا المشروع (الرابط والمفتاح في Vercel). يدخل المستخدمون بكلمات مرورهم المعتادة.",
+  "bkSecurity": "الملف يحتوي على كل معطياتك بما فيها كلمات المرور المشفرة: احفظه في مكان آمن. الملفات المرفقة (Supabase Storage) غير مدرجة، فقط مراجعها."
+});
+
+/* ---------- V49 : catalogue des droits ----------
+   Chaque droit : code, libellé FR/AR, aide FR/AR, fonction (activable pour toute la droguerie). */
+const PD = (code, fr, ar, dfr = '', dar = '', feature = null) => ({ code, fr, ar, dfr, dar, feature });
+const PERM_MODULES = [
+  { key: 'dashboard', fr: 'Tableau de bord et analyses', ar: 'لوحة التحكم والتحليلات', icon: '📊', perms: [
+    PD('dashboard.read', 'Consulter le tableau de bord', 'الاطلاع على لوحة التحكم', 'Indicateurs du jour, alertes, activité récente.', 'مؤشرات اليوم والتنبيهات وآخر العمليات.'),
+    PD('reporting.read', 'Reporting', 'التقارير', 'CA, encaissements, dettes et marges par vendeur ; relevés clients.', 'رقم المعاملات والتحصيل والديون والهوامش حسب البائع؛ كشوف الحساب.'),
+    PD('profit.read', 'Centre de rentabilité', 'مركز الربحية', 'Marges par produit, prix conseillés, stock dormant.', 'الهوامش حسب المنتج، الأثمنة المقترحة، المخزون الراكد.', 'profit'),
+    PD('tools.read', 'Outils et calculateurs', 'الأدوات والحاسبات', 'Calculatrice, calcul de marge et de prix de vente.', 'آلة حاسبة، حساب الهامش وثمن البيع.', 'tools'),
+    PD('data.export', 'Exporter les données (CSV)', 'تصدير البيانات (CSV)', 'Boutons « Exporter CSV » des listes et du reporting.', 'أزرار « تصدير CSV » في اللوائح والتقارير.')
+  ]},
+  { key: 'pos', fr: 'Caisse rapide', ar: 'الصندوق السريع', icon: '🛒', feature: 'pos', perms: [
+    PD('pos.use', 'Utiliser la caisse rapide', 'استعمال الصندوق السريع', 'Vente au comptoir : code-barres, encaissement et ticket.', 'البيع في الكونطوار: الكود بار، التحصيل والتذكرة.', 'pos'),
+    PD('pos.discount', 'Remise en caisse', 'الخصم في الصندوق', 'Remise par ligne ou remise globale sur le ticket.', 'خصم على السطر أو خصم إجمالي على التذكرة.', 'pos'),
+    PD('pos.credit', 'Vente à crédit en caisse', 'البيع بالدين في الصندوق', 'Mode de paiement « Crédit » (client enregistré obligatoire).', 'طريقة الأداء « بالدين » (زبون مسجل إلزامي).', 'pos')
+  ]},
+  { key: 'sales', fr: 'Ventes', ar: 'المبيعات', icon: '🧾', perms: [
+    PD('sales.read', 'Consulter ses ventes', 'الاطلاع على مبيعاته', 'Devis, commandes, livraisons et factures créés par l\'utilisateur.', 'عروض الأسعار والطلبيات والتسليمات والفواتير التي أنشأها المستخدم.'),
+    PD('sales.all', 'Voir les ventes de toute la droguerie', 'رؤية مبيعات كل المحل', 'Sinon, chaque utilisateur ne voit que ses propres documents.', 'وإلا فكل مستخدم يرى وثائقه فقط.'),
+    PD('sales.write', 'Créer et faire avancer les ventes', 'إنشاء المبيعات وتقدّمها', 'Devis → commande → livraison → facture, livraisons partielles.', 'عرض السعر ← الطلبية ← التسليم ← الفاتورة، التسليم الجزئي.'),
+    PD('sales.price_edit', 'Modifier le prix de vente', 'تعديل ثمن البيع', 'Changer le prix unitaire proposé sur une vente ou en caisse.', 'تغيير ثمن الوحدة المقترح في البيع أو في الصندوق.'),
+    PD('sales.discount', 'Accorder des remises', 'منح الخصومات', 'Remise en % sur les lignes des documents de vente.', 'خصم بالنسبة المئوية على سطور وثائق البيع.'),
+    PD('sales.pay', 'Encaisser', 'التحصيل', 'Enregistrer un règlement client (espèces, chèque, virement…).', 'تسجيل أداء الزبون (نقداً، شيك، تحويل…).'),
+    PD('sales.return', 'Faire un avoir client', 'إنشاء إشعار دائن', 'Retour de marchandise, déduit de la facture et remis en stock.', 'إرجاع سلعة، يُخصم من الفاتورة ويعود للمخزون.', 'returns'),
+    PD('sales.credit_override', 'Dépasser le plafond de crédit', 'تجاوز سقف الكريدي', 'Valider une vente même si le client dépasse son plafond.', 'تأكيد البيع حتى لو تجاوز الزبون سقفه.'),
+    PD('sales.delete', 'Supprimer des ventes', 'حذف المبيعات', 'Suppression définitive d\'un document de vente.', 'حذف نهائي لوثيقة بيع.')
+  ]},
+  { key: 'purchases', fr: 'Achats', ar: 'المشتريات', icon: '📦', perms: [
+    PD('purchases.read', 'Consulter ses achats', 'الاطلاع على مشترياته', 'Commandes, réceptions et factures fournisseurs créées par l\'utilisateur.', 'طلبيات واستلامات وفواتير الموردين التي أنشأها المستخدم.'),
+    PD('purchases.all', 'Voir les achats de toute la droguerie', 'رؤية مشتريات كل المحل', 'Sinon, chaque utilisateur ne voit que ses propres documents.', 'وإلا فكل مستخدم يرى وثائقه فقط.'),
+    PD('purchases.write', 'Créer et réceptionner les achats', 'إنشاء المشتريات واستلامها', 'Commande → réception (entrée en stock) → facture.', 'الطلبية ← الاستلام (دخول المخزون) ← الفاتورة.'),
+    PD('purchases.pay', 'Régler les fournisseurs', 'أداء الموردين', 'Enregistrer un règlement fournisseur.', 'تسجيل أداء لمورد.'),
+    PD('purchases.return', 'Faire un retour fournisseur', 'إرجاع للمورد', 'Marchandise renvoyée, sortie du stock et déduite de la facture.', 'سلعة مرجعة، تخرج من المخزون وتُخصم من الفاتورة.', 'returns'),
+    PD('purchases.delete', 'Supprimer des achats', 'حذف المشتريات', 'Suppression définitive d\'un document d\'achat.', 'حذف نهائي لوثيقة شراء.')
+  ]},
+  { key: 'cash', fr: 'Paiements et clôture de caisse', ar: 'المدفوعات وإغلاق الصندوق', icon: '💵', perms: [
+    PD('payments.read', 'Consulter les paiements', 'الاطلاع على المدفوعات', 'Liste des encaissements et décaissements.', 'لائحة المقبوضات والمدفوعات.'),
+    PD('payments.cancel', 'Annuler un paiement', 'إلغاء أداء', 'Annulation d\'un règlement avec motif (tracé).', 'إلغاء أداء مع ذكر السبب (مسجّل).'),
+    PD('cash.close', 'Clôturer la caisse du jour', 'إغلاق صندوق اليوم', 'Comptage des espèces et validation de la journée.', 'عدّ النقد وتأكيد اليوم.', 'cashClosure'),
+    PD('cash.reopen', 'Modifier une journée déjà clôturée', 'تعديل يوم مغلق', 'Corriger une clôture déjà validée.', 'تصحيح إغلاق تم تأكيده.', 'cashClosure')
+  ]},
+  { key: 'products', fr: 'Produits', ar: 'المنتجات', icon: '🏷️', perms: [
+    PD('products.read', 'Consulter les produits', 'الاطلاع على المنتجات', 'Catalogue, prix et quantités.', 'الكتالوج والأثمنة والكميات.'),
+    PD('products.write', 'Créer et modifier les produits', 'إنشاء وتعديل المنتجات', 'Fiches produits, catégories et unités.', 'بطاقات المنتجات، الأصناف والوحدات.'),
+    PD('products.import', 'Importer les produits (Excel)', 'استيراد المنتجات (Excel)', 'Les clients et fournisseurs s\'importent avec le droit « Créer et modifier » correspondant.', 'الزبناء والموردون يُستوردون بصلاحية « إنشاء وتعديل » الخاصة بهم.', 'import'),
+    PD('products.delete', 'Supprimer des produits', 'حذف المنتجات', 'Suppression d\'une fiche produit.', 'حذف بطاقة منتج.')
+  ]},
+  { key: 'stock', fr: 'Stock', ar: 'المخزون', icon: '🏬', perms: [
+    PD('stock.read', 'Consulter le stock et ses mouvements', 'الاطلاع على المخزون وحركاته', 'Historique des entrées et sorties.', 'سجل المداخيل والمخارج.'),
+    PD('stock.adjust', 'Ajuster le stock', 'تعديل المخزون', 'Entrée ou sortie manuelle avec motif.', 'إدخال أو إخراج يدوي مع السبب.'),
+    PD('stock.transfer', 'Transférer entre drogueries', 'التحويل بين المحلات', 'Envoyer du stock vers une autre droguerie.', 'إرسال مخزون إلى محل آخر.'),
+    PD('stock.inventory', 'Faire l\'inventaire', 'إجراء الجرد', 'Comptage physique et correction des écarts.', 'العدّ الفعلي وتصحيح الفروقات.', 'inventory'),
+    PD('stock.reorder', 'Réapprovisionnement automatique', 'إعادة التزويد التلقائية', 'Créer les commandes fournisseurs proposées.', 'إنشاء طلبيات الموردين المقترحة.', 'reorder')
+  ]},
+  { key: 'clients', fr: 'Clients', ar: 'الزبناء', icon: '👥', perms: [
+    PD('clients.read', 'Consulter les clients', 'الاطلاع على الزبناء', 'Fiches clients et encours.', 'بطاقات الزبناء والمتبقي.'),
+    PD('clients.write', 'Créer et modifier les clients', 'إنشاء وتعديل الزبناء', 'Coordonnées, ICE, adresse.', 'المعلومات، ICE، العنوان.'),
+    PD('clients.credit_limit', 'Fixer tarif et plafond de crédit', 'تحديد التسعيرة وسقف الكريدي', 'Tarif gros/détail et plafond de crédit du client.', 'تسعيرة الجملة/التقسيط وسقف كريدي الزبون.'),
+    PD('clients.assign', 'Affecter un client à un vendeur', 'ربط زبون ببائع', 'Choisir le commercial responsable du client.', 'اختيار البائع المسؤول عن الزبون.'),
+    PD('clients.delete', 'Supprimer des clients', 'حذف الزبناء', 'Suppression d\'une fiche client.', 'حذف بطاقة زبون.')
+  ]},
+  { key: 'suppliers', fr: 'Fournisseurs', ar: 'الموردون', icon: '🚚', perms: [
+    PD('suppliers.read', 'Consulter les fournisseurs', 'الاطلاع على الموردين'),
+    PD('suppliers.write', 'Créer et modifier les fournisseurs', 'إنشاء وتعديل الموردين'),
+    PD('suppliers.delete', 'Supprimer des fournisseurs', 'حذف الموردين')
+  ]},
+  { key: 'expenses', fr: 'Charges et déplacements', ar: 'المصاريف والتنقلات', icon: '⛽', feature: 'expenses', perms: [
+    PD('expenses.read', 'Consulter les charges et déplacements', 'الاطلاع على المصاريف والتنقلات', 'L\'utilisateur voit les siens ; gérant et administrateur voient tout.', 'المستخدم يرى ما يخصه؛ المسيّر والمدير يريان الكل.', 'expenses'),
+    PD('expenses.write', 'Saisir des charges et déplacements', 'تسجيل المصاريف والتنقلات', '', '', 'expenses')
+  ]},
+  { key: 'admin', fr: 'Administration', ar: 'الإدارة', icon: '⚙️', perms: [
+    PD('users.read', 'Consulter les utilisateurs', 'الاطلاع على المستخدمين'),
+    PD('users.write', 'Créer et modifier les utilisateurs', 'إنشاء وتعديل المستخدمين', 'Comptes, profils, mots de passe, désactivation.', 'الحسابات، الأدوار، كلمات المرور، التعطيل.'),
+    PD('settings.manage', 'Paramètres et fonctions', 'الإعدادات والوظائف', 'Identité de la société, alertes, fonctions activées.', 'معلومات الشركة، التنبيهات، الوظائف المفعّلة.'),
+    PD('permissions.manage', 'Gérer les autorisations', 'إدارة الصلاحيات', 'Cette page : profils et droits.', 'هذه الصفحة: الأدوار والصلاحيات.'),
+    PD('branches.manage', 'Gérer les drogueries', 'إدارة المحلات', 'Points de vente et responsables.', 'نقط البيع والمسؤولون.'),
+    PD('mobile.manage', 'Application mobile', 'تطبيق الهاتف'),
+    PD('audit.read', 'Consulter la traçabilité', 'الاطلاع على سجل العمليات', 'Journal de qui a fait quoi et quand.', 'سجل من فعل ماذا ومتى.')
+  ]},
+  { key: 'saas', fr: 'Plateforme SaaS', ar: 'منصة SaaS', icon: '☁️', saas: true, perms: [
+    PD('superadmin.manage', 'Centre SuperAdmin', 'مركز المدير العام'),
+    PD('modules.manage', 'Gérer les modules et abonnements', 'إدارة الوحدات والاشتراكات'),
+    PD('database.manage', 'Base de données', 'قاعدة البيانات'),
+    PD('backup.manage', 'Sauvegardes', 'النسخ الاحتياطي')
+  ]}
+];
+const PERM_INDEX = Object.fromEntries(PERM_MODULES.flatMap(m => m.perms.map(p => [p.code, { ...p, module: m.key }])));
+
+// Droits nécessaires : activer un droit active aussi ceux dont il dépend ; désactiver un droit désactive ceux qui en dépendent.
+const PERM_DEPS = {
+  'pos.use': ['sales.write', 'products.read'], 'pos.discount': ['pos.use'], 'pos.credit': ['pos.use'],
+  'sales.all': ['sales.read'], 'sales.write': ['sales.read', 'clients.read', 'products.read'],
+  'sales.price_edit': ['sales.write'], 'sales.discount': ['sales.write'], 'sales.pay': ['sales.read'],
+  'sales.return': ['sales.write'], 'sales.credit_override': ['sales.write'], 'sales.delete': ['sales.write'],
+  'purchases.all': ['purchases.read'], 'purchases.write': ['purchases.read', 'suppliers.read', 'products.read'],
+  'purchases.pay': ['purchases.read'], 'purchases.return': ['purchases.write'], 'purchases.delete': ['purchases.write'],
+  'payments.cancel': ['payments.read'], 'cash.reopen': ['cash.close'],
+  'products.write': ['products.read'], 'products.delete': ['products.write'], 'products.import': ['products.write'],
+  'stock.read': ['products.read'], 'stock.adjust': ['stock.read'], 'stock.transfer': ['stock.read'],
+  'stock.inventory': ['stock.read'], 'stock.reorder': ['stock.read', 'purchases.write'],
+  'clients.write': ['clients.read'], 'clients.credit_limit': ['clients.write'], 'clients.assign': ['clients.read'], 'clients.delete': ['clients.write'],
+  'suppliers.write': ['suppliers.read'], 'suppliers.delete': ['suppliers.write'],
+  'expenses.write': ['expenses.read'], 'users.write': ['users.read']
+};
+
+function permWithDeps(codes, code) {
+  const set = new Set(codes);
+  const added = [];
+  (function add(c) {
+    for (const d of PERM_DEPS[c] || []) if (!set.has(d)) { set.add(d); added.push(d); add(d); }
+  })(code);
+  set.add(code);
+  return { set, added };
+}
+
+function permWithoutDependents(codes, code) {
+  const set = new Set(codes);
+  set.delete(code);
+  const removed = [];
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const c of [...set]) {
+      if ((PERM_DEPS[c] || []).some(d => !set.has(d))) { set.delete(c); removed.push(c); changed = true; }
+    }
+  }
+  return { set, removed };
+}
+
+// Modèles de profils (les dépendances sont ajoutées automatiquement)
+const ROLE_TEMPLATES = [
+  { key: 'cashier', label: 'permTplCashier', codes: ['dashboard.read', 'pos.use', 'sales.pay', 'payments.read', 'cash.close', 'stock.read'] },
+  { key: 'seller', label: 'permTplSeller', codes: ['dashboard.read', 'reporting.read', 'pos.use', 'pos.discount', 'pos.credit', 'sales.write', 'sales.discount', 'sales.pay', 'clients.write', 'stock.read', 'payments.read', 'cash.close', 'expenses.write'] },
+  { key: 'store', label: 'permTplStore', codes: ['dashboard.read', 'products.write', 'products.import', 'stock.adjust', 'stock.transfer', 'stock.inventory', 'stock.reorder', 'suppliers.write', 'purchases.write', 'purchases.return', 'expenses.read'] },
+  { key: 'manager', label: 'permTplManager', codes: PERM_MODULES.filter(m => !['admin', 'saas'].includes(m.key)).flatMap(m => m.perms.map(p => p.code)).concat(['users.read', 'audit.read']) },
+  { key: 'readonly', label: 'permTplReadOnly', codes: ['dashboard.read', 'reporting.read', 'profit.read', 'tools.read', 'sales.read', 'sales.all', 'purchases.read', 'purchases.all', 'payments.read', 'products.read', 'stock.read', 'clients.read', 'suppliers.read', 'expenses.read'] }
 ];
 
+function templateCodes(tpl) {
+  let set = new Set();
+  for (const c of tpl.codes) set = permWithDeps(set, c).set;
+  return set;
+}
+
+// Fonctions activables pour toute la droguerie (en plus des modules de l'abonnement SaaS)
+const FEATURES = [
+  { key: 'pos', saas: 'pos', icon: '🛒', fr: 'Caisse rapide', ar: 'الصندوق السريع', dfr: 'Vente au comptoir avec code-barres et ticket.', dar: 'البيع في الكونطوار بالكود بار والتذكرة.' },
+  { key: 'cashClosure', icon: '💵', fr: 'Clôture de caisse', ar: 'إغلاق الصندوق', dfr: 'Comptage des espèces et écart de caisse chaque soir.', dar: 'عدّ النقد وفرق الصندوق كل مساء.' },
+  { key: 'inventory', icon: '📋', fr: 'Inventaire physique', ar: 'الجرد الفعلي', dfr: 'Comptage du stock et correction des écarts.', dar: 'عدّ المخزون وتصحيح الفروقات.' },
+  { key: 'reorder', icon: '🔁', fr: 'Réapprovisionnement automatique', ar: 'إعادة التزويد التلقائية', dfr: 'Commandes fournisseurs proposées sous le stock minimum.', dar: 'طلبيات موردين مقترحة تحت الحد الأدنى.' },
+  { key: 'import', icon: '📥', fr: 'Import Excel', ar: 'الاستيراد من Excel', dfr: 'Import des produits, clients et fournisseurs.', dar: 'استيراد المنتجات والزبناء والموردين.' },
+  { key: 'returns', icon: '↩️', fr: 'Avoirs et retours fournisseurs', ar: 'الإشعارات الدائنة والمرتجعات', dfr: 'Retours clients et fournisseurs sur facture.', dar: 'مرتجعات الزبناء والموردين على الفاتورة.' },
+  { key: 'share', icon: '📤', fr: 'Partage WhatsApp / e-mail / PDF', ar: 'المشاركة واتساب / بريد / PDF', dfr: 'Envoi des documents depuis l\'aperçu.', dar: 'إرسال الوثائق من المعاينة.' },
+  { key: 'expenses', saas: 'expenses', icon: '⛽', fr: 'Charges et déplacements', ar: 'المصاريف والتنقلات', dfr: 'Tournées, charges et marge nette.', dar: 'الجولات والمصاريف والهامش الصافي.' },
+  { key: 'profit', saas: 'profit', icon: '📈', fr: 'Centre de rentabilité', ar: 'مركز الربحية', dfr: 'Analyse des marges par produit.', dar: 'تحليل الهوامش حسب المنتج.' },
+  { key: 'tools', saas: 'tools', icon: '🧮', fr: 'Outils et calculateurs', ar: 'الأدوات والحاسبات', dfr: 'Calculatrice et calcul de prix.', dar: 'آلة حاسبة وحساب الأثمنة.' }
+];
+
+function curLang() {
+  try { return localStorage.getItem('lang') || 'fr'; } catch { return 'fr'; }
+}
+// Libellé (tr) et aide (trd) dans la langue de l'interface
+function tr(obj) {
+  return (curLang() === 'ar' ? obj?.ar : obj?.fr) || obj?.fr || '';
+}
+function trd(obj) {
+  return (curLang() === 'ar' ? obj?.dar : obj?.dfr) || obj?.dfr || '';
+}
+
+function getFeaturesOff() {
+  try { return JSON.parse(localStorage.getItem('droguerie_features_off') || '[]') || []; } catch { return []; }
+}
+
+// Une fonction est disponible si l'abonnement l'inclut ET si l'administrateur ne l'a pas désactivée
+function featureOn(key) {
+  const f = FEATURES.find(x => x.key === key);
+  if (f?.saas && getDisabledModulesCache().includes(f.saas)) return false;
+  return !getFeaturesOff().includes(key);
+}
+
+// Droit + fonction activée
+function canUse(code) {
+  const feature = PERM_INDEX[code]?.feature;
+  return can(code) && (!feature || featureOn(feature));
+}
+
+
+// V49 : tant que le script SQL V49 n'est pas exécuté, les nouveaux droits suivent les anciens (aucune régression)
+const LEGACY_EQUIV = {
+  'pos.use': 'sales.write', 'pos.discount': 'sales.write', 'pos.credit': 'sales.write',
+  'sales.price_edit': 'sales.write', 'sales.discount': 'sales.write', 'sales.return': 'sales.write',
+  'purchases.return': 'purchases.write', 'cash.close': ['payments.read', 'sales.pay'],
+  'stock.inventory': 'stock.adjust', 'stock.reorder': 'purchases.write', 'products.import': 'products.write',
+  'clients.credit_limit': 'clients.write', 'profit.read': 'dashboard.read', 'tools.read': 'dashboard.read',
+  'expenses.read': 'dashboard.read', 'expenses.write': 'dashboard.read', 'data.export': 'dashboard.read',
+  'sales.all': '@manager', 'purchases.all': '@manager', 'sales.credit_override': '@manager', 'cash.reopen': '@manager'
+};
+
+function permCatalogReady() {
+  try { return localStorage.getItem('droguerie_perm_v49') === '1'; } catch { return false; }
+}
 
 function hasPerm(session, code) {
-  return Array.isArray(session?.perms) && session.perms.includes(code);
+  const perms = Array.isArray(session?.perms) ? session.perms : [];
+  if (perms.includes(code)) return true;
+  if (permCatalogReady()) return false;
+  const legacy = LEGACY_EQUIV[code];
+  if (!legacy) return false;
+  if (legacy === '@manager') return isAdmin(session) || isManager(session);
+  return [].concat(legacy).some(c => perms.includes(c));
 }
 
 function getStoredSession() {
@@ -403,6 +741,11 @@ async function getUserPermissions(userId) {
 
 function can(code) {
   return hasPerm(getStoredSession(), code);
+}
+
+// Droit + fonction activée, sinon erreur
+function requireUse(code, label = 'Action') {
+  if (!canUse(code)) throw new Error(label + ' non autorisée');
 }
 
 function requirePerm(code, label = 'Action') {
@@ -503,7 +846,7 @@ async function loadBranchStockSummary() {
 }
 
 async function transferStock({ productId, toBranchId, quantity, reason }) {
-  requirePerm('stock.adjust', 'Transfert stock');
+  if (!(can('stock.transfer') || can('stock.adjust'))) throw new Error('Transfert stock non autorisé');
 
   const qty = Number(quantity || 0);
   if (!productId || !toBranchId || qty <= 0) throw new Error('Transfert stock invalide');
@@ -1085,6 +1428,11 @@ function isSystemAdmin(session) {
 }
 
 
+// Module de l'abonnement SaaS actif ?
+function moduleOn(code) {
+  return !getDisabledModulesCache().includes(code);
+}
+
 function getDisabledModulesCache() {
   return jsonValue(localStorage.getItem('droguerie_disabled_modules'), []);
 }
@@ -1203,6 +1551,7 @@ function shouldApplyBranchFilter(session = getStoredSession()) {
 
 function selectedBranchId(session = getStoredSession()) {
   if (!shouldApplyBranchFilter(session)) return branchId(session);
+  if (!moduleOn('branches')) return null;
   const v = getSelectedBranchFilter();
   if (!v || v === 'all') return null;
   return Number(v);
@@ -1226,7 +1575,7 @@ function BranchFilter({ L, value, onChange }) {
     loadBranches().then(setBranches).catch(() => setBranches([]));
   }, []);
 
-  if (!shouldApplyBranchFilter(getStoredSession())) return null;
+  if (!shouldApplyBranchFilter(getStoredSession()) || !moduleOn('branches')) return null;
 
   return (
     <div className="branch-filter-card no-print">
@@ -1264,7 +1613,34 @@ function moduleCodeForPage(page) {
   }[page] || page;
 }
 
+async function refreshFeaturesCache() {
+  try {
+    const { data: v49 } = await supabase.from('permissions').select('id').eq('code', 'cash.close').maybeSingle();
+    localStorage.setItem('droguerie_perm_v49', v49 ? '1' : '0');
+  } catch {}
+  try {
+    const { data, error } = await supabase.from('app_settings').select('value').eq('key', 'features_off').maybeSingle();
+    if (error) throw error;
+    const off = jsonValue(data?.value, []);
+    localStorage.setItem('droguerie_features_off', JSON.stringify(Array.isArray(off) ? off : []));
+  } catch (e) {
+    console.warn('refreshFeaturesCache:', e.message);
+  }
+  return getFeaturesOff();
+}
+
+async function saveFeaturesOff(list) {
+  requirePerm('settings.manage', 'Gestion des fonctions');
+  const value = JSON.stringify([...new Set(list)]);
+  const { error } = await supabase.from('app_settings').upsert({ key: 'features_off', value }, { onConflict: 'key' });
+  if (error) throw new Error(error.message);
+  localStorage.setItem('droguerie_features_off', value);
+  await auditLog('Paramètres', 'UPDATE', 'Fonctions activées', value);
+  window.dispatchEvent(new CustomEvent('droguerie_modules_changed', { detail: getDisabledModulesCache() }));
+}
+
 async function refreshSaasModulesCache() {
+  await refreshFeaturesCache();
   try {
     const { data, error } = await supabase.from('saas_modules').select('code, enabled');
     if (error) throw error;
@@ -1289,6 +1665,8 @@ function visibleMenuItem(item, session, disabledModules = getDisabledModulesCach
   }
 
   if (page === 'saas') return false;
+  const feature = { pos: 'pos', expenses: 'expenses', profit: 'profit', tools: 'tools' }[page];
+  if (feature && getFeaturesOff().includes(feature)) return false;
   return !disabledModules.includes(moduleCode);
 }
 
@@ -1371,16 +1749,9 @@ function applyDocScope(query, type, session) {
     return applyBranchFilterToQuery(query, session);
   }
 
-  if (isManager(session)) {
+  // V49 : « voir toute la droguerie » est un droit (sales.all / purchases.all), sinon l'utilisateur voit ses documents
+  if (hasPerm(session, type === 'purchases' ? 'purchases.all' : 'sales.all')) {
     return branchId(session) ? query.eq('branch_id', branchId(session)) : query.eq('branch_id', -1);
-  }
-
-  if (type === 'sales' && isSeller(session)) {
-    return query.eq('created_by', session.user.id);
-  }
-
-  if (type === 'purchases' && isStoreKeeper(session)) {
-    return query.eq('created_by', session.user.id);
   }
 
   return query.eq('created_by', session.user.id);
@@ -1744,11 +2115,56 @@ async function loadPermissionsMatrix() {
   const roleIds = new Set(visibleRoles.map(r => Number(r.id)));
   const permIds = new Set(visiblePermissions.map(p => Number(p.id)));
 
+  const { data: users } = await supabase.from('users').select('id, username, full_name, role_id, active');
   return {
     roles: visibleRoles,
     permissions: visiblePermissions,
-    rolePerms: (rolePerms || []).filter(x => roleIds.has(Number(x.role_id)) && permIds.has(Number(x.permission_id)))
+    rolePerms: (rolePerms || []).filter(x => roleIds.has(Number(x.role_id)) && permIds.has(Number(x.permission_id))),
+    users: (users || []).filter(u => u.active !== false)
   };
+}
+
+// V49 : enregistrement groupé des droits d'un profil (ajouts + retraits)
+async function saveRolePermissions(role, before, after, idByCode) {
+  requirePerm('permissions.manage', 'Gestion des autorisations');
+  const session = getStoredSession();
+  if (!isSuperAdmin(session) && !canSeeRoleColumn(role, session)) throw new Error('Action non autorisée sur les droits SuperAdmin');
+  const add = [...after].filter(c => !before.has(c) && idByCode[c] && (isSuperAdmin(session) || !isSaasPermission(c)));
+  const del = [...before].filter(c => !after.has(c) && idByCode[c] && (isSuperAdmin(session) || !isSaasPermission(c)));
+  if (add.length) {
+    const { error } = await supabase.from('role_permissions').upsert(add.map(c => ({ role_id: role.id, permission_id: idByCode[c] })), { onConflict: 'role_id,permission_id' });
+    if (error) throw new Error(error.message);
+  }
+  if (del.length) {
+    const { error } = await supabase.from('role_permissions').delete().eq('role_id', role.id).in('permission_id', del.map(c => idByCode[c]));
+    if (error) throw new Error(error.message);
+  }
+  if (add.length || del.length) await auditLog('Autorisations', 'UPDATE', 'Profil ' + role.name, (add.length ? '+ ' + add.join(', ') : '') + (add.length && del.length ? ' | ' : '') + (del.length ? '- ' + del.join(', ') : ''));
+}
+
+async function createRole({ name, description }) {
+  requirePerm('permissions.manage', 'Gestion des autorisations');
+  if (['SuperAdmin', 'Super Administrateur'].includes(name)) throw new Error('Nom réservé');
+  const { data, error } = await supabase.from('roles').insert({ name, description }).select().single();
+  if (error) throw new Error(/duplicate|unique/i.test(error.message) ? 'Ce nom de profil existe déjà' : error.message);
+  await auditLog('Autorisations', 'CREATE', 'Profil ' + name, description || '');
+  return data;
+}
+
+async function updateRole(id, { name, description }) {
+  requirePerm('permissions.manage', 'Gestion des autorisations');
+  const { error } = await supabase.from('roles').update({ name, description }).eq('id', id);
+  if (error) throw new Error(/duplicate|unique/i.test(error.message) ? 'Ce nom de profil existe déjà' : error.message);
+  await auditLog('Autorisations', 'UPDATE', 'Profil ' + name, description || '');
+}
+
+async function deleteRole(id) {
+  requirePerm('permissions.manage', 'Gestion des autorisations');
+  const { count } = await supabase.from('users').select('id', { count: 'exact', head: true }).eq('role_id', id);
+  if (count) throw new Error('Des utilisateurs ont encore ce profil');
+  const { error } = await supabase.from('roles').delete().eq('id', id);
+  if (error) throw new Error(error.message);
+  await auditLog('Autorisations', 'DELETE', 'Profil #' + id, '');
 }
 
 async function setRolePermission(roleId, permissionId, enabled) {
@@ -2267,8 +2683,7 @@ function canPartialInvoice(doc, type) {
 
 /* ---------- Plafond de crédit client ---------- */
 function canOverrideCreditLimit() {
-  const s = getStoredSession();
-  return isAdmin(s) || isManager(s);
+  return can('sales.credit_override');
 }
 
 async function clientOutstanding(clientId) {
@@ -2552,6 +2967,7 @@ async function partialInvoiceDoc(type, id, body) {
 // - impute le montant sur la facture d'origine (règlement de type « Avoir »), le surplus est à rembourser
 async function returnDoc(type, id, body) {
   requirePerm(type === 'sales' ? 'sales.write' : 'purchases.write', type === 'sales' ? 'Avoir client' : 'Retour fournisseur');
+  requireUse(type === 'sales' ? 'sales.return' : 'purchases.return', type === 'sales' ? 'Avoir client' : 'Retour fournisseur');
   const isSales = type === 'sales';
   const { data: inv, error } = await supabase.from(type).select('*').eq('id', id).single();
   if (error) throw new Error(error.message);
@@ -2919,7 +3335,8 @@ async function loadUsers() {
 
   if (error) throw new Error(error.message);
 
-  let rows = data || [];
+  // Profil et droguerie à plat pour l'affichage (colonnes « Profil » / « Droguerie »)
+  let rows = (data || []).map(u => ({ ...u, role: u.roles?.name || u.role || '', branch_name: u.branches?.name || u.branch_name || '' }));
   if (!isSuperAdmin(session)) rows = rows.filter(u => !isSuperAdminUserRow(u));
 
   const bid = selectedBranchId(session);
@@ -3026,11 +3443,11 @@ function Layout({ L, lang, toggleLang, session, setSession }) {
 ['dashboard', L('dashboard'), 'dashboard.read'],
     ['saas', L('saasCenter'), 'superadmin.manage'],
     ['backup', L('backupCenter'), 'backup.manage'],
-    ['profit', L('profitCenter'), 'dashboard.read'],
+    ['profit', L('profitCenter'), 'profit.read'],
     ['reporting', L('reporting'), 'reporting.read'],
-    ['tools', L('tools'), 'dashboard.read'],
+    ['tools', L('tools'), 'tools.read'],
     ['products', L('products'), 'products.read'],
-    ['pos', L('posMod'), 'sales.write'],
+    ['pos', L('posMod'), 'pos.use'],
     ['sales', L('sales'), 'sales.read'],
     ['purchases', L('purchases'), 'purchases.read'],
     ['payments', L('payments'), 'payments.read'],
@@ -3041,7 +3458,7 @@ function Layout({ L, lang, toggleLang, session, setSession }) {
     ['mobileApp', L('mobileApp'), 'mobile.manage'],
     ['clients', L('clients'), 'clients.read'],
     ['suppliers', L('suppliers'), 'suppliers.read'],
-    ['expenses', L('expensesMod'), 'dashboard.read'],
+    ['expenses', L('expensesMod'), 'expenses.read'],
     ['users', L('users'), 'users.read']
   ];
 
@@ -3049,7 +3466,10 @@ function Layout({ L, lang, toggleLang, session, setSession }) {
     refreshSaasModulesCache().then(setDisabledModules);
     const handler = e => setDisabledModules(e.detail || getDisabledModulesCache());
     window.addEventListener('droguerie_modules_changed', handler);
-    return () => window.removeEventListener('droguerie_modules_changed', handler);
+    // Droits du profil courant modifiés depuis la page Autorisations
+    const permsHandler = () => { const s = getStoredSession(); if (s) setSession(s); };
+    window.addEventListener('droguerie_perms_changed', permsHandler);
+    return () => { window.removeEventListener('droguerie_modules_changed', handler); window.removeEventListener('droguerie_perms_changed', permsHandler); };
   }, []);
 
   useEffect(() => {
@@ -3357,7 +3777,7 @@ function ReportingCenter({ L }) {
         </label>
         <button onClick={() => { setDateFrom(''); setDateTo(''); }} className="btn bg-white border">{L('allPeriod')}</button>
         <button onClick={load} className="btn bg-white border">↻</button>
-        <button onClick={() => downloadCsv('reporting-commercial.csv', salesBySeller.map(x => ({ vendeur: x.name, ca: x.total, encaisse: x.paid, dette: x.debt, marge: x.margin, docs: x.docs })))} className="btn bg-slate-900 text-white">{L('exportReport') || L('exportCsv')}</button>
+        {can('data.export') ? <button onClick={() => downloadCsv('reporting-commercial.csv', salesBySeller.map(x => ({ vendeur: x.name, ca: x.total, encaisse: x.paid, dette: x.debt, marge: x.margin, docs: x.docs })))} className="btn bg-slate-900 text-white">{L('exportReport') || L('exportCsv')}</button> : null}
       </Header>
 
       <div className="pro-kpi-grid mb-5">
@@ -3564,7 +3984,7 @@ function ProfitCenter({ L }) {
     <>
       <Header title={L('profitCenter')}>
         <button onClick={load} className="btn bg-white border">↻</button>
-        <button onClick={() => downloadCsv('rentabilite-produits.csv', rows.map(p => ({
+        {can('data.export') ? <button onClick={() => downloadCsv('rentabilite-produits.csv', rows.map(p => ({
           ref: p.ref,
           produit: p.nom,
           prix_achat: p.prixAchat,
@@ -3573,7 +3993,7 @@ function ProfitCenter({ L }) {
           taux_marge: p.prixVente ? ((p.prixVente - p.prixAchat) / p.prixVente) * 100 : 0,
           stock: p.quantite,
           qte_a_commander: reorderSuggestion(p)
-        })))} className="btn bg-slate-900 text-white">{L('exportCsv')}</button>
+        })))} className="btn bg-slate-900 text-white">{L('exportCsv')}</button> : null}
       </Header>
 
       <div className="pro-kpi-grid mb-5">
@@ -3621,98 +4041,179 @@ function ProfitCenter({ L }) {
 
 
 
+// V50 : sauvegarde complète générée par la base (structure + données)
+async function serverBackupAvailable() {
+  const { data, error } = await supabase.rpc('app_backup_summary');
+  if (error) {
+    if (isMissingFunctionError(error) || /app_backup_summary|404|Could not find/i.test(error.message || '')) return { ok: false, summary: null };
+    throw new Error(error.message);
+  }
+  return { ok: true, summary: data };
+}
+
+async function serverBackupSql(withData = true) {
+  const { data, error } = await supabase.rpc('app_backup_sql', { p_with_data: withData });
+  if (error) throw new Error(error.message);
+  return data || '';
+}
+
+async function serverBackupJson() {
+  const { data, error } = await supabase.rpc('app_backup_json');
+  if (error) throw new Error(error.message);
+  return data || { tables: {}, sequences: {} };
+}
+
 function BackupCenter({ L }) {
-  const [busy, setBusy] = useState(false);
-  const [last, setLast] = useState(null);
+  const [busy, setBusy] = useState('');
+  const [server, setServer] = useState(null);
+  const [err, setErr] = useState('');
+  const [legacy, setLegacy] = useState(null);
+  const [lastAt, setLastAt] = useState(() => { try { return localStorage.getItem('droguerie_last_backup') || ''; } catch { return ''; } });
+  const stamp = () => today() + '_' + new Date().toTimeString().slice(0, 5).replace(':', 'h');
 
-  async function makeJsonBackup() {
-    try {
-      setBusy(true);
-      const backup = await buildFullBackup();
-      setLast(backup);
-      downloadTextFile('DrogueriePro_Backup_' + today() + '.json', JSON.stringify(backup, null, 2), 'application/json;charset=utf-8');
-    } catch (e) { alert(e.message); }
-    finally { setBusy(false); }
+  async function load() {
+    try { setErr(''); setServer(await serverBackupAvailable()); } catch (e) { setErr(e.message); }
+  }
+  useEffect(() => { load(); }, []);
+
+  function done() {
+    const at = new Date().toLocaleString('fr-FR');
+    try { localStorage.setItem('droguerie_last_backup', at); } catch {}
+    setLastAt(at);
+    auditLog('Sauvegarde', 'EXPORT', 'Sauvegarde base', at).catch(() => {});
   }
 
-  async function makeSqlBackup() {
-    try {
-      setBusy(true);
-      const backup = await buildFullBackup();
-      setLast(backup);
-      downloadTextFile('DrogueriePro_Backup_' + today() + '.sql', backupToSql(backup), 'text/sql;charset=utf-8');
-    } catch (e) { alert(e.message); }
-    finally { setBusy(false); }
+  async function run(kind, fn) {
+    try { setBusy(kind); await fn(); done(); } catch (e) { alert(e.message); } finally { setBusy(''); }
   }
 
-  async function makeCsvBackup() {
-    try {
-      setBusy(true);
-      const backup = await buildFullBackup();
-      setLast(backup);
-      for (const t of backup.tables) {
-        if (t.rows && t.rows.length) downloadCsv('DrogueriePro_' + t.table + '_' + today() + '.csv', t.rows);
-      }
-    } catch (e) { alert(e.message); }
-    finally { setBusy(false); }
-  }
+  const fullSql = () => run('sql', async () => downloadTextFile('DrogueriePro_Sauvegarde_Complete_' + stamp() + '.sql', await serverBackupSql(true), 'text/sql;charset=utf-8'));
+  const schemaSql = () => run('schema', async () => downloadTextFile('DrogueriePro_Structure_' + stamp() + '.sql', await serverBackupSql(false), 'text/sql;charset=utf-8'));
+  const fullJson = () => run('json', async () => {
+    const [schemaSqlText, data] = await Promise.all([serverBackupSql(false), serverBackupJson()]);
+    const backup = { app: 'DrogueriePro', version: 'V50', createdAt: new Date().toISOString(), structureSql: schemaSqlText, sequences: data.sequences, tables: data.tables };
+    downloadTextFile('DrogueriePro_Sauvegarde_' + stamp() + '.json', JSON.stringify(backup, null, 2), 'application/json;charset=utf-8');
+  });
+  const csvAll = () => run('csv', async () => {
+    const data = await serverBackupJson();
+    for (const [table, rows] of Object.entries(data.tables || {})) {
+      if (Array.isArray(rows) && rows.length) downloadCsv('DrogueriePro_' + table + '_' + today() + '.csv', rows.map(r => Object.fromEntries(Object.entries(r).map(([k, v]) => [k, v !== null && typeof v === 'object' ? JSON.stringify(v) : v]))));
+    }
+  });
+
+  // Ancien mode (script V50 non exécuté) : données des tables principales seulement
+  const legacyJson = () => run('legacy', async () => {
+    const backup = await buildFullBackup();
+    setLegacy(backup);
+    downloadTextFile('DrogueriePro_Donnees_' + stamp() + '.json', JSON.stringify(backup, null, 2), 'application/json;charset=utf-8');
+  });
+  const legacySql = () => run('legacy', async () => {
+    const backup = await buildFullBackup();
+    setLegacy(backup);
+    downloadTextFile('DrogueriePro_Donnees_' + stamp() + '.sql', backupToSql(backup), 'text/sql;charset=utf-8');
+  });
+
+  if (err) return <ErrorBox msg={err} />;
+  if (!server) return <div className="card p-6 text-slate-500">…</div>;
+  const sm = server.summary || {};
+  const rows = sm.rows || {};
+  const totalRows = Object.values(rows).reduce((a, n) => a + Number(n || 0), 0);
 
   return (
     <>
       <Header title={L('backupCenter')}>
-        <button disabled={busy} onClick={makeJsonBackup} className="btn bg-slate-900 text-white">{L('backupJson')}</button>
-        <button disabled={busy} onClick={makeSqlBackup} className="btn bg-amber-500">{L('backupSql')}</button>
-        <button disabled={busy} onClick={makeCsvBackup} className="btn bg-white border">{L('backupCsv')}</button>
+        <button onClick={load} className="btn bg-white border">↻</button>
       </Header>
 
       <div className="pro-hero mb-5">
         <div>
-          <div className="pro-eyebrow">DrogueriePro · Database Backup</div>
-          <h1>{L('fullBackup')}</h1>
-          <p>{L('localBackup')} : JSON, SQL et CSV pour conserver une copie locale de la base.</p>
+          <div className="pro-eyebrow">DrogueriePro · {L('fullBackup')}</div>
+          <h1>{L('bkTitle')}</h1>
+          <p>{L('bkIntro')}</p>
+          {lastAt ? <p className="text-sm mt-2">{L('bkLast')} : <b>{lastAt}</b></p> : null}
         </div>
         <div className="pro-hero-score">
           <span>{L('backupTables')}</span>
-          <b>{BACKUP_TABLES.length}</b>
+          <b>{server.ok ? sm.tables : BACKUP_TABLES.length}</b>
         </div>
       </div>
 
-      <div className="grid md:grid-cols-3 gap-4 mb-5">
-        <div className="card p-5">
-          <h2 className="font-black mb-2">{L('backupJson')}</h2>
-          <p className="text-sm text-slate-500">Sauvegarde complète exploitable par application ou restauration technique.</p>
-          <button disabled={busy} onClick={makeJsonBackup} className="btn bg-slate-900 text-white mt-4 w-full">{L('downloadBackup')}</button>
-        </div>
-        <div className="card p-5">
-          <h2 className="font-black mb-2">{L('backupSql')}</h2>
-          <p className="text-sm text-slate-500">Script SQL avec INSERT pour garder une copie locale lisible.</p>
-          <button disabled={busy} onClick={makeSqlBackup} className="btn bg-amber-500 mt-4 w-full">{L('downloadBackup')}</button>
-        </div>
-        <div className="card p-5">
-          <h2 className="font-black mb-2">{L('backupCsv')}</h2>
-          <p className="text-sm text-slate-500">Exports CSV par table pour analyse Excel.</p>
-          <button disabled={busy} onClick={makeCsvBackup} className="btn bg-white border mt-4 w-full">{L('exportAll')}</button>
-        </div>
-      </div>
+      {!server.ok ? (
+        <div className="card p-4 mb-5 bg-amber-50 border-amber-200 text-amber-800 text-sm">{L('bkNeedSql')}</div>
+      ) : null}
 
-      <div className="card p-5 overflow-auto">
-        <h2 className="font-black mb-3">{L('backupTables')}</h2>
-        <table className="table w-full">
-          <thead><tr><th>{L('tableName')}</th><th>{L('recordsCount')}</th><th>Statut</th></tr></thead>
-          <tbody>
-            {(last?.tables || BACKUP_TABLES.map(t => ({ table: t, rows: null, error: null }))).map(t => (
-              <tr key={t.table}>
-                <td className="font-mono">{t.table}</td>
-                <td>{t.rows ? t.rows.length : '-'}</td>
-                <td>{t.error ? <Badge tone="red">{t.error}</Badge> : <Badge tone="green">OK</Badge>}</td>
-              </tr>
+      {server.ok ? (
+        <>
+          <div className="grid md:grid-cols-6 gap-3 mb-5">
+            {[['tables', L('bkTables')], ['constraints', L('bkConstraints')], ['indexes', L('bkIndexes')], ['functions', L('bkFunctions')], ['policies', L('bkPolicies')]].map(([k, t]) => (
+              <div key={k} className="pro-kpi-card"><span>{t}</span><b>{sm[k] ?? 0}</b><small>{L('bkStructure')}</small></div>
             ))}
-          </tbody>
-        </table>
-      </div>
+            <div className="pro-kpi-card"><span>{L('recordsCount')}</span><b>{Number(totalRows).toLocaleString('fr-FR')}</b><small>{L('bkData')}</small></div>
+          </div>
 
-      <div className="card p-5 mt-5 text-sm text-slate-600">
-        <b>{L('restoreNote')} :</b> pour une restauration complète structure + données, garde aussi un dump PostgreSQL `pg_dump`. Le module V46 fournit une sauvegarde fonctionnelle des données applicatives.
+          <div className="grid md:grid-cols-2 gap-4 mb-5">
+            <div className="card p-5 border-amber-400" style={{ borderWidth: 2 }}>
+              <h2 className="font-black mb-1">🗄️ {L('bkFullSql')}</h2>
+              <p className="text-sm text-slate-500">{L('bkFullSqlHint')}</p>
+              <button disabled={!!busy} onClick={fullSql} className="btn bg-amber-500 mt-4 w-full">{busy === 'sql' ? '…' : L('downloadBackup')}</button>
+            </div>
+            <div className="card p-5">
+              <h2 className="font-black mb-1">🧱 {L('bkSchemaSql')}</h2>
+              <p className="text-sm text-slate-500">{L('bkSchemaSqlHint')}</p>
+              <button disabled={!!busy} onClick={schemaSql} className="btn bg-slate-900 text-white mt-4 w-full">{busy === 'schema' ? '…' : L('downloadBackup')}</button>
+            </div>
+            <div className="card p-5">
+              <h2 className="font-black mb-1">{L('backupJson')}</h2>
+              <p className="text-sm text-slate-500">{L('bkJsonHint')}</p>
+              <button disabled={!!busy} onClick={fullJson} className="btn bg-white border mt-4 w-full">{busy === 'json' ? '…' : L('downloadBackup')}</button>
+            </div>
+            <div className="card p-5">
+              <h2 className="font-black mb-1">{L('backupCsv')}</h2>
+              <p className="text-sm text-slate-500">{L('bkCsvHint')}</p>
+              <button disabled={!!busy} onClick={csvAll} className="btn bg-white border mt-4 w-full">{busy === 'csv' ? '…' : L('exportAll')}</button>
+            </div>
+          </div>
+
+          <div className="card p-5 overflow-auto mb-5">
+            <h2 className="font-black mb-3">{L('backupTables')}</h2>
+            <table className="table w-full">
+              <thead><tr><th>{L('tableName')}</th><th>{L('recordsCount')}</th><th>{L('bkIncluded')}</th></tr></thead>
+              <tbody>
+                {Object.entries(rows).sort((a, b) => a[0].localeCompare(b[0])).map(([t, n]) => (
+                  <tr key={t}>
+                    <td className="font-mono">{t}</td>
+                    <td>{Number(n || 0).toLocaleString('fr-FR')}</td>
+                    <td>{t === 'app_sessions' ? <Badge tone="slate">{L('bkStructureOnly')}</Badge> : <Badge tone="green">{L('bkStructure')} + {L('bkData')}</Badge>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      ) : (
+        <div className="grid md:grid-cols-2 gap-4 mb-5">
+          <div className="card p-5">
+            <h2 className="font-black mb-2">{L('backupJson')}</h2>
+            <p className="text-sm text-slate-500">{L('bkLegacyHint')}</p>
+            <button disabled={!!busy} onClick={legacyJson} className="btn bg-slate-900 text-white mt-4 w-full">{L('downloadBackup')}</button>
+          </div>
+          <div className="card p-5">
+            <h2 className="font-black mb-2">{L('backupSql')}</h2>
+            <p className="text-sm text-slate-500">{L('bkLegacyHint')}</p>
+            <button disabled={!!busy} onClick={legacySql} className="btn bg-amber-500 mt-4 w-full">{L('downloadBackup')}</button>
+          </div>
+          {legacy ? <div className="card p-4 md:col-span-2 text-sm">{legacy.tables.map(t => t.table + ' (' + (t.rows ? t.rows.length : 0) + ')').join(' · ')}</div> : null}
+        </div>
+      )}
+
+      <div className="card p-5 text-sm text-slate-600 space-y-2">
+        <b>{L('restoreNote')}</b>
+        <ol className="list-decimal ps-5 space-y-1">
+          <li>{L('bkRestore1')}</li>
+          <li>{L('bkRestore2')}</li>
+          <li>{L('bkRestore3')}</li>
+        </ol>
+        <p className="text-xs text-slate-500">{L('bkSecurity')}</p>
       </div>
     </>
   );
@@ -3769,14 +4270,15 @@ function SuperAdminCenter({ L }) {
         <div className="pro-kpi-card"><span>{L('databaseCenter')}</span><b>{stats.length}</b><small>{L('databaseStats')}</small></div>
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-5">
-        <div className="card p-5 overflow-auto">
+      <div className="grid lg:grid-cols-3 gap-5">
+        <div className="card p-5 overflow-auto lg:col-span-2">
           <h2 className="text-lg font-black mb-4">{L('modulesCenter')}</h2>
           <table className="table w-full">
             <thead>
               <tr>
                 <th>{L('moduleCode')}</th>
                 <th>{L('moduleName')}</th>
+                <th>Type</th>
                 <th>{L('monthlyPrice')}</th>
                 <th>{L('yearlyPrice')}</th>
                 <th>{L('enabled')}</th>
@@ -3786,7 +4288,8 @@ function SuperAdminCenter({ L }) {
               {modules.map(m => (
                 <tr key={m.code}>
                   <td className="font-mono text-xs">{m.code}</td>
-                  <td className="font-semibold">{m.name}</td>
+                  <td><div className="font-semibold">{m.name}</div>{m.description ? <div className="text-xs text-slate-500">{m.description}</div> : null}</td>
+                  <td className="whitespace-nowrap">{['branches', 'users', 'mobileApp', 'attachments'].includes(m.code) ? <Badge tone="blue">{L('platformModules')}</Badge> : <Badge tone="slate">{L('businessModules')}</Badge>}</td>
                   <td><input className="input max-w-xs" type="number" defaultValue={m.monthly_price || 0} onBlur={e => updatePrice(m, 'monthly_price', e.target.value)} /></td>
                   <td><input className="input max-w-xs" type="number" defaultValue={m.yearly_price || 0} onBlur={e => updatePrice(m, 'yearly_price', e.target.value)} /></td>
                   <td>
@@ -3796,7 +4299,7 @@ function SuperAdminCenter({ L }) {
                   </td>
                 </tr>
               ))}
-              {!modules.length ? <tr><td colSpan="5">{L('noData')}</td></tr> : null}
+              {!modules.length ? <tr><td colSpan="6">{L('noData')}</td></tr> : null}
             </tbody>
           </table>
         </div>
@@ -3853,9 +4356,9 @@ function Dashboard({ L }) {
     <>
       <Header title={L('dashboard')}>
         <button onClick={load} className="btn bg-white border">↻</button>
-        <button onClick={() => downloadCsv('drogueriepro-produits.csv', data.products.map(p => ({ ref: p.ref, nom: p.nom, stock: p.quantite, prix_achat: p.prixAchat, prix_vente: p.prixVente, droguerie: p.branchName })))} className="btn bg-slate-900 text-white">
+        {can('data.export') ? <button onClick={() => downloadCsv('drogueriepro-produits.csv', data.products.map(p => ({ ref: p.ref, nom: p.nom, stock: p.quantite, prix_achat: p.prixAchat, prix_vente: p.prixVente, droguerie: p.branchName })))} className="btn bg-slate-900 text-white">
           {L('exportCsv')}
-        </button>
+        </button> : null}
       </Header>
 
       <div className="pro-hero mb-6">
@@ -4083,11 +4586,11 @@ function Products({ L }) {
       </Header>
 
       <div className="flex flex-wrap gap-2 mb-4">
-        <button onClick={() => downloadCsv('produits.csv', visibleRows.map(p => ({ ref: p.ref, nom: p.nom, categorie: p.categorie, stock: p.quantite, prix_achat: p.prixAchat, prix_vente: p.prixVente, droguerie: p.branchName })))} className="btn bg-white border">{L('exportCsv')}</button>
+        {can('data.export') ? <button onClick={() => downloadCsv('produits.csv', visibleRows.map(p => ({ ref: p.ref, nom: p.nom, categorie: p.categorie, stock: p.quantite, prix_achat: p.prixAchat, prix_vente: p.prixVente, droguerie: p.branchName })))} className="btn bg-white border">{L('exportCsv')}</button> : null}
         {canWriteProduct ? <button onClick={() => setShowLists(true)} className="btn bg-white border">{L('categoriesUnits')}</button> : null}
-        {canAdjustStock ? <button onClick={() => setShowInventory(true)} className="btn bg-white border">📋 {L('inventory')}</button> : null}
-        {canWriteProduct ? <button onClick={() => setShowImport(true)} className="btn bg-white border">📥 {L('importExcel')}</button> : null}
-        {can('purchases.write') ? <button onClick={() => setShowReorder(true)} className="btn bg-white border">🔁 {L('reorderAuto')}</button> : null}
+        {canUse('stock.inventory') ? <button onClick={() => setShowInventory(true)} className="btn bg-white border">📋 {L('inventory')}</button> : null}
+        {canUse('products.import') ? <button onClick={() => setShowImport(true)} className="btn bg-white border">📥 {L('importExcel')}</button> : null}
+        {canUse('stock.reorder') && can('purchases.write') ? <button onClick={() => setShowReorder(true)} className="btn bg-white border">🔁 {L('reorderAuto')}</button> : null}
       </div>
 
       <div className="grid md:grid-cols-4 gap-4 mb-4">
@@ -4145,7 +4648,7 @@ function Products({ L }) {
               <td className="flex gap-1 flex-wrap">
                 {canWriteProduct ? <button onClick={() => setForm(p)} className="btn bg-white border">{L('edit')}</button> : null}
                 {canAdjustStock ? <button onClick={() => setStock({ ...p, qte: 1, sign: 1, reason: L('stockAdjustIn') })} className="btn bg-white border">{L('stock')}</button> : null}
-                {canAdjustStock ? <button onClick={() => setTransfer({ productId: p.id, productName: p.nom, fromBranchId: p.branchId, toBranchId: branches.find(b => Number(b.id) !== Number(p.branchId))?.id || '', quantity: 1, reason: L('stockTransfer') })} className="btn bg-white border">{L('stockTransfer')}</button> : null}
+                {can('stock.transfer') && moduleOn('branches') ? <button onClick={() => setTransfer({ productId: p.id, productName: p.nom, fromBranchId: p.branchId, toBranchId: branches.find(b => Number(b.id) !== Number(p.branchId))?.id || '', quantity: 1, reason: L('stockTransfer') })} className="btn bg-white border">{L('stockTransfer')}</button> : null}
                 {canDeleteProduct ? <button onClick={() => remove(p.id)} className="btn bg-red-600 text-white">{L('del')}</button> : null}
               </td>
             </tr>
@@ -4382,7 +4885,7 @@ async function loadInventories() {
 // Valide un inventaire : l'écart est recalculé sur le stock au moment de la validation
 // (les ventes faites pendant le comptage ne faussent pas le résultat), puis appliqué en mouvements de stock.
 async function validateInventory({ branchId: invBranch, category, counts, note }) {
-  requirePerm('stock.adjust', 'Inventaire');
+  requireUse('stock.inventory', 'Inventaire');
   const ids = Object.keys(counts || {}).filter(id => counts[id] !== '' && counts[id] !== null && counts[id] !== undefined).map(Number);
   if (!ids.length) throw new Error('Aucune quantité comptée');
   const { data: products, error } = await supabase.from('products').select('id, ref, name, unit, quantity, purchase_price, branch_id').in('id', ids);
@@ -4750,6 +5253,8 @@ function planImport(kind, rows, existing) {
 
 async function executeImport(kind, plan, { branchId: targetBranch, onProgress } = {}) {
   requirePerm(kind === 'products' ? 'products.write' : kind + '.write', 'Import');
+  if (kind === 'products') requireUse('products.import', 'Import');
+  else if (!featureOn('import')) throw new Error('Import non autorisée');
   const session = getStoredSession();
   const bId = isAdmin(session) ? (targetBranch || branchId(session)) : branchId(session);
   const ok = plan.filter(p => p.action !== 'error');
@@ -5014,7 +5519,7 @@ async function loadCashClosures(bId) {
 }
 
 async function saveCashClosure(c) {
-  if (!(can('payments.read') || can('sales.pay'))) throw new Error('Clôture de caisse non autorisée');
+  if (!canUse('cash.close')) throw new Error('Clôture de caisse non autorisée');
   const s = getStoredSession();
   const payload = {
     closure_date: c.date, branch_id: c.branchId || null, totals_json: c.totals,
@@ -5027,7 +5532,7 @@ async function saveCashClosure(c) {
   const { data: existing, error: e0, status: s0 } = await q.maybeSingle();
   if (e0) throw new Error(isMissingTableError(e0, s0) ? 'Table cash_closures absente : exécutez le script SQL V48.' : e0.message);
   if (existing) {
-    if (!(isAdmin(s) || isManager(s))) throw new Error('Cette journée est déjà clôturée : seul un gérant ou l\'administrateur peut la modifier');
+    if (!can('cash.reopen')) throw new Error('Cette journée est déjà clôturée : modification réservée aux profils autorisés (cash.reopen)');
     const { error } = await supabase.from('cash_closures').update(payload).eq('id', existing.id);
     if (error) throw new Error(error.message);
   } else {
@@ -5154,7 +5659,8 @@ function CashClosureModal({ L, payments, close }) {
             ) : null}
             {gap !== null ? <div className={'flex justify-between text-base rounded-lg p-2 ' + (Math.abs(gap) < 0.01 ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-700')}><span className="font-bold">{L('closureGap')}</span><b className="font-mono">{gap > 0 ? '+' : ''}{dh(gap)}</b></div> : null}
             <input className="input" placeholder={L('note')} value={note} onChange={e => setNote(e.target.value)} />
-            <button disabled={busy} onClick={save} className="btn bg-amber-500 w-full">{busy ? '…' : (already ? L('closureUpdate') : L('closureValidate'))}</button>
+            {already && !can('cash.reopen') ? <p className="text-xs text-slate-500 mb-1">🔒 {L('closureLocked')}</p> : null}
+            <button disabled={busy || (already && !can('cash.reopen'))} onClick={save} className="btn bg-amber-500 w-full">{busy ? '…' : (already ? L('closureUpdate') : L('closureValidate'))}</button>
           </div>
         </div>
       </div>
@@ -5221,6 +5727,7 @@ async function loadReorderContext(bId) {
 
 async function createReorderOrders(lines, suppliers, bId) {
   requirePerm('purchases.write', 'Commande fournisseur');
+  requireUse('stock.reorder', 'Réapprovisionnement');
   const chosen = lines.filter(l => l.include && Number(l.qte) > 0);
   if (!chosen.length) throw new Error('Aucune ligne sélectionnée');
   if (chosen.some(l => !l.supplierId)) throw new Error('Choisissez un fournisseur pour chaque ligne sélectionnée');
@@ -5490,6 +5997,7 @@ function PosCenter({ L }) {
     if (!cart.length) return alert(L('emptyCart'));
     if (payMode === 'Crédit' && !client) return alert(L('creditNeedsClient'));
     if (payMode !== 'Crédit' && !can('sales.pay')) return alert('Autorisation insuffisante : sales.pay');
+    if (payMode === 'Crédit' && !can('pos.credit')) return alert('Autorisation insuffisante : pos.credit');
     if (payMode === 'Espèces' && received !== '' && Number(received) + 0.001 < totals.totalTTC) return alert(L('notEnoughCash'));
     setBusy(true);
     try {
@@ -5597,8 +6105,8 @@ function PosCenter({ L }) {
                     <input className="input text-center" style={{ width: 64 }} type="number" min="0" step="0.01" value={l.qte} onChange={e => setCart(cart.map((x, j) => j === i ? { ...x, qte: e.target.value } : x))} />
                     <button className="btn bg-white border px-2" onClick={() => setCart(cart.map((x, j) => j === i ? { ...x, qte: Number(x.qte) + 1 } : x))}>+</button>
                     <span className="text-xs text-slate-400">× </span>
-                    <input className="input" style={{ width: 80 }} type="number" min="0" step="0.01" value={l.prixUnit} onChange={e => setCart(cart.map((x, j) => j === i ? { ...x, prixUnit: e.target.value } : x))} />
-                    <input className="input" style={{ width: 58 }} type="number" min="0" max="100" title={L('discount') + ' %'} placeholder="%" value={l.remise || ''} onChange={e => setCart(cart.map((x, j) => j === i ? { ...x, remise: e.target.value } : x))} />
+                    <input className="input" style={{ width: 80 }} type="number" min="0" step="0.01" value={l.prixUnit} readOnly={!can('sales.price_edit')} onChange={e => setCart(cart.map((x, j) => j === i ? { ...x, prixUnit: e.target.value } : x))} />
+                    {can('pos.discount') ? <input className="input" style={{ width: 58 }} type="number" min="0" max="100" title={L('discount') + ' %'} placeholder="%" value={l.remise || ''} onChange={e => setCart(cart.map((x, j) => j === i ? { ...x, remise: e.target.value } : x))} /> : null}
                     <b className="ml-auto">{fmt(lineNet(l))}</b>
                   </div>
                   {Number(l.qte) > Number(l.stock || 0) ? <div className="text-xs text-red-600 mt-1">{L('stock')} : {fmt(l.stock)}</div> : null}
@@ -5607,10 +6115,12 @@ function PosCenter({ L }) {
               {!cart.length ? <p className="text-sm text-slate-400 text-center py-6">{L('emptyCart')}</p> : null}
             </div>
 
-            <div className="flex items-center gap-2 mb-2 text-sm">
-              <span className="text-slate-500">{L('globalDiscount')}</span>
-              <input className="input" style={{ width: 80 }} type="number" min="0" max="100" value={globalDiscount} onChange={e => applyGlobalDiscount(e.target.value)} />
-            </div>
+            {can('pos.discount') ? (
+              <div className="flex items-center gap-2 mb-2 text-sm">
+                <span className="text-slate-500">{L('globalDiscount')}</span>
+                <input className="input" style={{ width: 80 }} type="number" min="0" max="100" value={globalDiscount} onChange={e => applyGlobalDiscount(e.target.value)} />
+              </div>
+            ) : null}
 
             <div className="border-t pt-2 text-sm space-y-1">
               <div className="flex justify-between"><span>{L('totalHT')}</span><span>{dh(totals.totalHT)}</span></div>
@@ -5619,7 +6129,7 @@ function PosCenter({ L }) {
             </div>
 
             <div className="grid grid-cols-3 gap-1 my-3">
-              {['Espèces', 'Carte', 'Chèque', 'Virement', 'Crédit'].map(m => (
+              {['Espèces', 'Carte', 'Chèque', 'Virement', 'Crédit'].filter(m => m !== 'Crédit' || can('pos.credit')).map(m => (
                 <button key={m} onClick={() => setPayMode(m)} className={'btn text-sm ' + (payMode === m ? 'bg-slate-900 text-white' : 'bg-white border')}>{L('pm_' + m)}</button>
               ))}
             </div>
@@ -5861,8 +6371,8 @@ function Docs({ L, type }) {
                   {canWriteDoc && !isReturnDoc(d) && d.stage !== 'facture' ? <button onClick={() => advance(d.id)} className="btn bg-slate-800 text-white">{L('advance')}</button> : null}
                   <button onClick={() => setPreview(d)} className="btn bg-white border">{L('preview')}</button>
                   {canPayDoc && paymentButtonVisible(d) ? <button onClick={() => setPay({ ...d, date: today(), mode: 'Espèces', montant: d.reste || d.totalTTC, cashRegister: '', receiptNo: '', chequeNo: '', bank: '', dueDate: '', paymentStatus: 'En portefeuille', transferRef: '', valueDate: '', terminal: '', transactionNo: '', billNo: '', note: '' })} className="btn bg-emerald-600 text-white">{L('pay')}</button> : null}
-                  {d.stage !== 'facture' && !isReturnDoc(d) && docRemainingQty(d) > 0 ? <button onClick={() => setPartial({ doc: d, date: today(), lignes: docRemainingLines(d).map(l => ({ ...l, qteToProcess: Number(l.remainingQty || 0), excluded: false })) })} className="btn bg-white border">{isSales ? L('partialDelivery') : L('partialReceipt')}</button> : null}
-                  {canWriteDoc && canReturnDoc(d) ? <button onClick={() => setPartial({ mode: 'return', restock: true, doc: d, date: today(), lignes: docReturnRemainingLines(d).filter(l => Number(l.remainingQty || 0) > 0).map(l => ({ ...l, qteToProcess: 0, excluded: false })) })} className="btn bg-white border">{isSales ? L('creditNote') : L('supplierReturn')}</button> : null}
+                  {canWriteDoc && d.stage !== 'facture' && !isReturnDoc(d) && docRemainingQty(d) > 0 ? <button onClick={() => setPartial({ doc: d, date: today(), lignes: docRemainingLines(d).map(l => ({ ...l, qteToProcess: Number(l.remainingQty || 0), excluded: false })) })} className="btn bg-white border">{isSales ? L('partialDelivery') : L('partialReceipt')}</button> : null}
+                  {canWriteDoc && canUse(isSales ? 'sales.return' : 'purchases.return') && canReturnDoc(d) ? <button onClick={() => setPartial({ mode: 'return', restock: true, doc: d, date: today(), lignes: docReturnRemainingLines(d).filter(l => Number(l.remainingQty || 0) > 0).map(l => ({ ...l, qteToProcess: 0, excluded: false })) })} className="btn bg-white border">{isSales ? L('creditNote') : L('supplierReturn')}</button> : null}
                   {canWriteDoc && canPartialInvoice(d, type) ? <button onClick={() => setPartial({ mode: 'invoice', doc: d, date: today(), lignes: docInvoiceRemainingLines(d).filter(l => Number(l.remainingQty || 0) > 0).map(l => ({ ...l, qteToProcess: Number(l.remainingQty || 0), excluded: false })) })} className="btn bg-white border">{L('partialInvoice')}</button> : null}
                   {canWriteDoc && !isReturnDoc(d) ? <button onClick={() => setForm({ id: d.id, start: d.stage, date: d.date, partyId: isSales ? d.client_id : d.supplier_id, lignes: (d.lignes || []).map(l => ({ produitId: l.produitId, qte: l.qte, prixUnit: l.prixUnit, remise: l.remise || 0 })) })} className="btn bg-white border">{L('edit')}</button> : null}
                   {canDeleteDoc ? <button onClick={() => remove(d.id)} className="btn bg-red-600 text-white">{L('del')}</button> : null}
@@ -6017,10 +6527,10 @@ function DocModal({ L, isSales, form, setForm, products, parties, save, close })
                     </div>
                   </td>
                   <td>
-                    <input className="input" type="number" min="0" step="0.01" value={price} onChange={e => updateLine(i, 'prixUnit', e.target.value)} />
+                    <input className="input" type="number" min="0" step="0.01" value={price} readOnly={isSales && !can('sales.price_edit')} title={isSales && !can('sales.price_edit') ? 'sales.price_edit' : ''} onChange={e => updateLine(i, 'prixUnit', e.target.value)} />
                   </td>
                   <td style={{ width: 90 }}>
-                    <input className="input" type="number" min="0" max="100" step="0.5" value={l.remise ?? 0} onChange={e => updateLine(i, 'remise', e.target.value)} />
+                    <input className="input" type="number" min="0" max="100" step="0.5" value={l.remise ?? 0} readOnly={isSales && !can('sales.discount')} title={isSales && !can('sales.discount') ? 'sales.discount' : ''} onChange={e => updateLine(i, 'remise', e.target.value)} />
                   </td>
                   <td className="font-bold">{dh(lineTotal({ ...l, prixUnit: price }))}</td>
                   <td>
@@ -6232,9 +6742,9 @@ function DocumentPreview({ L, type, doc, close }) {
 
       <div className="flex flex-wrap justify-end gap-2 mt-4 no-print">
         {sharing ? <span className="text-sm text-slate-500 self-center">{L('pdfBuilding')}</span> : null}
-        {canNativeShare ? <button disabled={sharing} onClick={() => share('native')} className="btn bg-amber-500">📤 {L('share')}</button> : null}
-        <button disabled={sharing} onClick={() => share('whatsapp')} className="btn bg-green-600 text-white" title={contact.phone || ''}>WhatsApp</button>
-        <button disabled={sharing} onClick={() => share('email')} className="btn bg-white border">✉ {L('email')}</button>
+        {canNativeShare && featureOn('share') ? <button disabled={sharing} onClick={() => share('native')} className="btn bg-amber-500">📤 {L('share')}</button> : null}
+        {featureOn('share') ? <button disabled={sharing} onClick={() => share('whatsapp')} className="btn bg-green-600 text-white" title={contact.phone || ''}>WhatsApp</button> : null}
+        {featureOn('share') ? <button disabled={sharing} onClick={() => share('email')} className="btn bg-white border">✉ {L('email')}</button> : null}
         <button disabled={sharing} onClick={() => share('pdf')} className="btn bg-white border">📄 PDF</button>
         <button onClick={() => window.print()} className="btn bg-slate-900 text-white">{L('print')}</button>
         <button onClick={close} className="btn bg-white border">{L('closeBtn')}</button>
@@ -6296,7 +6806,7 @@ function Payments({ L }) {
           <option value="decaissement">{L('cashOut')}</option>
         </select>
         <button onClick={load} className="btn bg-white border">↻</button>
-        {can('payments.read') || can('sales.pay') ? <button onClick={() => setClosure(true)} className="btn bg-amber-500">🧾 {L('cashClosure')}</button> : null}
+        {canUse('cash.close') ? <button onClick={() => setClosure(true)} className="btn bg-amber-500">🧾 {L('cashClosure')}</button> : null}
       </Header>
 
       <div className="pro-kpi-grid mb-4">
@@ -6524,8 +7034,8 @@ function expensesSeeAll(session = getStoredSession()) {
   return isAdmin(session) || isSuperAdmin(session) || isManager(session);
 }
 function canExpenses() {
-  // Tout utilisateur connecté peut créer/gérer SES déplacements et charges.
-  return !!getStoredSession();
+  // V49 : saisie de SES déplacements et charges selon le droit expenses.write
+  return canUse('expenses.write');
 }
 function ownsRow(row, session = getStoredSession()) {
   return String(row?.created_by || '') === String(session?.user?.id || '');
@@ -7009,14 +7519,14 @@ function Parties({ L, type }) {
     <>
       <Header title={type === 'clients' ? L('clients') : L('suppliers')}>
         <input className="input max-w-xs" placeholder={L('search')} value={search} onChange={e => setSearch(e.target.value)} />
-        <button onClick={() => downloadCsv((type === 'clients' ? 'clients.csv' : 'fournisseurs.csv'), filteredRows.map(x => ({ nom: x.name, ice: x.ice, telephone: x.phone, ville: x.city, cree_par: x.createdByLabel, affecte_a: x.assignedToLabel })))} className="btn bg-white border">{L('exportCsv')}</button>
+        {can('data.export') ? <button onClick={() => downloadCsv((type === 'clients' ? 'clients.csv' : 'fournisseurs.csv'), filteredRows.map(x => ({ nom: x.name, ice: x.ice, telephone: x.phone, ville: x.city, cree_par: x.createdByLabel, affecte_a: x.assignedToLabel })))} className="btn bg-white border">{L('exportCsv')}</button> : null}
         {type === 'clients' ? (
           <select className="input max-w-xs" value={ownerFilter} onChange={e => setOwnerFilter(e.target.value)}>
             <option value="all">{L('all')} - {L('clientOwner')}</option>
             {uniqueOwners.map(u => <option key={u.id} value={u.id}>{u.full_name || u.username}</option>)}
           </select>
         ) : null}
-        {canWriteParty ? <button onClick={() => setShowImport(true)} className="btn bg-white border">📥 {L('importExcel')}</button> : null}
+        {canWriteParty && featureOn('import') ? <button onClick={() => setShowImport(true)} className="btn bg-white border">📥 {L('importExcel')}</button> : null}
         {canWriteParty ? <button onClick={newParty} className="btn bg-amber-500">{L('new')}</button> : null}
       </Header>
 
@@ -7075,13 +7585,13 @@ function Parties({ L, type }) {
           {type === 'clients' ? (
             <div className="grid grid-cols-2 gap-2 mb-2">
               <label className="text-xs text-slate-500">{L('priceTier')}
-                <select className="input mt-1" value={form.price_tier || 'detail'} onChange={e => setForm({ ...form, price_tier: e.target.value })}>
+                <select className="input mt-1" disabled={!can('clients.credit_limit')} value={form.price_tier || 'detail'} onChange={e => setForm({ ...form, price_tier: e.target.value })}>
                   <option value="detail">{L('retail')}</option>
                   <option value="gros">{L('wholesale')}</option>
                 </select>
               </label>
               <label className="text-xs text-slate-500">{L('creditLimit')} (DH)
-                <input className="input mt-1" type="number" min="0" value={form.credit_limit ?? 0} onChange={e => setForm({ ...form, credit_limit: e.target.value })} />
+                <input className="input mt-1" type="number" min="0" disabled={!can('clients.credit_limit')} value={form.credit_limit ?? 0} onChange={e => setForm({ ...form, credit_limit: e.target.value })} />
                 <span className="text-xs text-slate-400">0 = {L('noLimit')}</span>
               </label>
             </div>
@@ -7618,19 +8128,45 @@ function Settings({ L }) {
   );
 }
 
-function Permissions({ L }) {
-  const [roles, setRoles] = useState([]);
-  const [permissions, setPermissions] = useState([]);
-  const [rolePerms, setRolePerms] = useState([]);
-  const [err, setErr] = useState('');
+/* ---------- V49 : page Autorisations ---------- */
+const BUILTIN_ROLES = ['Administrateur', 'Gérant', 'Vendeur', 'Magasinier', 'SuperAdmin', 'Super Administrateur'];
 
-  async function load() {
+function PermSwitch({ on, onChange, disabled, title, partial }) {
+  return (
+    <button type="button" role="switch" aria-checked={!!on} title={title || ''} disabled={disabled}
+      onClick={() => { if (!disabled) onChange(!on); }}
+      className={'perm-switch' + (on ? ' on' : '') + (partial && !on ? ' partial' : '') + (disabled ? ' dis' : '')}>
+      <span />
+    </button>
+  );
+}
+
+function Permissions({ L }) {
+  const session = getStoredSession();
+  const superA = isSuperAdmin(session);
+  const canSettings = can('settings.manage');
+  const [tab, setTab] = useState('profile');
+  const [data, setData] = useState(null);
+  const [err, setErr] = useState('');
+  const [roleId, setRoleId] = useState(null);
+  const [draft, setDraft] = useState({});
+  const [notice, setNotice] = useState(null);
+  const [q, setQ] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [roleForm, setRoleForm] = useState(null);
+  const [featuresOff, setFeaturesOff] = useState(getFeaturesOff());
+  const [saasOff, setSaasOff] = useState(getDisabledModulesCache());
+
+  async function load(keepRole) {
     try {
       setErr('');
-      const data = await loadPermissionsMatrix();
-      setRoles(data.roles || []);
-      setPermissions(data.permissions || []);
-      setRolePerms(data.rolePerms || []);
+      const d = await loadPermissionsMatrix();
+      setData(d);
+      setDraft({});
+      const first = d.roles.find(r => !BUILTIN_ROLES.slice(4).includes(r.name)) || d.roles[0];
+      setRoleId(prev => (keepRole && d.roles.some(r => Number(r.id) === Number(keepRole))) ? Number(keepRole) : (prev && d.roles.some(r => Number(r.id) === Number(prev)) ? prev : (first ? Number(first.id) : null)));
+      setFeaturesOff(await refreshFeaturesCache());
+      setSaasOff(getDisabledModulesCache());
     } catch (e) {
       console.error('Permissions load error:', e);
       setErr(e.message);
@@ -7639,100 +8175,335 @@ function Permissions({ L }) {
 
   useEffect(() => { load(); }, []);
 
-  function isChecked(roleId, permissionId) {
-    return rolePerms.some(x => Number(x.role_id) === Number(roleId) && Number(x.permission_id) === Number(permissionId));
-  }
-
-  async function toggle(roleId, permissionId, value) {
-    try {
-      await setRolePermission(roleId, permissionId, value);
-      await load();
-    } catch (e) {
-      alert(e.message);
-    }
-  }
-
-  async function applySellerTemplate() {
-    const seller = roles.find(r => String(r.name).toLowerCase().includes('vendeur'));
-    if (!seller) return alert('Profil vendeur introuvable');
-
-    const allowed = new Set(['dashboard.read', 'products.read', 'stock.read', 'clients.read', 'sales.read', 'sales.write', 'sales.pay', 'payments.read', 'reporting.read']);
-
-    try {
-      for (const p of permissions) {
-        await setRolePermission(seller.id, p.id, allowed.has(p.code));
-      }
-      await load();
-      alert('Profil vendeur corrigé.');
-    } catch (e) {
-      alert(e.message);
-    }
-  }
-
   if (err) return <ErrorBox msg={err} />;
+  if (!data) return <div className="card p-6 text-slate-500">…</div>;
 
-  const grouped = permissions.reduce((acc, p) => {
-    const mod = p.module || 'Divers';
-    if (!acc[mod]) acc[mod] = [];
-    acc[mod].push(p);
-    return acc;
-  }, {});
+  const idByCode = Object.fromEntries(data.permissions.map(p => [p.code, Number(p.id)]));
+  const codeById = Object.fromEntries(data.permissions.map(p => [Number(p.id), p.code]));
+  const dbPermByCode = Object.fromEntries(data.permissions.map(p => [p.code, p]));
+  const original = rid => new Set(data.rolePerms.filter(x => Number(x.role_id) === Number(rid)).map(x => codeById[Number(x.permission_id)]).filter(Boolean));
+  const current = rid => draft[rid] || original(rid);
+  const sameSet = (a, b) => a.size === b.size && [...a].every(x => b.has(x));
+  const dirtyRoles = data.roles.filter(r => draft[r.id] && !sameSet(draft[r.id], original(r.id)));
+  const pendingCount = dirtyRoles.reduce((n, r) => {
+    const o = original(r.id), c = draft[r.id];
+    return n + [...c].filter(x => !o.has(x)).length + [...o].filter(x => !c.has(x)).length;
+  }, 0);
 
-  const order = ['Tableau de bord', 'Reporting', 'Produits', 'Stock', 'Clients', 'Fournisseurs', 'Ventes', 'Achats', 'Paiements', 'Utilisateurs', 'Paramètres', 'Autorisations', 'Drogueries', 'SaaS', 'Divers'];
-  const modules = Object.keys(grouped).sort((a, b) => {
-    const ia = order.indexOf(a);
-    const ib = order.indexOf(b);
-    return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
-  });
+  // Modules affichés : catalogue + droits présents en base mais inconnus du catalogue
+  const modules = PERM_MODULES.filter(m => !m.saas || superA).map(m => ({ ...m, perms: m.perms.filter(p => superA || !isSaasPermission(p.code)) }));
+  const extra = data.permissions.filter(p => !PERM_INDEX[p.code] && (superA || !isSaasPermission(p.code)));
+  if (extra.length) modules.push({ key: 'other', fr: 'Autres droits', ar: 'صلاحيات أخرى', icon: '•', perms: extra.map(p => PD(p.code, p.label || p.code, p.label || p.code)) });
+  const missing = modules.flatMap(m => m.perms).filter(p => !idByCode[p.code]).map(p => p.code);
+
+  const role = data.roles.find(r => Number(r.id) === Number(roleId));
+  const isLocked = (r, code) => code === 'permissions.manage' && (r?.name === 'Administrateur' || r?.name === session?.user?.role || isSuperAdminUserRow({ roles: { name: r?.name } }));
+  const label = code => (PERM_INDEX[code] ? tr(PERM_INDEX[code]) : (dbPermByCode[code]?.label || code));
+  const usersOf = rid => (data.users || []).filter(u => Number(u.role_id) === Number(rid));
+  const featureOff = key => !!key && (featuresOff.includes(key) || (FEATURES.find(f => f.key === key)?.saas && saasOff.includes(FEATURES.find(f => f.key === key).saas)));
+
+  function setRoleCodes(rid, set) {
+    const known = new Set([...set].filter(c => idByCode[c]));
+    setDraft(d => ({ ...d, [rid]: known }));
+  }
+
+  function toggle(r, code, on) {
+    const cur = current(r.id);
+    if (!on && isLocked(r, code)) { setNotice({ tone: 'red', text: L('permLocked') }); return; }
+    if (on) {
+      const { set, added } = permWithDeps(cur, code);
+      setRoleCodes(r.id, set);
+      setNotice(added.length ? { tone: 'amber', text: L('permAlsoOn') + ' ' + added.map(label).join(', ') } : null);
+    } else {
+      const { set, removed } = permWithoutDependents(cur, code);
+      const kept = removed.filter(c => isLocked(r, c));
+      kept.forEach(c => set.add(c));
+      const really = removed.filter(c => !kept.includes(c));
+      setRoleCodes(r.id, set);
+      setNotice(really.length ? { tone: 'amber', text: L('permAlsoOff') + ' ' + really.map(label).join(', ') } : null);
+    }
+  }
+
+  function toggleModule(r, mod, on) {
+    let set = current(r.id);
+    const removedAll = [];
+    for (const p of mod.perms) {
+      if (!idByCode[p.code]) continue;
+      if (on) set = permWithDeps(set, p.code).set;
+      else if (!isLocked(r, p.code)) { const res = permWithoutDependents(set, p.code); set = res.set; removedAll.push(...res.removed); }
+    }
+    for (const c of removedAll) if (isLocked(r, c)) set.add(c);
+    setRoleCodes(r.id, set);
+    setNotice(null);
+  }
+
+  function applySet(r, set) {
+    data.permissions.forEach(p => { if (isLocked(r, p.code) && current(r.id).has(p.code)) set.add(p.code); });
+    if (!superA) current(r.id).forEach(c => { if (isSaasPermission(c)) set.add(c); });
+    setRoleCodes(r.id, set);
+    setNotice(null);
+  }
+
+  async function save() {
+    if (!dirtyRoles.length) return;
+    setBusy(true);
+    try {
+      for (const r of dirtyRoles) await saveRolePermissions(r, original(r.id), draft[r.id], idByCode);
+      // Mes propres droits ont changé : on rafraîchit la session tout de suite
+      if (dirtyRoles.some(r => r.name === session?.user?.role)) {
+        const s = getStoredSession();
+        const perms = await getUserPermissions(s.user.id);
+        setStoredSession({ ...s, perms });
+        window.dispatchEvent(new CustomEvent('droguerie_perms_changed'));
+      }
+      setNotice({ tone: 'green', text: L('permSaved') });
+      await load(roleId);
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function submitRole() {
+    try {
+      const f = roleForm;
+      if (!String(f.name || '').trim()) return alert(L('permProfileName'));
+      if (f.id) {
+        await updateRole(f.id, { name: f.name.trim(), description: f.description || '' });
+        setRoleForm(null);
+        await load(f.id);
+        return;
+      }
+      const created = await createRole({ name: f.name.trim(), description: f.description || '' });
+      let set = new Set();
+      if (f.base?.startsWith('tpl:')) set = templateCodes(ROLE_TEMPLATES.find(t => t.key === f.base.slice(4)));
+      if (f.base?.startsWith('role:')) set = current(Number(f.base.slice(5)));
+      if (set.size) await saveRolePermissions(created, new Set(), new Set([...set].filter(c => idByCode[c])), idByCode);
+      setRoleForm(null);
+      await load(created.id);
+    } catch (e) {
+      alert(e.message);
+    }
+  }
+
+  async function removeRole(r) {
+    if (usersOf(r.id).length) return alert(L('permHasUsers'));
+    if (!confirm(L('permDeleteConfirm') + '\n\n' + r.name)) return;
+    try {
+      await deleteRole(r.id);
+      await load();
+    } catch (e) {
+      alert(e.message);
+    }
+  }
+
+  async function toggleFeature(key, on) {
+    const next = on ? featuresOff.filter(x => x !== key) : [...featuresOff, key];
+    try {
+      await saveFeaturesOff(next);
+      setFeaturesOff(next);
+      setNotice({ tone: 'green', text: L('permFeaturesSaved') });
+    } catch (e) {
+      alert(e.message);
+    }
+  }
+
+  const ql = q.trim().toLowerCase();
+  const matches = p => !ql || [p.code, p.fr, p.ar, p.dfr, p.dar].some(x => String(x || '').toLowerCase().includes(ql));
+  const toneCls = { red: 'bg-red-50 text-red-700 border-red-200', amber: 'bg-amber-50 text-amber-800 border-amber-200', green: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
 
   return (
     <>
       <Header title={L('permissions')}>
-        <button onClick={applySellerTemplate} className="btn bg-amber-500">Corriger vendeur</button>
-        <button onClick={load} className="btn bg-white border">↻</button>
+        {dirtyRoles.length ? <button onClick={() => { setDraft({}); setNotice(null); }} className="btn bg-white border">{L('permCancel')}</button> : null}
+        <button disabled={busy || !dirtyRoles.length} onClick={save} className={'btn ' + (dirtyRoles.length ? 'bg-amber-500' : 'bg-slate-200 text-slate-500')}>💾 {L('permSave')}{pendingCount ? ' (' + pendingCount + ')' : ''}</button>
+        <button onClick={() => { if (!dirtyRoles.length || confirm(L('permUnsaved'))) load(roleId); }} className="btn bg-white border">↻</button>
       </Header>
 
-      <div className="card p-4 mb-4 text-sm text-slate-600">
-        {!isSuperAdmin(getStoredSession()) ? (
-          <span>Les droits SuperAdmin sont masqués pour les profils métier.</span>
-        ) : (
-          <span>Mode SuperAdmin : droits plateforme et droits métier visibles.</span>
-        )}
+      <div className="flex flex-wrap gap-2 mb-4 perm-tabs">
+        {[['profile', L('permByProfile')], ['overview', L('permOverview')], ['features', L('permFeatures')]].map(([k, t]) => (
+          <button key={k} onClick={() => setTab(k)} className={'btn ' + (tab === k ? 'bg-slate-900 text-white' : 'bg-white border')}>{t}</button>
+        ))}
+        {dirtyRoles.length ? <span className="self-center text-sm text-amber-700 font-semibold">● {pendingCount} {L('permPending')}</span> : null}
       </div>
 
-      <div className="card overflow-auto permissions-pro">
-        <table className="table w-full">
-          <thead>
-            <tr>
-              <th>Module / Permission</th>
-              {roles.map(r => <th key={r.id}>{r.name}</th>)}
-            </tr>
-          </thead>
-          <tbody>
-            {modules.map(mod => (
-              <React.Fragment key={mod}>
-                <tr>
-                  <td colSpan={roles.length + 1} className="bg-slate-100 font-bold">{mod}</td>
-                </tr>
-                {grouped[mod].map(p => (
-                  <tr key={p.id}>
-                    <td>
-                      <div className="font-semibold">{p.label || p.code}</div>
-                      <div className="text-xs text-slate-400 font-mono">{p.code}</div>
-                    </td>
-                    {roles.map(r => (
-                      <td key={r.id}>
-                        <input type="checkbox" checked={isChecked(r.id, p.id)} onChange={e => toggle(r.id, p.id, e.target.checked)} />
+      {missing.length ? <div className="card p-3 mb-3 text-sm bg-amber-50 border-amber-200 text-amber-800">{L('permSqlMissing')}</div> : null}
+      {notice ? <div className={'card p-3 mb-3 text-sm border ' + (toneCls[notice.tone] || '')}>{notice.text}</div> : null}
+
+      {tab === 'profile' ? (
+        <div className="grid lg:grid-cols-4 gap-4 items-start">
+          <div className="card p-3 space-y-2">
+            <div className="flex justify-between items-center mb-1">
+              <b className="text-sm">{L('permProfiles')}</b>
+              <button onClick={() => setRoleForm({ name: '', description: '', base: '' })} className="btn bg-amber-500 text-xs px-2 py-1">+ {L('permNewProfile')}</button>
+            </div>
+            {data.roles.map(r => {
+              const n = [...current(r.id)].filter(c => superA || !isSaasPermission(c)).length;
+              const dirty = dirtyRoles.some(x => x.id === r.id);
+              return (
+                <button key={r.id} onClick={() => setRoleId(Number(r.id))} className={'w-full text-left p-3 rounded-lg border perm-role ' + (Number(r.id) === Number(roleId) ? 'border-amber-500 bg-amber-50' : 'bg-white hover:bg-slate-50')}>
+                  <div className="font-semibold flex justify-between gap-2"><span>{r.name}</span>{dirty ? <span className="text-amber-600">●</span> : null}</div>
+                  <div className="text-xs text-slate-500">{usersOf(r.id).length} {L('permUsersCount')} · {n} {L('permRightsCount')}</div>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="lg:col-span-3 space-y-3">
+            {!role ? <div className="card p-6 text-slate-500">{L('permSelectProfile')}</div> : (
+              <>
+                <div className="card p-4">
+                  <div className="flex flex-wrap justify-between gap-3 items-start">
+                    <div>
+                      <h2 className="text-xl font-bold">{role.name}</h2>
+                      <p className="text-sm text-slate-500">{role.description || ''}{BUILTIN_ROLES.includes(role.name) ? ' · ' + L('permBuiltIn') : ''}</p>
+                      <p className="text-xs text-slate-400 mt-1">{usersOf(role.id).map(u => u.full_name || u.username).join(', ')}</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <select className="input" style={{ width: 'auto' }} value="" onChange={e => { const t = ROLE_TEMPLATES.find(x => x.key === e.target.value); if (t) applySet(role, templateCodes(t)); }}>
+                        <option value="">{L('permTemplate')}…</option>
+                        {ROLE_TEMPLATES.map(t => <option key={t.key} value={t.key}>{L(t.label)}</option>)}
+                      </select>
+                      <select className="input" style={{ width: 'auto' }} value="" onChange={e => { if (e.target.value) applySet(role, new Set(current(Number(e.target.value)))); }}>
+                        <option value="">{L('permCopyFrom')}</option>
+                        {data.roles.filter(r => r.id !== role.id).map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                      </select>
+                      <button onClick={() => applySet(role, new Set(modules.flatMap(m => m.perms.map(p => p.code)).filter(c => idByCode[c])))} className="btn bg-white border">{L('permAll')}</button>
+                      <button onClick={() => applySet(role, new Set())} className="btn bg-white border">{L('permNone')}</button>
+                      {!BUILTIN_ROLES.includes(role.name) ? <button onClick={() => setRoleForm({ id: role.id, name: role.name, description: role.description || '' })} className="btn bg-white border">{L('permRename')}</button> : null}
+                      {!BUILTIN_ROLES.includes(role.name) ? <button onClick={() => removeRole(role)} className="btn bg-red-50 text-red-600">{L('permDeleteProfile')}</button> : null}
+                    </div>
+                  </div>
+                  <input className="input mt-3" placeholder={'🔎 ' + L('permSearch')} value={q} onChange={e => setQ(e.target.value)} />
+                </div>
+
+                <div className="grid xl:grid-cols-2 gap-3">
+                  {modules.map(m => {
+                    const perms = m.perms.filter(matches);
+                    if (!perms.length) return null;
+                    const cur = current(role.id);
+                    const onCount = m.perms.filter(p => cur.has(p.code)).length;
+                    const modOff = m.feature && featureOff(m.feature);
+                    return (
+                      <div key={m.key} className="card perm-module">
+                        <div className="flex items-center justify-between gap-3 p-3 border-b bg-slate-50 rounded-t-xl">
+                          <div>
+                            <div className="font-bold">{m.icon} {tr(m)}</div>
+                            <div className="text-xs text-slate-500"><span dir="ltr">{onCount} / {m.perms.length}</span>{modOff ? ' · ' + L('permFeatureOff') : ''}</div>
+                          </div>
+                          <PermSwitch on={onCount === m.perms.length} partial={onCount > 0} title={L('permModuleAll')} onChange={v => toggleModule(role, m, v)} />
+                        </div>
+                        <div className="divide-y">
+                          {perms.map(p => {
+                            const on = cur.has(p.code);
+                            const absent = !idByCode[p.code];
+                            const locked = on && isLocked(role, p.code);
+                            const fOff = featureOff(p.feature);
+                            const deps = (PERM_DEPS[p.code] || []).map(label);
+                            return (
+                              <div key={p.code} className={'flex items-start gap-3 p-3 perm-row' + (fOff ? ' opacity-60' : '')}>
+                                <PermSwitch on={on} disabled={absent || locked} title={locked ? L('permLocked') : ''} onChange={v => toggle(role, p.code, v)} />
+                                <div className="flex-1 min-w-0">
+                                  <div className="font-semibold text-sm">{tr(p)} {locked ? '🔒' : ''} {fOff ? <Badge tone="amber">{L('permFeatureOff')}</Badge> : null}</div>
+                                  {trd(p) ? <div className="text-xs text-slate-500">{trd(p)}</div> : null}
+                                  {deps.length ? <div className="text-xs text-slate-400">{L('permRequires')} : {deps.join(', ')}</div> : null}
+                                  <div className="text-[11px] text-slate-300 font-mono">{p.code}</div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      ) : null}
+
+      {tab === 'overview' ? (
+        <div className="card overflow-auto permissions-pro">
+          <table className="table w-full">
+            <thead>
+              <tr>
+                <th style={{ minWidth: 260 }}>{L('permissions')}</th>
+                {data.roles.map(r => <th key={r.id} className="text-center">{r.name}</th>)}
+              </tr>
+            </thead>
+            <tbody>
+              {modules.map(m => (
+                <React.Fragment key={m.key}>
+                  <tr><td colSpan={data.roles.length + 1} className="bg-slate-100 font-bold">{m.icon} {tr(m)}{m.feature && featureOff(m.feature) ? ' · ' + L('permFeatureOff') : ''}</td></tr>
+                  {m.perms.filter(matches).map(p => (
+                    <tr key={p.code}>
+                      <td>
+                        <div className="font-semibold">{tr(p)}</div>
+                        <div className="text-xs text-slate-400 font-mono">{p.code}</div>
                       </td>
-                    ))}
-                  </tr>
-                ))}
-              </React.Fragment>
-            ))}
-            {!permissions.length ? <tr><td colSpan={roles.length + 1}>{L('noData')}</td></tr> : null}
-          </tbody>
-        </table>
-      </div>
+                      {data.roles.map(r => {
+                        const on = current(r.id).has(p.code);
+                        const locked = on && isLocked(r, p.code);
+                        return (
+                          <td key={r.id} className="text-center">
+                            <input type="checkbox" checked={on} disabled={!idByCode[p.code] || locked} onChange={e => toggle(r, p.code, e.target.checked)} />
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </React.Fragment>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+
+      {tab === 'features' ? (
+        <>
+          <div className="card p-4 mb-3 text-sm text-slate-600">{L('permFeaturesHint')}</div>
+          <div className="grid md:grid-cols-2 gap-3">
+            {FEATURES.map(f => {
+              const inPlan = !(f.saas && saasOff.includes(f.saas));
+              const on = inPlan && !featuresOff.includes(f.key);
+              return (
+                <div key={f.key} className={'card p-4 flex items-center gap-4 perm-feature' + (inPlan ? '' : ' opacity-60')}>
+                  <div className="text-2xl">{f.icon}</div>
+                  <div className="flex-1">
+                    <div className="font-bold">{tr(f)}</div>
+                    <div className="text-xs text-slate-500">{trd(f)}</div>
+                    {!inPlan ? <Badge tone="slate">{L('permNotInPlan')}</Badge> : null}
+                  </div>
+                  <PermSwitch on={on} disabled={!inPlan || !canSettings} title={!canSettings ? 'settings.manage' : ''} onChange={v => toggleFeature(f.key, v)} />
+                </div>
+              );
+            })}
+          </div>
+        </>
+      ) : null}
+
+      {roleForm ? (
+        <Modal title={roleForm.id ? L('permRename') : L('permNewProfile')} onClose={() => setRoleForm(null)}>
+          <label className="text-xs text-slate-500">{L('permProfileName')}
+            <input className="input mt-1 mb-3" autoFocus value={roleForm.name} onChange={e => setRoleForm({ ...roleForm, name: e.target.value })} />
+          </label>
+          <label className="text-xs text-slate-500">{L('permProfileDesc')}
+            <input className="input mt-1 mb-3" value={roleForm.description} onChange={e => setRoleForm({ ...roleForm, description: e.target.value })} />
+          </label>
+          {!roleForm.id ? (
+            <label className="text-xs text-slate-500">{L('permTemplate')}
+              <select className="input mt-1 mb-3" value={roleForm.base} onChange={e => setRoleForm({ ...roleForm, base: e.target.value })}>
+                <option value="">—</option>
+                {ROLE_TEMPLATES.map(t => <option key={t.key} value={'tpl:' + t.key}>{L(t.label)}</option>)}
+                {data.roles.map(r => <option key={r.id} value={'role:' + r.id}>{L('permCopyFrom')} {r.name}</option>)}
+              </select>
+            </label>
+          ) : null}
+          <button onClick={submitRole} className="btn bg-amber-500 w-full">{L('save')}</button>
+        </Modal>
+      ) : null}
     </>
   );
 }
