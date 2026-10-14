@@ -4,7 +4,7 @@ import { flushSync } from 'react-dom';
 import { createClient } from '@supabase/supabase-js';
 import './index.css';
 
-console.log('DROGUERIEPRO V53 OK');
+console.log('DROGUERIEPRO V54 OK');
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -538,6 +538,20 @@ Object.assign(TXT.fr, {
   docPdfShared: 'PDF partagé',
   rcNumber: 'N° BR',
   pBranch: 'Droguerie',
+  wiTitleClients: 'Clients comptoir',
+  wiTitleSuppliers: 'Fournisseurs divers',
+  wiHint: 'Une fiche par droguerie, utilisée pour les ventes sans client nommé (caisse rapide, ventes directes). Réservé à l\'administrateur.',
+  wiHintSuppliers: 'Une fiche par droguerie pour les achats ponctuels sans fournisseur habituel. Réservé à l\'administrateur.',
+  wiMissing: 'Fiche manquante',
+  wiCreateMissing: 'Créer les fiches manquantes',
+  wiDocs: 'Documents',
+  wiTotal: 'Total',
+  wiMonth: 'Ce mois',
+  wiToday: 'Aujourd\'hui',
+  wiLast: 'Dernière opération',
+  wiAdminOnly: 'Fiche comptoir : modification réservée à l\'administrateur',
+  wiSaved: 'Fiche comptoir enregistrée',
+  wiNameHint: 'Nom imprimé sur les tickets et factures comptoir',
   pScope: 'Drogueries',
   pScopeAll: 'Toutes les drogueries',
   pScopeOnly: 'Seulement certaines drogueries',
@@ -666,6 +680,20 @@ Object.assign(TXT.ar, {
   docPdfShared: 'تمت مشاركة PDF',
   rcNumber: 'رقم وصل الاستلام',
   pBranch: 'المحل',
+  wiTitleClients: 'الزبناء العابرون',
+  wiTitleSuppliers: 'الموردون المتنوعون',
+  wiHint: 'بطاقة لكل محل، تُستعمل للبيع بدون زبون مسمى (الصندوق السريع، البيع المباشر). خاص بالمدير.',
+  wiHintSuppliers: 'بطاقة لكل محل للمشتريات العرضية. خاص بالمدير.',
+  wiMissing: 'بطاقة غير موجودة',
+  wiCreateMissing: 'إنشاء البطاقات الناقصة',
+  wiDocs: 'الوثائق',
+  wiTotal: 'المجموع',
+  wiMonth: 'هذا الشهر',
+  wiToday: 'اليوم',
+  wiLast: 'آخر عملية',
+  wiAdminOnly: 'بطاقة الزبون العابر: التعديل خاص بالمدير',
+  wiSaved: 'تم حفظ البطاقة',
+  wiNameHint: 'الاسم المطبوع على التذاكر والفواتير',
   pScope: 'المحلات',
   pScopeAll: 'كل المحلات',
   pScopeOnly: 'محلات محددة فقط',
@@ -4404,13 +4432,14 @@ async function saveParty(type, body) {
   requirePerm(writePerm, type === 'clients' ? 'Gestion clients' : 'Gestion fournisseurs');
 
   const session = getStoredSession();
+  if (body.is_walk_in && !isAdmin(session)) throw new Error(Lc('wiAdminOnly'));
   const common = {
     name: body.name || '',
     ice: body.ice || '',
     phone: body.phone || '',
     city: body.city || '',
     address: body.address || '',
-    assigned_to: type === 'clients' ? (body.assigned_to || body.assignedTo || session?.user?.id || null) : null
+    assigned_to: type === 'clients' && !body.is_walk_in ? (body.assigned_to || body.assignedTo || session?.user?.id || null) : null
   };
   // Droguerie d'origine : fixée à la création (l'administrateur peut la changer)
   if (!body.id) common.branch_id = isAdmin(session) ? (body.branch_id || body.branchId || branchId(session)) : branchId(session);
@@ -9397,6 +9426,7 @@ function Parties({ L, type }) {
   const [balances, setBalances] = useState({});
   const [dups, setDups] = useState(null);
   const [merge, setMerge] = useState(null);
+  const [walkIns, setWalkIns] = useState(false);
   const [busy, setBusy] = useState(false);
 
   async function load() {
@@ -9539,6 +9569,7 @@ function Parties({ L, type }) {
           </select>
         ) : null}
         {canWriteParty && featureOn('import') ? <button onClick={() => setShowImport(true)} className="btn bg-white border">📥 {L('importExcel')}</button> : null}
+        {admin ? <button onClick={() => setWalkIns(true)} className="btn bg-white border">🏪 {isClients ? L('wiTitleClients') : L('wiTitleSuppliers')}</button> : null}
         {canWriteParty ? <button onClick={newParty} className="btn bg-amber-500">{L('new')}</button> : null}
       </Header>
 
@@ -9595,7 +9626,8 @@ function Parties({ L, type }) {
                   <div className="text-xs text-slate-400 mt-1">{L('pOrigin')} : {branchName(x.branch_id)}</div>
                 </td>
                 <td className="flex gap-1 flex-wrap">
-                  {canWriteParty ? <button onClick={() => setForm({ ...x, branch_ids: partyBranchIds(x) })} className="btn bg-white border">{L('edit')}</button> : null}
+                  {canWriteParty && (!x.is_walk_in || admin) ? <button onClick={() => setForm({ ...x, branch_ids: partyBranchIds(x) })} className="btn bg-white border">{L('edit')}</button> : null}
+                  {x.is_walk_in && !admin ? <span className="text-xs text-slate-400" title={L('wiAdminOnly')}>🔒</span> : null}
                   {admin && canDeleteParty && !x.is_walk_in ? <button onClick={() => setMerge({ keep: x, removeId: '' })} className="btn bg-white border" title={L('pMergeTitle')}>⇄ {L('pMerge')}</button> : null}
                   {canDeleteParty && !x.is_walk_in ? <button onClick={() => remove(x)} className="btn bg-red-600 text-white">{L('del')}</button> : null}
                 </td>
@@ -9727,7 +9759,118 @@ function Parties({ L, type }) {
         </Modal>
       ) : null}
       {showImport ? <ImportModal L={L} kind={type} branches={branches} close={() => setShowImport(false)} done={load} /> : null}
+      {walkIns ? <WalkInManager L={L} type={type} close={() => { setWalkIns(false); load(); }} /> : null}
     </>
+  );
+}
+
+/* ---------- V54 : gestion des fiches comptoir (administrateur) ---------- */
+function WalkInManager({ L, type, close }) {
+  const isClients = type === 'clients';
+  const [rows, setRows] = useState([]);
+  const [edits, setEdits] = useState({});
+  const [stats, setStats] = useState([]);
+  const [msg, setMsg] = useState('');
+  const [busy, setBusy] = useState(false);
+  async function load() {
+    try {
+      const [{ data: parties, error }, st, bs] = await Promise.all([
+        supabase.from(type).select('*').eq('is_walk_in', true).order('branch_id'),
+        supabase.rpc('app_walk_in_stats'),
+        loadBranches()
+      ]);
+      if (error) throw new Error(error.message);
+      const stRows = (st.data || []).filter(r => r.kind === type);
+      setStats(stRows);
+      setRows(bs.map(b => ({ branch: b, party: (parties || []).find(p => Number(p.branch_id) === Number(b.id)) || null, st: stRows.find(r => Number(r.branch_id) === Number(b.id)) || null })));
+      setEdits({});
+    } catch (e) { setMsg(e.message); }
+  }
+  useEffect(() => { load(); }, []);
+  const val = (p, k) => (edits[p.id] && edits[p.id][k] !== undefined ? edits[p.id][k] : (p[k] ?? ''));
+  const setVal = (p, k, v) => setEdits({ ...edits, [p.id]: { ...(edits[p.id] || {}), [k]: v } });
+  async function saveRow(p) {
+    setBusy(true); setMsg('');
+    try {
+      const e = edits[p.id] || {};
+      await saveParty(type, { ...p, ...e, is_walk_in: true });
+      setMsg(L('wiSaved') + ' : ' + (e.name || p.name));
+      await load();
+    } catch (er) { setMsg(er.message); }
+    setBusy(false);
+  }
+  async function createMissing() {
+    setBusy(true); setMsg('');
+    const { data, error } = await supabase.rpc('app_admin_ensure_walk_ins');
+    setMsg(error ? error.message : (L('wiCreateMissing') + ' : ' + (data || 0)));
+    await load();
+    setBusy(false);
+  }
+  const missing = rows.filter(r => !r.party).length;
+  const sum = k => stats.reduce((t, r) => t + Number(r[k] || 0), 0);
+  return (
+    <Modal title={'🏪 ' + (isClients ? L('wiTitleClients') : L('wiTitleSuppliers'))} onClose={close} wide>
+      <p className="text-sm text-slate-500 mb-3">{isClients ? L('wiHint') : L('wiHintSuppliers')}</p>
+      <div className="pro-kpi-grid mb-3">
+        <div className="pro-kpi-card"><span>{L('wiToday')}</span><b>{dh(sum('today_total'))}</b><small>{isClients ? L('sales') : L('purchases')}</small></div>
+        <div className="pro-kpi-card"><span>{L('wiMonth')}</span><b>{dh(sum('month_total'))}</b><small>{isClients ? L('sales') : L('purchases')}</small></div>
+        <div className="pro-kpi-card"><span>{L('wiTotal')}</span><b>{dh(sum('total'))}</b><small>{sum('docs')} {L('wiDocs').toLowerCase()}</small></div>
+      </div>
+      <div className="card overflow-auto">
+        <table className="table w-full">
+          <thead>
+            <tr>
+              <th>{L('pBranch')}</th><th>{L('name')}</th>{isClients ? <th>{L('priceTier')}</th> : null}<th>{L('phone')}</th>
+              <th>{L('wiDocs')}</th><th>{L('wiMonth')}</th><th>{L('wiTotal')}</th><th>{L('wiLast')}</th><th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(({ branch, party, st }) => (
+              <tr key={branch.id}>
+                <td className="font-semibold whitespace-nowrap">{branch.name}</td>
+                {party ? (
+                  <>
+                    <td><input className="input" style={{ minWidth: 190 }} title={L('wiNameHint')} value={val(party, 'name')} onChange={e => setVal(party, 'name', e.target.value)} /></td>
+                    {isClients ? (
+                      <td>
+                        <select className="input" style={{ minWidth: 100 }} value={val(party, 'price_tier') || 'detail'} onChange={e => setVal(party, 'price_tier', e.target.value)}>
+                          <option value="detail">{L('retail')}</option>
+                          <option value="gros">{L('wholesale')}</option>
+                        </select>
+                      </td>
+                    ) : null}
+                    <td><input className="input" style={{ minWidth: 110 }} inputMode="tel" value={val(party, 'phone')} onChange={e => setVal(party, 'phone', e.target.value)} /></td>
+                    <td>{st?.docs || 0}</td>
+                    <td className="whitespace-nowrap">{dh(st?.month_total || 0)}</td>
+                    <td className="whitespace-nowrap font-semibold">{dh(st?.total || 0)}</td>
+                    <td className="whitespace-nowrap">{st?.last_date ? frDate(st.last_date) : '-'}</td>
+                    <td><button disabled={busy || !edits[party.id]} onClick={() => saveRow(party)} className="btn bg-amber-500 text-sm">{L('save')}</button></td>
+                  </>
+                ) : (
+                  <td colSpan={isClients ? 8 : 7}><Badge tone="red">{L('wiMissing')}</Badge></td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="flex flex-wrap justify-between items-center gap-2 mt-3">
+        <span className="text-sm text-slate-600">{msg}</span>
+        <div className="flex gap-2">
+          <ExportButtons L={L} spec={() => ({
+            fileName: isClients ? 'Clients_comptoir' : 'Fournisseurs_divers', title: isClients ? L('wiTitleClients') : L('wiTitleSuppliers'),
+            sheets: [{ name: isClients ? L('wiTitleClients') : L('wiTitleSuppliers'), columns: [
+              { value: r => r.branch.name, header: L('pBranch') }, { value: r => r.party?.name || L('wiMissing'), header: L('name') },
+              { value: r => r.st?.docs || 0, header: L('wiDocs'), type: 'int', total: true },
+              { value: r => r.st?.today_total || 0, header: L('wiToday'), type: 'money' }, { value: r => r.st?.month_total || 0, header: L('wiMonth'), type: 'money' },
+              { value: r => r.st?.total || 0, header: L('wiTotal'), type: 'money' }, { value: r => r.st?.last_date || '', header: L('wiLast'), type: 'date' }
+            ], rows }]
+          })} />
+          {missing ? <button disabled={busy} onClick={createMissing} className="btn bg-slate-900 text-white">＋ {L('wiCreateMissing')} ({missing})</button> : null}
+          <button onClick={close} className="btn bg-white border">{L('closeBtn')}</button>
+        </div>
+      </div>
+    </Modal>
   );
 }
 
