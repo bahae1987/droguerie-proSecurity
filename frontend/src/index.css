@@ -1254,3 +1254,52 @@ tr.party-walkin > td { background: #fffbeb; }
 .pos-visible-box.off { background: #f8fafc; }
 .badge-pos-off { display: inline-block; font-size: 11px; font-weight: 600; color: #64748b; background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 999px; padding: 1px 8px; }
 .wi-add { border: 1px dashed #f59e0b; }
+
+/* ===== V57 : console SuperAdmin SaaS ===== */
+.saas-tabs { display: flex; flex-wrap: wrap; gap: 6px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; }
+.saas-tab { border: 1px solid #e2e8f0; background: #fff; color: #475569; border-radius: 999px; padding: 7px 14px; font-weight: 700; font-size: 13px; cursor: pointer; }
+.saas-tab:hover { border-color: #cbd5e1; color: #0f172a; }
+.saas-tab.on { background: #0f172a; border-color: #0f172a; color: #fff; }
+.saas-fact { border: 1px solid #e2e8f0; border-radius: 14px; padding: 12px 14px; background: #f8fafc; }
+.saas-fact span { display: block; font-size: 11px; font-weight: 800; text-transform: uppercase; color: #64748b; letter-spacing: .03em; }
+.saas-fact b { display: block; font-size: 18px; font-weight: 900; margin-top: 2px; }
+.saas-fact small { color: #64748b; font-size: 12px; }
+.saas-alert { border-radius: 10px; padding: 8px 10px; font-size: 13px; margin-bottom: 6px; border: 1px solid; }
+.saas-alert.red { background: #fef2f2; border-color: #fecaca; color: #991b1b; }
+.saas-alert.amber { background: #fffbeb; border-color: #fde68a; color: #92400e; }
+.saas-alert.blue { background: #f0f9ff; border-color: #bae6fd; color: #075985; }
+.saas-alert.slate { background: #f8fafc; border-color: #e2e8f0; color: #475569; }
+.saas-gauge { background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 14px 16px; }
+.saas-gauge-head { display: flex; justify-content: space-between; font-size: 13px; font-weight: 700; color: #334155; }
+.saas-gauge-head b { font-size: 18px; color: #0f172a; }
+.saas-gauge-bar { height: 8px; background: #f1f5f9; border-radius: 999px; margin: 10px 0 6px; overflow: hidden; }
+.saas-gauge-bar i { display: block; height: 100%; background: #10b981; border-radius: 999px; }
+.saas-gauge.near .saas-gauge-bar i { background: #f59e0b; }
+.saas-gauge.full .saas-gauge-bar i { background: #dc2626; }
+.saas-gauge.full { border-color: #fecaca; }
+.saas-gauge small { color: #64748b; font-size: 12px; }
+.saas-expiry { border: 1px dashed #cbd5e1; border-radius: 12px; padding: 12px; }
+.inline-num { display: inline-block; width: 72px; padding: 4px 8px; margin: 0 4px; }
+.saas-bill { border-top: 1px solid #e2e8f0; padding-top: 8px; font-size: 13px; }
+.saas-bill > div { display: flex; justify-content: space-between; gap: 8px; padding: 3px 0; }
+.saas-bill-total { border-top: 1px solid #e2e8f0; margin-top: 6px; padding-top: 8px !important; font-size: 15px; font-weight: 900; }
+.saas-plans { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+.saas-plan.current { border: 2px solid #f59e0b; }
+.saas-plan-price { margin: 10px 0 4px; font-size: 13px; color: #64748b; }
+.saas-plan-price b { font-size: 24px; font-weight: 900; color: #0f172a; }
+.saas-plan-mods { display: flex; flex-wrap: wrap; gap: 4px; }
+.saas-plan-mods span { font-size: 11px; background: #f1f5f9; color: #334155; border-radius: 999px; padding: 2px 8px; }
+.saas-plan-mods i { font-size: 12px; color: #64748b; }
+.saas-mod-chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid #e2e8f0; border-radius: 999px; padding: 4px 10px; font-size: 13px; background: #fff; }
+.saas-mod-chip.on { background: #fffbeb; border-color: #fcd34d; }
+.saas-switch { display: inline-flex; align-items: center; gap: 8px; border-radius: 999px; padding: 5px 12px 5px 5px; font-weight: 700; font-size: 12px; border: 1px solid; cursor: pointer; }
+.saas-switch i { width: 22px; height: 22px; border-radius: 999px; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.2); }
+.saas-switch.on { background: #059669; border-color: #059669; color: #fff; }
+.saas-switch.off { background: #f1f5f9; border-color: #cbd5e1; color: #64748b; }
+.saas-maint-on { border: 2px solid #dc2626; }
+.saas-banners { display: grid; gap: 8px; margin-bottom: 14px; }
+.saas-banner { display: flex; align-items: center; justify-content: space-between; gap: 10px; border-radius: 12px; padding: 10px 14px; font-size: 14px; font-weight: 600; border: 1px solid; }
+.saas-banner button { background: transparent; border: 0; font-size: 14px; cursor: pointer; opacity: .7; }
+.saas-banner.info { background: #f0f9ff; border-color: #bae6fd; color: #075985; }
+.saas-banner.warning { background: #fffbeb; border-color: #fcd34d; color: #92400e; }
+.saas-banner.danger { background: #fef2f2; border-color: #fca5a5; color: #991b1b; }

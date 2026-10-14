@@ -4,7 +4,7 @@ import { flushSync } from 'react-dom';
 import { createClient } from '@supabase/supabase-js';
 import './index.css';
 
-console.log('DROGUERIEPRO V56 OK');
+console.log('DROGUERIEPRO V57 OK');
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -2526,7 +2526,11 @@ async function updateStock(lines, sign, reason, meta = {}) {
 async function login(username, password) {
   if (await isSecureBackend()) {
     const { data, error } = await supabase.rpc('app_login', { p_username: username, p_password: password, p_user_agent: (navigator.userAgent || '').slice(0, 200) });
-    if (error) throw new Error(/mot de passe/i.test(error.message) ? 'Mot de passe incorrect' : 'Identifiant incorrect');
+    if (error) {
+      // V57 : maintenance / abonnement suspendu ou expiré → message du serveur
+      if (/maintenance|abonnement|accès suspendu/i.test(error.message || '')) throw new Error(error.message);
+      throw new Error(/mot de passe/i.test(error.message) ? 'Mot de passe incorrect' : 'Identifiant incorrect');
+    }
     return { token: data.token, user: data.user, perms: data.perms || [] };
   }
   const { data, error } = await supabase
@@ -4677,8 +4681,11 @@ function LoginPage({ L, lang, onLogin }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [err, setErr] = useState('');
+  const [maint, setMaint] = useState(null);
   const brand = useBrand();
   useEffect(() => {
+    // V57 : maintenance annoncée sur l'écran de connexion
+    supabase.rpc('app_saas_public').then(({ data }) => { if (data?.maintenance) setMaint(data); }).catch(() => {});
     loadPublicBranding().then(d => {
       if (d) setBrandCache({ ...getBrand(), ...(({ logo, primary, accent, slogan, name }) => ({ logo, primary, accent, slogan, name }))(brandFromSettings(d)) });
     });
@@ -4715,6 +4722,7 @@ function LoginPage({ L, lang, onLogin }) {
           </div>
         )}
 
+        {maint && !/maintenance/i.test(err) ? <p className="bg-amber-50 border border-amber-200 text-amber-800 p-2 rounded mb-3 text-sm" data-login-maint>🛠 {tx('Maintenance en cours', 'صيانة جارية')}{maint.message ? ' : ' + maint.message : ''}</p> : null}
         {err ? <p className="bg-red-50 text-red-600 p-2 rounded mb-3">{err}</p> : null}
 
         <label className="text-xs text-slate-500">{L('username')}</label>
@@ -4932,6 +4940,7 @@ function Layout({ L, lang, toggleLang, session, setSession }) {
               ) : null}
             </div>
           </div>
+          <SaasBanner session={session} />
           <div key={page + '-' + globalBranchFilter + '-' + pageKey}>
 
           {page === 'dashboard' ? <Dashboard L={L} /> : null}
@@ -6256,110 +6265,952 @@ function BackupCenter({ L }) {
   );
 }
 
+// ===================================================================================
+// V57 : console SuperAdmin SaaS (abonnement, formules, modules, usage, maintenance, journal)
+// ===================================================================================
+const tx = (fr, ar) => (curLang() === 'ar' && ar ? ar : fr);
+
+// Valeurs par défaut si la base n'a pas encore les colonnes V57
+const SAAS_MODULE_META = {
+  dashboard: { category: 'core', locked: true }, products: { category: 'core', locked: true },
+  sales: { requires: ['products', 'clients'] }, purchases: { requires: ['products', 'suppliers'] },
+  pos: { requires: ['sales', 'products', 'clients'] }, stockMoves: { requires: ['products'] },
+  reporting: { requires: ['sales'] }, profit: { requires: ['sales', 'products'] },
+  attachments: { category: 'platform' }, mobileApp: { category: 'platform' }, branches: { category: 'platform' }, users: { category: 'platform' }
+};
+const SAAS_CATEGORIES = [
+  { key: 'core', fr: 'Socle (toujours actif)', ar: 'الأساس (مفعّل دائما)' },
+  { key: 'business', fr: 'Modules métier', ar: 'وحدات العمل' },
+  { key: 'platform', fr: 'Modules plateforme', ar: 'وحدات المنصة' }
+];
+const SAAS_STATUS = {
+  trial: { fr: 'Essai', ar: 'تجربة', tone: 'blue' },
+  active: { fr: 'Actif', ar: 'نشط', tone: 'green' },
+  suspended: { fr: 'Suspendu', ar: 'موقوف', tone: 'red' },
+  canceled: { fr: 'Résilié', ar: 'ملغى', tone: 'slate' }
+};
+const SAAS_LIMITS = [
+  { key: 'branches', col: 'max_branches', fr: 'Drogueries', ar: 'المحلات', icon: '🏬' },
+  { key: 'users', col: 'max_users', fr: 'Utilisateurs actifs', ar: 'المستخدمون النشطون', icon: '👤' },
+  { key: 'products', col: 'max_products', fr: 'Produits', ar: 'المنتجات', icon: '🏷️' }
+];
+
+function saasModuleMeta(m) {
+  const d = SAAS_MODULE_META[m?.code] || {};
+  const req = Array.isArray(m?.requires) && m.requires.length ? m.requires : (d.requires || []);
+  return { category: m?.category || d.category || 'business', requires: req, locked: m?.locked === true || (m?.locked == null && !!d.locked) };
+}
+
+function isoAddPeriod(iso, months) {
+  const base = iso && iso > today() ? iso : today();
+  const d = new Date(base + 'T12:00:00Z');
+  d.setUTCMonth(d.getUTCMonth() + months);
+  return d.toISOString().slice(0, 10);
+}
+function daysBetween(fromIso, toIso) {
+  if (!fromIso || !toIso) return null;
+  return Math.round((new Date(toIso + 'T12:00:00Z') - new Date(fromIso + 'T12:00:00Z')) / 86400000);
+}
+
+// Montant de l'abonnement : prix de la formule + modules en option − remise (ou prix forcé)
+function saasAmount(control, plans, modules) {
+  const c = control || {};
+  const yearly = c.billing_cycle === 'yearly';
+  const plan = (plans || []).find(p => p.code === c.plan_code);
+  const planMods = plan && Array.isArray(plan.modules) ? plan.modules : [];
+  const price = m => Number((yearly ? m.yearly_price : m.monthly_price) || 0);
+  const enabled = (modules || []).filter(m => m.enabled !== false);
+  let base = 0; let addons = [];
+  if (plan && planMods.length) {
+    base = Number((yearly ? plan.yearly_price : plan.monthly_price) || 0);
+    addons = enabled.filter(m => !planMods.includes(m.code) && price(m) > 0);
+  } else {
+    addons = enabled.filter(m => price(m) > 0);
+  }
+  const addonsTotal = addons.reduce((t, m) => t + price(m), 0);
+  const gross = base + addonsTotal;
+  const forced = c.price_override !== null && c.price_override !== undefined && c.price_override !== '';
+  const beforeDiscount = forced ? Number(c.price_override || 0) : gross;
+  const discount = Math.round(beforeDiscount * Math.min(100, Math.max(0, Number(c.discount_pct || 0)))) / 100;
+  return { yearly, base, addons, addonsTotal, gross, forced, discount, total: beforeDiscount - discount, plan };
+}
+
+async function loadSaasConsole() {
+  const [ctl, plans, modules, state] = await Promise.all([
+    supabase.from('saas_control').select('*').eq('id', 1).maybeSingle(),
+    supabase.from('saas_plans').select('*').order('sort_order').order('code'),
+    loadSaasModules(),
+    supabase.rpc('app_saas_state')
+  ]);
+  const ready = !ctl.error && !plans.error && !state.error;
+  return {
+    ready,
+    error: ready ? '' : (ctl.error || plans.error || state.error)?.message || '',
+    control: ctl.data || null,
+    plans: plans.data || [],
+    modules: (modules || []).map(m => ({ ...m, ...saasModuleMeta(m) })),
+    state: state.data || null
+  };
+}
+
+async function saveSaasControl(patch, what) {
+  requirePerm('superadmin.manage', 'Console SaaS');
+  const clean = { ...patch };
+  delete clean.id; delete clean.updated_at; delete clean.updated_by;
+  ['end_date', 'trial_end', 'start_date', 'announcement_from', 'announcement_until'].forEach(k => { if (k in clean && !clean[k]) clean[k] = null; });
+  ['max_branches', 'max_users', 'max_products', 'price_override'].forEach(k => { if (k in clean) clean[k] = clean[k] === '' || clean[k] === null || clean[k] === undefined ? null : Number(clean[k]); });
+  ['grace_days', 'warn_days', 'discount_pct'].forEach(k => { if (k in clean) clean[k] = Number(clean[k] || 0); });
+  const { error } = await supabase.from('saas_control').update(clean).eq('id', 1);
+  if (error) throw new Error(error.message);
+  await auditLog('SaaS', 'UPDATE', what || 'Abonnement', Object.keys(clean).map(k => k + '=' + (clean[k] === null ? '∅' : String(clean[k]).slice(0, 40))).join(' · ').slice(0, 900));
+  window.dispatchEvent(new CustomEvent('droguerie_saas_changed'));
+}
+
+async function saveSaasPlan(plan) {
+  requirePerm('superadmin.manage', 'Console SaaS');
+  const code = String(plan.code || '').trim().toLowerCase().replace(/[^a-z0-9_]+/g, '_');
+  if (!code || !String(plan.name || '').trim()) throw new Error(tx('Code et nom obligatoires', 'الرمز والاسم إلزاميان'));
+  const num = v => (v === '' || v === null || v === undefined ? null : Number(v));
+  const row = {
+    code, name: String(plan.name).trim(), description: plan.description || '',
+    monthly_price: Number(plan.monthly_price || 0), yearly_price: Number(plan.yearly_price || 0),
+    modules: Array.isArray(plan.modules) ? plan.modules : [], max_branches: num(plan.max_branches), max_users: num(plan.max_users), max_products: num(plan.max_products),
+    sort_order: Number(plan.sort_order || 0), active: plan.active !== false
+  };
+  const { error } = await supabase.from('saas_plans').upsert(row, { onConflict: 'code' });
+  if (error) throw new Error(error.message);
+  await auditLog('SaaS', 'UPDATE', 'Formule ' + row.name, row.modules.length + ' modules · ' + row.monthly_price + ' DH/mois');
+  return code;
+}
+
+async function deleteSaasPlan(code) {
+  requirePerm('superadmin.manage', 'Console SaaS');
+  const { error } = await supabase.from('saas_plans').delete().eq('code', code);
+  if (error) throw new Error(error.message);
+  await auditLog('SaaS', 'DELETE', 'Formule ' + code, '');
+}
+
+async function applySaasPlan(code, withLimits) {
+  requirePerm('superadmin.manage', 'Console SaaS');
+  const { data, error } = await supabase.rpc('app_saas_apply_plan', { p_code: code, p_apply_limits: !!withLimits });
+  if (error) throw new Error(error.message);
+  const disabled = await refreshSaasModulesCache();
+  window.dispatchEvent(new CustomEvent('droguerie_modules_changed', { detail: disabled }));
+  window.dispatchEvent(new CustomEvent('droguerie_saas_changed'));
+  await auditLog('SaaS', 'UPDATE', 'Formule appliquée : ' + code, (data?.enabled || 0) + ' module(s) activé(s), ' + (data?.disabled || 0) + ' désactivé(s)' + (withLimits ? ', limites de la formule' : ''));
+  return data;
+}
+
+// Activer / couper un module avec ses dépendances
+function saasModuleCascade(modules, code, enable) {
+  const byCode = Object.fromEntries(modules.map(m => [m.code, m]));
+  const out = new Set();
+  if (enable) {
+    (function add(c) { (byCode[c]?.requires || []).forEach(r => { if (byCode[r] && byCode[r].enabled === false && !out.has(r)) { out.add(r); add(r); } }); })(code);
+  } else {
+    let changed = true; const off = new Set([code]);
+    while (changed) {
+      changed = false;
+      modules.forEach(m => { if (m.enabled !== false && !off.has(m.code) && !m.locked && (m.requires || []).some(r => off.has(r))) { off.add(m.code); out.add(m.code); changed = true; } });
+    }
+  }
+  return [...out];
+}
+
+function SaasGauge({ label, icon, used, limit }) {
+  const has = limit !== null && limit !== undefined;
+  const pct = has && Number(limit) > 0 ? Math.min(100, Math.round((Number(used || 0) / Number(limit)) * 100)) : 0;
+  const tone = !has ? 'ok' : pct >= 100 ? 'full' : pct >= 80 ? 'near' : 'ok';
+  return (
+    <div className={'saas-gauge ' + tone} data-gauge={label}>
+      <div className="saas-gauge-head"><span>{icon} {label}</span><b>{used ?? 0}{has ? ' / ' + limit : ''}</b></div>
+      <div className="saas-gauge-bar"><i style={{ width: (has ? pct : 0) + '%' }} /></div>
+      <small>{has ? (pct >= 100 ? tx('Limite atteinte', 'تم بلوغ الحد') : pct + ' %') : tx('Illimité', 'بدون حد')}</small>
+    </div>
+  );
+}
+
 function SuperAdminCenter({ L }) {
-  const [modules, setModules] = useState([]);
+  const [tab, setTabState] = useState(() => { try { return localStorage.getItem('dp_saas_tab') || 'overview'; } catch { return 'overview'; } });
+  const [data, setData] = useState(null);
   const [stats, setStats] = useState([]);
   const [err, setErr] = useState('');
+  const setTab = t => { setTabState(t); try { localStorage.setItem('dp_saas_tab', t); } catch {} };
 
   async function load() {
     try {
       setErr('');
-      const [m, s] = await Promise.all([loadSaasModules(), loadDbStats()]);
-      setModules(m);
+      const [d, s] = await Promise.all([loadSaasConsole(), loadDbStats()]);
+      setData(d);
       setStats(s);
-      const disabled = (m || []).filter(x => x.enabled === false).map(x => x.code);
+      const disabled = (d.modules || []).filter(x => x.enabled === false).map(x => x.code);
       localStorage.setItem('droguerie_disabled_modules', JSON.stringify(disabled));
     } catch (e) {
       setErr(e.message);
     }
   }
-
   useEffect(() => { load(); }, []);
 
-  async function toggleModule(mod) {
-    try {
-      await saveSaasModule({ ...mod, enabled: !mod.enabled });
-      const disabled = await refreshSaasModulesCache();
-      window.dispatchEvent(new CustomEvent('droguerie_modules_changed', { detail: disabled }));
-      await load();
-    } catch (e) { alert(e.message); }
-  }
-
-  async function updatePrice(mod, field, value) {
-    try {
-      await saveSaasModule({ ...mod, [field]: Number(value || 0) });
-      await load();
-    } catch (e) { alert(e.message); }
+  function exportConfig() {
+    const conf = {
+      app: 'DrogueriePro', kind: 'saas-config', version: 57, exportedAt: new Date().toISOString(),
+      control: data?.control || null, plans: data?.plans || [],
+      modules: (data?.modules || []).map(({ code, name, description, enabled, monthly_price, yearly_price, sort_order, category, requires, locked }) => ({ code, name, description, enabled, monthly_price, yearly_price, sort_order, category, requires, locked })),
+      featuresOff: getFeaturesOff()
+    };
+    downloadTextFile('DrogueriePro_config_SaaS_' + today() + '.json', JSON.stringify(conf, null, 2), 'application/json;charset=utf-8');
+    auditLog('SaaS', 'EXPORT', 'Configuration SaaS', (conf.plans.length) + ' formules, ' + conf.modules.length + ' modules');
   }
 
   if (err) return <ErrorBox msg={err} />;
+  if (!data) return <p>{tx('Chargement…', 'جار التحميل…')}</p>;
+
+  const tabs = [
+    ['overview', '📊', tx('Vue d\'ensemble', 'نظرة عامة')],
+    ['subscription', '🧾', tx('Abonnement', 'الاشتراك')],
+    ['plans', '📦', tx('Formules', 'الباقات')],
+    ['modules', '🧩', tx('Modules', 'الوحدات')],
+    ['usage', '📈', tx('Usage', 'الاستعمال')],
+    ['maintenance', '🛠', tx('Maintenance & annonces', 'الصيانة والإعلانات')],
+    ['journal', '📜', tx('Journal', 'السجل')]
+  ];
+  const props = { L, data, reload: load, setTab };
 
   return (
     <>
       <Header title={L('saasCenter')}>
-        <button onClick={load} className="btn bg-white border">↻</button>
+        <button onClick={load} className="btn bg-white border" title={tx('Actualiser', 'تحديث')}>↻</button>
+        {data.ready ? <button onClick={exportConfig} className="btn bg-white border" data-saas-export>⬇ {tx('Exporter la configuration', 'تصدير الإعدادات')}</button> : null}
       </Header>
 
-      <div className="grid md:grid-cols-4 gap-4 mb-5">
-        <div className="pro-kpi-card"><span>{L('modulesCenter')}</span><b>{modules.length}</b><small>{L('moduleBilling')}</small></div>
-        <div className="pro-kpi-card"><span>{L('enabled')}</span><b>{modules.filter(m => m.enabled).length}</b><small>{L('subscription')}</small></div>
-        <div className="pro-kpi-card"><span>{L('disabled')}</span><b>{modules.filter(m => !m.enabled).length}</b><small>{L('plan')}</small></div>
-        <div className="pro-kpi-card"><span>{L('databaseCenter')}</span><b>{stats.length}</b><small>{L('databaseStats')}</small></div>
+      {!data.ready ? (
+        <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-xl p-3 mb-4 text-sm">
+          ⚠ {tx('Exécutez MAJ_V57_SUPABASE.sql pour activer l\'abonnement, les formules, les limites et la maintenance. En attendant, seuls les modules et les statistiques sont disponibles.', 'نفّذ MAJ_V57_SUPABASE.sql لتفعيل الاشتراك والباقات والحدود والصيانة.')}
+          {data.error ? <div className="text-xs mt-1 font-mono">{data.error}</div> : null}
+        </div>
+      ) : null}
+
+      <div className="saas-tabs mb-4" role="tablist">
+        {tabs.filter(([k]) => data.ready || ['modules', 'usage'].includes(k)).map(([k, icon, label]) => (
+          <button key={k} role="tab" aria-selected={tab === k} className={'saas-tab ' + (tab === k ? 'on' : '')} data-saas-tab={k} onClick={() => setTab(k)}>{icon} {label}</button>
+        ))}
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-5">
-        <div className="card p-5 overflow-auto lg:col-span-2">
-          <h2 className="text-lg font-black mb-4">{L('modulesCenter')}</h2>
-          <table className="table w-full">
-            <thead>
-              <tr>
-                <th>{L('moduleCode')}</th>
-                <th>{L('moduleName')}</th>
-                <th>Type</th>
-                <th>{L('monthlyPrice')}</th>
-                <th>{L('yearlyPrice')}</th>
-                <th>{L('enabled')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {modules.map(m => (
-                <tr key={m.code}>
-                  <td className="font-mono text-xs">{m.code}</td>
-                  <td><div className="font-semibold">{m.name}</div>{m.description ? <div className="text-xs text-slate-500">{m.description}</div> : null}</td>
-                  <td className="whitespace-nowrap">{['branches', 'users', 'mobileApp', 'attachments'].includes(m.code) ? <Badge tone="blue">{L('platformModules')}</Badge> : <Badge tone="slate">{L('businessModules')}</Badge>}</td>
-                  <td><input className="input max-w-xs" type="number" defaultValue={m.monthly_price || 0} onBlur={e => updatePrice(m, 'monthly_price', e.target.value)} /></td>
-                  <td><input className="input max-w-xs" type="number" defaultValue={m.yearly_price || 0} onBlur={e => updatePrice(m, 'yearly_price', e.target.value)} /></td>
-                  <td>
-                    <button onClick={() => toggleModule(m)} className={m.enabled ? 'btn bg-emerald-600 text-white' : 'btn bg-red-600 text-white'}>
-                      {m.enabled ? L('enabled') : L('disabled')}
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {!modules.length ? <tr><td colSpan="6">{L('noData')}</td></tr> : null}
-            </tbody>
-          </table>
+      {tab === 'overview' && data.ready ? <SaasOverview {...props} /> : null}
+      {tab === 'subscription' && data.ready ? <SaasSubscription {...props} /> : null}
+      {tab === 'plans' && data.ready ? <SaasPlans {...props} /> : null}
+      {(tab === 'modules' || (!data.ready && !['usage'].includes(tab))) ? <SaasModules {...props} /> : null}
+      {tab === 'usage' ? <SaasUsage {...props} stats={stats} /> : null}
+      {tab === 'maintenance' && data.ready ? <SaasMaintenance {...props} /> : null}
+      {tab === 'journal' && data.ready ? <SaasJournal {...props} /> : null}
+    </>
+  );
+}
+
+function SaasStatusBadge({ status }) {
+  const s = SAAS_STATUS[status] || SAAS_STATUS.active;
+  return <Badge tone={s.tone}>{tx(s.fr, s.ar)}</Badge>;
+}
+
+function SaasOverview({ data, reload, setTab }) {
+  const c = data.control || {};
+  const st = data.state || {};
+  const counts = st.counts || {};
+  const amount = saasAmount(c, data.plans, data.modules);
+  const [busy, setBusy] = useState(false);
+  const expiry = st.expiry;
+  const daysLeft = st.daysLeft;
+  const alerts = [];
+  if (c.maintenance) alerts.push(['red', '🛠 ' + tx('Mode maintenance actif : seuls les SuperAdmin peuvent se connecter.', 'وضع الصيانة مفعّل: الدخول للمدير العام فقط.')]);
+  if (['suspended', 'canceled'].includes(c.status)) alerts.push(['red', '⛔ ' + tx('Abonnement ' + (c.status === 'suspended' ? 'suspendu' : 'résilié') + (c.on_expiry === 'block' ? ' : connexion bloquée pour les utilisateurs.' : ' : bandeau affiché aux utilisateurs.'), 'الاشتراك موقوف.')]);
+  if (st.expired) alerts.push(['red', '⌛ ' + tx('Abonnement expiré le ' + frDate(expiry) + (c.on_expiry === 'block' ? ' · blocage le ' + frDate(st.blockDate) : ' · bandeau seulement'), 'انتهى الاشتراك في ' + frDate(expiry))]);
+  else if (daysLeft !== null && daysLeft !== undefined && daysLeft <= Number(c.warn_days || 0)) alerts.push(['amber', '⏳ ' + tx('Échéance dans ' + daysLeft + ' jour(s) (' + frDate(expiry) + ')', 'ينتهي بعد ' + daysLeft + ' يوم')]);
+  SAAS_LIMITS.forEach(l => {
+    const lim = c[l.col]; const used = Number(counts[l.key] || 0);
+    if (lim !== null && lim !== undefined && used >= Number(lim)) alerts.push(['amber', l.icon + ' ' + tx(l.fr + ' : limite atteinte (' + used + ' / ' + lim + ')', l.ar + ': تم بلوغ الحد')]);
+  });
+  if (st.announcement) alerts.push(['blue', '📣 ' + tx('Annonce en cours : ', 'إعلان جار: ') + st.announcement.text]);
+  if (!c.client_name) alerts.push(['slate', '🧾 ' + tx('Fiche client à compléter (onglet Abonnement).', 'أكمل معلومات الزبون.')]);
+
+  async function quick(patch, label) {
+    setBusy(true);
+    try {
+      await saveSaasControl(patch, label);
+      if (patch.maintenance === true || (patch.status === 'suspended' && c.on_expiry === 'block')) {
+        const { data: n } = await supabase.rpc('app_saas_kick', { p_user: null });
+        if (n) showToast(tx(n + ' session(s) fermée(s)', 'تم إغلاق ' + n + ' جلسة'));
+      }
+      showToast(label);
+      await reload();
+    } catch (e) { alert(e.message); }
+    setBusy(false);
+  }
+
+  return (
+    <>
+      <div className="grid lg:grid-cols-3 gap-4 mb-4">
+        <div className="card p-5 lg:col-span-2 saas-sub-card" data-saas-summary>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <div className="text-xs text-slate-500 uppercase font-bold">{tx('Client', 'الزبون')}</div>
+              <div className="text-xl font-black">{c.client_name || tx('Client non renseigné', 'زبون غير محدد')}</div>
+              <div className="text-sm text-slate-500">{[c.client_contact, c.client_phone, c.client_email, c.client_city].filter(Boolean).join(' · ') || '—'}</div>
+            </div>
+            <div className="text-end">
+              <SaasStatusBadge status={c.status} />
+              <div className="text-sm mt-2">{tx('Formule', 'الباقة')} <b>{amount.plan?.name || c.plan_code}</b></div>
+            </div>
+          </div>
+          <div className="grid sm:grid-cols-3 gap-3 mt-4">
+            <div className="saas-fact"><span>{tx('Échéance', 'تاريخ الانتهاء')}</span><b>{expiry ? frDate(expiry) : tx('Sans date de fin', 'بدون تاريخ')}</b><small>{expiry ? (st.expired ? tx('Expiré', 'منتهٍ') : daysLeft + ' ' + tx('jour(s) restant(s)', 'يوم متبقٍ')) : tx('Abonnement ouvert', 'اشتراك مفتوح')}</small></div>
+            <div className="saas-fact"><span>{tx('À l\'expiration', 'عند الانتهاء')}</span><b>{c.on_expiry === 'block' ? tx('Blocage', 'حظر') : tx('Bandeau', 'شريط تنبيه')}</b><small>{c.on_expiry === 'block' ? tx('après ' + (c.grace_days || 0) + ' jour(s) de grâce', 'بعد ' + (c.grace_days || 0) + ' يوم سماح') : tx('aucun blocage', 'بدون حظر')}</small></div>
+            <div className="saas-fact"><span>{amount.yearly ? tx('Montant annuel', 'المبلغ السنوي') : tx('Montant mensuel', 'المبلغ الشهري')}</span><b>{dh(amount.total)}</b><small>{amount.forced ? tx('prix forcé', 'ثمن محدد') : tx('formule', 'الباقة') + ' ' + fmt(amount.base) + (amount.addons.length ? ' + ' + amount.addons.length + ' ' + tx('option(s)', 'إضافة') : '')}{amount.discount ? ' − ' + fmt(amount.discount) : ''}</small></div>
+          </div>
+          <div className="flex flex-wrap gap-2 mt-4">
+            <button disabled={busy} className="btn bg-white border" data-saas-extend="1" onClick={() => quick({ end_date: isoAddPeriod(c.status === 'trial' ? (c.trial_end || c.end_date) : c.end_date, 1), ...(c.status === 'trial' ? { status: 'active' } : {}) }, tx('Abonnement prolongé d\'un mois', 'تم تمديد الاشتراك شهرا'))}>＋ 1 {tx('mois', 'شهر')}</button>
+            <button disabled={busy} className="btn bg-white border" data-saas-extend="12" onClick={() => quick({ end_date: isoAddPeriod(c.status === 'trial' ? (c.trial_end || c.end_date) : c.end_date, 12), ...(c.status === 'trial' ? { status: 'active' } : {}) }, tx('Abonnement prolongé d\'un an', 'تم تمديد الاشتراك سنة'))}>＋ 1 {tx('an', 'سنة')}</button>
+            {c.status === 'suspended' || c.status === 'canceled'
+              ? <button disabled={busy} className="btn bg-emerald-600 text-white" data-saas-reactivate onClick={() => quick({ status: 'active' }, tx('Abonnement réactivé', 'تمت إعادة التفعيل'))}>▶ {tx('Réactiver', 'إعادة التفعيل')}</button>
+              : <button disabled={busy} className="btn bg-white border text-red-600" data-saas-suspend onClick={() => { if (confirm(tx('Suspendre l\'abonnement ?' + (c.on_expiry === 'block' ? ' Les utilisateurs seront déconnectés.' : ''), 'إيقاف الاشتراك؟'))) quick({ status: 'suspended' }, tx('Abonnement suspendu', 'تم إيقاف الاشتراك')); }}>⏸ {tx('Suspendre', 'إيقاف')}</button>}
+            <button disabled={busy} className={'btn ' + (c.maintenance ? 'bg-red-600 text-white' : 'bg-white border')} data-saas-maint onClick={() => { if (c.maintenance || confirm(tx('Activer la maintenance ? Les utilisateurs (sauf SuperAdmin) seront déconnectés.', 'تفعيل الصيانة؟'))) quick({ maintenance: !c.maintenance }, c.maintenance ? tx('Maintenance terminée', 'انتهت الصيانة') : tx('Maintenance activée', 'تم تفعيل الصيانة')); }}>🛠 {c.maintenance ? tx('Terminer la maintenance', 'إنهاء الصيانة') : tx('Maintenance', 'الصيانة')}</button>
+            <button className="btn bg-slate-900 text-white" onClick={() => setTab('subscription')}>✎ {tx('Modifier l\'abonnement', 'تعديل الاشتراك')}</button>
+          </div>
+        </div>
+        <div className="card p-5">
+          <h2 className="font-black mb-3">{tx('Points d\'attention', 'نقاط الانتباه')}</h2>
+          {alerts.length ? alerts.map(([tone, text], i) => <div key={i} className={'saas-alert ' + tone}>{text}</div>) : <p className="text-sm text-emerald-700">✔ {tx('Tout est en ordre.', 'كل شيء على ما يرام.')}</p>}
+        </div>
+      </div>
+      <div className="grid md:grid-cols-3 gap-4 mb-4">
+        {SAAS_LIMITS.map(l => <SaasGauge key={l.key} label={tx(l.fr, l.ar)} icon={l.icon} used={counts[l.key]} limit={c[l.col]} />)}
+      </div>
+      <div className="pro-kpi-grid">
+        <div className="pro-kpi-card"><span>{tx('Modules actifs', 'الوحدات المفعلة')}</span><b>{data.modules.filter(m => m.enabled !== false).length} / {data.modules.length}</b><small>{tx('dont socle', 'منها الأساس')} {data.modules.filter(m => m.locked).length}</small></div>
+        <div className="pro-kpi-card"><span>{tx('Sessions ouvertes', 'الجلسات المفتوحة')}</span><b>{counts.sessions ?? 0}</b><small>{tx('connexions en cours', 'اتصالات جارية')}</small></div>
+        <div className="pro-kpi-card"><span>{tx('Ventes ce mois', 'مبيعات هذا الشهر')}</span><b>{counts.salesMonth ?? 0}</b><small>{dh(counts.salesMonthTotal || 0)} {tx('facturé', 'مفوتر')}</small></div>
+        <div className="pro-kpi-card"><span>{tx('Achats ce mois', 'مشتريات هذا الشهر')}</span><b>{counts.purchasesMonth ?? 0}</b><small>{tx('documents', 'وثائق')}</small></div>
+        <div className="pro-kpi-card"><span>{tx('Clients / Fournisseurs', 'الزبناء / الموردون')}</span><b>{counts.clients ?? 0} / {counts.suppliers ?? 0}</b><small>{tx('fiches', 'بطاقات')}</small></div>
+        <div className="pro-kpi-card"><span>{tx('Pièces jointes', 'المرفقات')}</span><b>{counts.attachments ?? 0}</b><small>{tx('fichiers', 'ملفات')}</small></div>
+      </div>
+      {c.updated_by ? <p className="text-xs text-slate-400 mt-3">{tx('Dernière modification', 'آخر تعديل')} : {c.updated_by} · {c.updated_at ? new Date(c.updated_at).toLocaleString('fr-FR') : ''}</p> : null}
+    </>
+  );
+}
+
+function SaasField({ label, hint, children, wide }) {
+  return (
+    <label className={'text-xs text-slate-500 block ' + (wide ? 'md:col-span-2' : '')}>
+      {label}
+      {children}
+      {hint ? <span className="block text-[11px] text-slate-400 mt-0.5">{hint}</span> : null}
+    </label>
+  );
+}
+
+function SaasSubscription({ data, reload, setTab }) {
+  const [f, setF] = useState(() => ({ ...(data.control || {}) }));
+  const [busy, setBusy] = useState(false);
+  const set = (k, v) => setF(prev => ({ ...prev, [k]: v }));
+  const amount = saasAmount(f, data.plans, data.modules);
+  const plan = data.plans.find(p => p.code === f.plan_code);
+  const expiry = f.status === 'trial' ? (f.trial_end || f.end_date) : f.end_date;
+  const blockDate = expiry ? new Date(new Date(expiry + 'T12:00:00Z').getTime() + Number(f.grace_days || 0) * 86400000).toISOString().slice(0, 10) : null;
+
+  async function save() {
+    setBusy(true);
+    try {
+      const fields = ['client_name', 'client_contact', 'client_email', 'client_phone', 'client_city', 'billing_cycle', 'discount_pct', 'price_override', 'status', 'start_date', 'end_date', 'trial_end', 'grace_days', 'warn_days', 'on_expiry', 'max_branches', 'max_users', 'max_products', 'notes'];
+      const patch = Object.fromEntries(fields.map(k => [k, f[k] ?? (k === 'price_override' || k.startsWith('max_') ? null : '')]));
+      await saveSaasControl(patch, 'Abonnement');
+      if (['suspended', 'canceled'].includes(f.status) && f.on_expiry === 'block') await supabase.rpc('app_saas_kick', { p_user: null });
+      showToast(tx('Abonnement enregistré', 'تم حفظ الاشتراك'));
+      await reload();
+    } catch (e) { alert(e.message); }
+    setBusy(false);
+  }
+  const lim = (col, ph) => (
+    <input className="input mt-1" type="number" min="0" placeholder={ph} value={f[col] ?? ''} data-limit={col} onChange={e => set(col, e.target.value === '' ? null : e.target.value)} />
+  );
+
+  return (
+    <div className="grid lg:grid-cols-3 gap-4">
+      <div className="lg:col-span-2 space-y-4">
+        <div className="card p-5">
+          <h2 className="font-black mb-3">🏢 {tx('Client', 'الزبون')}</h2>
+          <div className="grid md:grid-cols-2 gap-3">
+            <SaasField label={tx('Raison sociale', 'الاسم التجاري')} wide><input className="input mt-1" data-f="client_name" value={f.client_name || ''} onChange={e => set('client_name', e.target.value)} /></SaasField>
+            <SaasField label={tx('Contact', 'المسؤول')}><input className="input mt-1" value={f.client_contact || ''} onChange={e => set('client_contact', e.target.value)} /></SaasField>
+            <SaasField label={tx('Téléphone', 'الهاتف')}><input className="input mt-1" inputMode="tel" value={f.client_phone || ''} onChange={e => set('client_phone', e.target.value)} /></SaasField>
+            <SaasField label="E-mail"><input className="input mt-1" type="email" value={f.client_email || ''} onChange={e => set('client_email', e.target.value)} /></SaasField>
+            <SaasField label={tx('Ville', 'المدينة')}><input className="input mt-1" value={f.client_city || ''} onChange={e => set('client_city', e.target.value)} /></SaasField>
+          </div>
         </div>
 
-        <div className="card p-5 overflow-auto">
-          <h2 className="text-lg font-black mb-4">{L('databaseStats')}</h2>
-          <table className="table w-full">
-            <thead><tr><th>{L('tableName')}</th><th>{L('recordsCount')}</th></tr></thead>
-            <tbody>
-              {stats.map(s => (
-                <tr key={s.table}>
-                  <td className="font-mono">{s.table}</td>
-                  <td className="font-bold">{s.count}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="card p-5">
+          <h2 className="font-black mb-3">📅 {tx('Période et statut', 'المدة والحالة')}</h2>
+          <div className="grid md:grid-cols-3 gap-3">
+            <SaasField label={tx('Statut', 'الحالة')}>
+              <select className="input mt-1" data-f="status" value={f.status || 'active'} onChange={e => set('status', e.target.value)}>
+                {Object.entries(SAAS_STATUS).map(([k, s]) => <option key={k} value={k}>{tx(s.fr, s.ar)}</option>)}
+              </select>
+            </SaasField>
+            <SaasField label={tx('Début', 'البداية')}><input className="input mt-1" type="date" value={f.start_date || ''} onChange={e => set('start_date', e.target.value)} /></SaasField>
+            <SaasField label={tx('Fin / renouvellement', 'النهاية / التجديد')} hint={tx('Vide = sans date de fin', 'فارغ = بدون تاريخ')}><input className="input mt-1" type="date" data-f="end_date" value={f.end_date || ''} onChange={e => set('end_date', e.target.value)} /></SaasField>
+            {f.status === 'trial' ? <SaasField label={tx('Fin de l\'essai', 'نهاية التجربة')}><input className="input mt-1" type="date" value={f.trial_end || ''} onChange={e => set('trial_end', e.target.value)} /></SaasField> : null}
+            <SaasField label={tx('Prévenir l\'administrateur (jours avant)', 'تنبيه المدير (أيام قبل)')}><input className="input mt-1" type="number" min="0" value={f.warn_days ?? 15} onChange={e => set('warn_days', e.target.value)} /></SaasField>
+          </div>
+          <div className="saas-expiry mt-4">
+            <div className="text-xs font-bold text-slate-500 mb-2">{tx('Quand l\'abonnement est expiré ou suspendu', 'عند انتهاء أو إيقاف الاشتراك')}</div>
+            <label className="flex items-center gap-2 text-sm mb-1"><input type="radio" name="onexp" data-onexp="banner" checked={f.on_expiry !== 'block'} onChange={() => set('on_expiry', 'banner')} /> {tx('Bandeau d\'alerte seulement (aucun blocage)', 'شريط تنبيه فقط')}</label>
+            <label className="flex items-center gap-2 text-sm"><input type="radio" name="onexp" data-onexp="block" checked={f.on_expiry === 'block'} onChange={() => set('on_expiry', 'block')} /> {tx('Bloquer la connexion après', 'حظر الدخول بعد')}
+              <input className="input inline-num" type="number" min="0" data-f="grace_days" value={f.grace_days ?? 7} onChange={e => set('grace_days', e.target.value)} /> {tx('jour(s) de grâce (le SuperAdmin garde l\'accès)', 'يوم سماح')}
+            </label>
+            {expiry ? <p className="text-xs text-slate-500 mt-2">{tx('Échéance', 'الانتهاء')} {frDate(expiry)}{f.on_expiry === 'block' ? ' · ' + tx('blocage le', 'الحظر في') + ' ' + frDate(blockDate) : ''}</p> : null}
+          </div>
         </div>
+
+        <div className="card p-5">
+          <h2 className="font-black mb-1">🚦 {tx('Limites', 'الحدود')}</h2>
+          <p className="text-xs text-slate-500 mb-3">{tx('Remplies par la formule appliquée, modifiables ici. Vide = illimité. La base refuse toute création au-delà (le SuperAdmin n\'est pas limité).', 'فارغ = بدون حد. القاعدة ترفض أي تجاوز.')}</p>
+          <div className="grid md:grid-cols-3 gap-3">
+            {SAAS_LIMITS.map(l => <SaasField key={l.col} label={l.icon + ' ' + tx(l.fr, l.ar)} hint={tx('Actuellement', 'حاليا') + ' : ' + (data.state?.counts?.[l.key] ?? 0)}>{lim(l.col, '∞')}</SaasField>)}
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <div className="card p-5">
+          <h2 className="font-black mb-3">💳 {tx('Facturation', 'الفوترة')}</h2>
+          <div className="text-sm mb-2">{tx('Formule', 'الباقة')} : <b>{plan?.name || f.plan_code}</b> <button className="text-xs underline text-sky-700 ms-1" onClick={() => setTab('plans')}>{tx('Changer de formule', 'تغيير الباقة')}</button></div>
+          <SaasField label={tx('Périodicité', 'الدورية')}>
+            <select className="input mt-1 mb-2" value={f.billing_cycle || 'monthly'} onChange={e => set('billing_cycle', e.target.value)}>
+              <option value="monthly">{tx('Mensuelle', 'شهرية')}</option>
+              <option value="yearly">{tx('Annuelle', 'سنوية')}</option>
+            </select>
+          </SaasField>
+          <div className="grid grid-cols-2 gap-2">
+            <SaasField label={tx('Remise (%)', 'التخفيض (%)')}><input className="input mt-1" type="number" min="0" max="100" value={f.discount_pct ?? 0} onChange={e => set('discount_pct', e.target.value)} /></SaasField>
+            <SaasField label={tx('Prix forcé (DH)', 'ثمن محدد')} hint={tx('Vide = calculé', 'فارغ = محسوب')}><input className="input mt-1" type="number" min="0" value={f.price_override ?? ''} onChange={e => set('price_override', e.target.value === '' ? null : e.target.value)} /></SaasField>
+          </div>
+          <div className="saas-bill mt-3">
+            <div><span>{tx('Formule', 'الباقة')}</span><b>{fmt(amount.base)}</b></div>
+            {amount.addons.map(m => <div key={m.code} className="text-slate-500"><span>＋ {m.name}</span><b>{fmt(amount.yearly ? m.yearly_price : m.monthly_price)}</b></div>)}
+            {amount.forced ? <div className="text-slate-500"><span>{tx('Prix forcé', 'ثمن محدد')}</span><b>{fmt(f.price_override)}</b></div> : null}
+            {amount.discount ? <div className="text-slate-500"><span>{tx('Remise', 'تخفيض')} {fmt(f.discount_pct)} %</span><b>− {fmt(amount.discount)}</b></div> : null}
+            <div className="saas-bill-total"><span>{amount.yearly ? tx('Total par an', 'المجموع سنويا') : tx('Total par mois', 'المجموع شهريا')}</span><b data-saas-total>{dh(amount.total)}</b></div>
+          </div>
+        </div>
+        <div className="card p-5">
+          <h2 className="font-black mb-2">📝 {tx('Notes internes', 'ملاحظات داخلية')}</h2>
+          <textarea className="input" rows="4" value={f.notes || ''} onChange={e => set('notes', e.target.value)} placeholder={tx('Conditions particulières, historique des échanges…', 'شروط خاصة…')} />
+        </div>
+        <button disabled={busy} onClick={save} className="btn bg-amber-500 w-full" data-saas-save>{busy ? '…' : '💾 ' + tx('Enregistrer l\'abonnement', 'حفظ الاشتراك')}</button>
+      </div>
+    </div>
+  );
+}
+
+function SaasPlans({ data, reload }) {
+  const [edit, setEdit] = useState(null);
+  const [apply, setApply] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const current = data.control?.plan_code;
+  const mods = data.modules;
+  const modName = code => mods.find(m => m.code === code)?.name || code;
+
+  async function savePlan() {
+    setBusy(true);
+    try { await saveSaasPlan(edit); setEdit(null); showToast(tx('Formule enregistrée', 'تم حفظ الباقة')); await reload(); } catch (e) { alert(e.message); }
+    setBusy(false);
+  }
+  async function removePlan(p) {
+    if (p.code === current) return alert(tx('Formule en cours d\'utilisation : changez d\'abord de formule.', 'الباقة مستعملة حاليا.'));
+    if (!confirm(tx('Supprimer la formule « ' + p.name + ' » ?', 'حذف الباقة؟'))) return;
+    try { await deleteSaasPlan(p.code); await reload(); } catch (e) { alert(e.message); }
+  }
+  async function doApply() {
+    setBusy(true);
+    try {
+      const r = await applySaasPlan(apply.plan.code, apply.limits);
+      showToast(tx('Formule « ' + apply.plan.name + ' » appliquée : ' + (r?.enabled || 0) + ' module(s) activé(s), ' + (r?.disabled || 0) + ' désactivé(s)', 'تم تطبيق الباقة'));
+      setApply(null);
+      await reload();
+    } catch (e) { alert(e.message); }
+    setBusy(false);
+  }
+  function openApply(p) {
+    const list = Array.isArray(p.modules) ? p.modules : [];
+    const custom = !list.length;
+    const toOn = custom ? [] : mods.filter(m => m.enabled === false && (list.includes(m.code) || m.locked));
+    const toOff = custom ? [] : mods.filter(m => m.enabled !== false && !list.includes(m.code) && !m.locked);
+    setApply({ plan: p, toOn, toOff, custom, limits: true });
+  }
+  const limitTxt = v => (v === null || v === undefined ? '∞' : v);
+
+  return (
+    <>
+      <div className="flex justify-between items-center mb-3 flex-wrap gap-2">
+        <p className="text-sm text-slate-500">{tx('Une formule regroupe des modules, des prix et des limites. « Appliquer » active ses modules et coupe les autres (sauf le socle).', 'الباقة تجمع الوحدات والأثمنة والحدود.')}</p>
+        <button className="btn bg-amber-500" data-plan-new onClick={() => setEdit({ code: '', name: '', description: '', monthly_price: 0, yearly_price: 0, modules: mods.filter(m => m.locked).map(m => m.code), max_branches: null, max_users: null, max_products: null, sort_order: (data.plans.length + 1) * 10, isNew: true })}>＋ {tx('Nouvelle formule', 'باقة جديدة')}</button>
+      </div>
+      <div className="saas-plans">
+        {data.plans.map(p => {
+          const list = Array.isArray(p.modules) ? p.modules : [];
+          return (
+            <div key={p.code} className={'saas-plan card p-4 ' + (p.code === current ? 'current' : '')} data-plan={p.code}>
+              <div className="flex justify-between items-start gap-2">
+                <div><div className="font-black text-lg">{p.name}</div><div className="text-xs text-slate-500">{p.description}</div></div>
+                {p.code === current ? <Badge tone="amber">{tx('Formule actuelle', 'الباقة الحالية')}</Badge> : null}
+              </div>
+              <div className="saas-plan-price"><b>{fmt(p.monthly_price)}</b> DH / {tx('mois', 'شهر')} <span>· {fmt(p.yearly_price)} DH / {tx('an', 'سنة')}</span></div>
+              <div className="text-xs text-slate-600 mb-2">🏬 {limitTxt(p.max_branches)} · 👤 {limitTxt(p.max_users)} · 🏷️ {limitTxt(p.max_products)}</div>
+              <div className="saas-plan-mods">{list.length ? list.map(c => <span key={c}>{modName(c)}</span>) : <i>{tx('Modules choisis un par un', 'وحدات مختارة يدويا')}</i>}</div>
+              <div className="flex gap-2 mt-3 flex-wrap">
+                <button className="btn bg-slate-900 text-white text-sm" data-plan-apply={p.code} onClick={() => openApply(p)}>{p.code === current ? tx('Réappliquer', 'إعادة التطبيق') : tx('Appliquer', 'تطبيق')}</button>
+                <button className="btn bg-white border text-sm" onClick={() => setEdit({ ...p, modules: list })}>{tx('Modifier', 'تعديل')}</button>
+                {p.code !== current ? <button className="btn bg-white border text-red-600 text-sm" onClick={() => removePlan(p)}>🗑</button> : null}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {edit ? (
+        <Modal title={(edit.isNew ? tx('Nouvelle formule', 'باقة جديدة') : tx('Modifier la formule', 'تعديل الباقة')) + (edit.name ? ' — ' + edit.name : '')} onClose={() => setEdit(null)} wide>
+          <div className="grid md:grid-cols-4 gap-3">
+            <SaasField label={tx('Code', 'الرمز')}><input className="input mt-1" disabled={!edit.isNew} data-plan-code value={edit.code} onChange={e => setEdit({ ...edit, code: e.target.value })} placeholder="ex. premium" /></SaasField>
+            <SaasField label={tx('Nom', 'الاسم')}><input className="input mt-1" data-plan-name value={edit.name} onChange={e => setEdit({ ...edit, name: e.target.value })} /></SaasField>
+            <SaasField label={tx('Prix mensuel (DH)', 'الثمن الشهري')}><input className="input mt-1" type="number" min="0" data-plan-monthly value={edit.monthly_price ?? 0} onChange={e => setEdit({ ...edit, monthly_price: e.target.value })} /></SaasField>
+            <SaasField label={tx('Prix annuel (DH)', 'الثمن السنوي')}><input className="input mt-1" type="number" min="0" value={edit.yearly_price ?? 0} onChange={e => setEdit({ ...edit, yearly_price: e.target.value })} /></SaasField>
+            <SaasField label={tx('Description', 'الوصف')} wide><input className="input mt-1" value={edit.description || ''} onChange={e => setEdit({ ...edit, description: e.target.value })} /></SaasField>
+            {SAAS_LIMITS.map(l => (
+              <SaasField key={l.col} label={l.icon + ' ' + tx('Max ' + l.fr.toLowerCase(), l.ar)} hint={tx('Vide = illimité', 'فارغ = بدون حد')}>
+                <input className="input mt-1" type="number" min="0" data-plan-limit={l.col} value={edit[l.col] ?? ''} onChange={e => setEdit({ ...edit, [l.col]: e.target.value === '' ? null : e.target.value })} />
+              </SaasField>
+            ))}
+          </div>
+          <div className="text-xs font-bold text-slate-500 mt-4 mb-2">{tx('Modules inclus (aucun = formule « sur mesure » : les modules ne changent pas à l\'application)', 'الوحدات المضمنة')}</div>
+          {SAAS_CATEGORIES.map(cat => (
+            <div key={cat.key} className="mb-2">
+              <div className="text-xs text-slate-400 mb-1">{tx(cat.fr, cat.ar)}</div>
+              <div className="flex flex-wrap gap-2">
+                {mods.filter(m => m.category === cat.key).map(m => {
+                  const on = edit.modules.includes(m.code);
+                  return (
+                    <label key={m.code} className={'saas-mod-chip ' + (on ? 'on' : '')}>
+                      <input type="checkbox" checked={on} disabled={m.locked} onChange={e => {
+                        let next = new Set(edit.modules);
+                        if (e.target.checked) { next.add(m.code); (m.requires || []).forEach(r => next.add(r)); }
+                        else { next.delete(m.code); mods.forEach(x => { if ((x.requires || []).includes(m.code)) next.delete(x.code); }); }
+                        setEdit({ ...edit, modules: [...next] });
+                      }} /> {m.name}{m.locked ? ' 🔒' : ''}
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+          <button disabled={busy} onClick={savePlan} className="btn bg-amber-500 mt-3" data-plan-save>{tx('Enregistrer', 'حفظ')}</button>
+        </Modal>
+      ) : null}
+
+      {apply ? (
+        <Modal title={tx('Appliquer la formule', 'تطبيق الباقة') + ' « ' + apply.plan.name + ' »'} onClose={() => setApply(null)}>
+          {apply.custom ? <p className="text-sm mb-2">{tx('Formule sur mesure : les modules actuels sont conservés, gérez-les dans l\'onglet Modules.', 'الوحدات الحالية تبقى كما هي.')}</p> : (
+            <>
+              <div className="text-sm mb-2"><b>{apply.toOn.length}</b> {tx('module(s) activé(s)', 'وحدة ستفعّل')}{apply.toOn.length ? ' : ' + apply.toOn.map(m => m.name).join(', ') : ''}</div>
+              <div className="text-sm mb-3"><b className={apply.toOff.length ? 'text-red-600' : ''}>{apply.toOff.length}</b> {tx('module(s) coupé(s)', 'وحدة ستعطّل')}{apply.toOff.length ? ' : ' + apply.toOff.map(m => m.name).join(', ') : ''}</div>
+            </>
+          )}
+          <label className="flex items-center gap-2 text-sm mb-3"><input type="checkbox" data-apply-limits checked={apply.limits} onChange={e => setApply({ ...apply, limits: e.target.checked })} /> {tx('Appliquer aussi les limites', 'تطبيق الحدود أيضا')} (🏬 {limitTxt(apply.plan.max_branches)} · 👤 {limitTxt(apply.plan.max_users)} · 🏷️ {limitTxt(apply.plan.max_products)})</label>
+          <p className="text-xs text-slate-500 mb-3">{tx('Les données ne sont jamais supprimées : un module coupé disparaît seulement du menu.', 'لا تحذف أي بيانات.')}</p>
+          <button disabled={busy} onClick={doApply} className="btn bg-slate-900 text-white" data-apply-confirm>✔ {tx('Appliquer', 'تطبيق')}</button>
+        </Modal>
+      ) : null}
+    </>
+  );
+}
+
+function SaasModules({ data, reload }) {
+  const [search, setSearch] = useState('');
+  const [busy, setBusy] = useState(false);
+  const plan = data.plans.find(p => p.code === data.control?.plan_code);
+  const planMods = plan && Array.isArray(plan.modules) ? plan.modules : [];
+  const mods = data.modules;
+  const byCode = Object.fromEntries(mods.map(m => [m.code, m]));
+  const dependents = code => mods.filter(m => (m.requires || []).includes(code)).map(m => m.name);
+
+  async function setEnabled(codes, enabled) {
+    for (const code of codes) { const m = byCode[code]; if (m && !m.locked) await saveSaasModule({ ...m, enabled }); }
+  }
+  async function toggle(m) {
+    if (m.locked) return;
+    const enable = m.enabled === false;
+    const cascade = saasModuleCascade(mods, m.code, enable);
+    if (cascade.length && !confirm((enable ? tx('Activer aussi (nécessaires) : ', 'تفعيل أيضا: ') : tx('Couper aussi (dépendants) : ', 'تعطيل أيضا: ')) + cascade.map(c => byCode[c]?.name || c).join(', ') + ' ?')) return;
+    setBusy(true);
+    try {
+      await setEnabled([m.code, ...cascade], enable);
+      await auditLog('SaaS', 'UPDATE', 'Module ' + m.name, (enable ? 'activé' : 'désactivé') + (cascade.length ? ' (+ ' + cascade.join(', ') + ')' : ''));
+      const disabled = await refreshSaasModulesCache();
+      window.dispatchEvent(new CustomEvent('droguerie_modules_changed', { detail: disabled }));
+      await reload();
+    } catch (e) { alert(e.message); }
+    setBusy(false);
+  }
+  async function updatePrice(m, field, value) {
+    if (Number(value || 0) === Number(m[field] || 0)) return;
+    try { await saveSaasModule({ ...m, [field]: Number(value || 0) }); await auditLog('SaaS', 'UPDATE', 'Prix module ' + m.name, field + ' = ' + value); await reload(); } catch (e) { alert(e.message); }
+  }
+  async function enableAll() {
+    if (!confirm(tx('Activer tous les modules ?', 'تفعيل كل الوحدات؟'))) return;
+    setBusy(true);
+    try { await setEnabled(mods.filter(m => m.enabled === false).map(m => m.code), true); await auditLog('SaaS', 'UPDATE', 'Modules', 'Tous activés'); const d = await refreshSaasModulesCache(); window.dispatchEvent(new CustomEvent('droguerie_modules_changed', { detail: d })); await reload(); } catch (e) { alert(e.message); }
+    setBusy(false);
+  }
+  const q = normSearch(search);
+  const visible = mods.filter(m => !q || normSearch([m.code, m.name, m.description].join(' ')).includes(q));
+  const monthly = mods.filter(m => m.enabled !== false).reduce((t, m) => t + Number(m.monthly_price || 0), 0);
+
+  return (
+    <>
+      <div className="flex flex-wrap gap-2 items-center justify-between mb-3">
+        <input className="input max-w-xs" placeholder={'🔎 ' + tx('Rechercher un module', 'بحث عن وحدة')} value={search} onChange={e => setSearch(e.target.value)} data-mod-search />
+        <div className="flex gap-2 items-center text-sm">
+          <span className="text-slate-500">{tx('Modules actifs', 'الوحدات المفعلة')} : <b>{mods.filter(m => m.enabled !== false).length} / {mods.length}</b> · {tx('total des prix mensuels', 'مجموع الأثمنة الشهرية')} <b>{dh(monthly)}</b></span>
+          <button disabled={busy} onClick={enableAll} className="btn bg-white border text-sm">{tx('Tout activer', 'تفعيل الكل')}</button>
+        </div>
+      </div>
+      {SAAS_CATEGORIES.map(cat => {
+        const rows = visible.filter(m => m.category === cat.key);
+        if (!rows.length) return null;
+        return (
+          <div key={cat.key} className="card p-4 mb-4 overflow-auto">
+            <h2 className="font-black mb-3">{tx(cat.fr, cat.ar)}</h2>
+            <table className="table w-full">
+              <thead>
+                <tr><th>{tx('Module', 'الوحدة')}</th><th>{tx('Nécessite', 'يتطلب')}</th><th>{tx('Formule', 'الباقة')}</th><th>{tx('Prix mensuel', 'الثمن الشهري')}</th><th>{tx('Prix annuel', 'الثمن السنوي')}</th><th>{tx('État', 'الحالة')}</th></tr>
+              </thead>
+              <tbody>
+                {rows.map(m => (
+                  <tr key={m.code} data-module={m.code}>
+                    <td><div className="font-semibold">{m.name}</div><div className="text-xs text-slate-500">{m.description}</div><div className="font-mono text-[11px] text-slate-400">{m.code}</div></td>
+                    <td className="text-xs">{(m.requires || []).map(r => byCode[r]?.name || r).join(', ') || '—'}{dependents(m.code).length ? <div className="text-slate-400">{tx('utilisé par', 'تستعمله')} : {dependents(m.code).join(', ')}</div> : null}</td>
+                    <td className="whitespace-nowrap">{planMods.length ? (planMods.includes(m.code) ? <Badge tone="green">✓ {tx('inclus', 'مضمن')}</Badge> : <Badge tone="amber">{tx('option', 'إضافة')}</Badge>) : '—'}</td>
+                    <td><input className="input max-w-[110px]" type="number" min="0" defaultValue={m.monthly_price || 0} onBlur={e => updatePrice(m, 'monthly_price', e.target.value)} /></td>
+                    <td><input className="input max-w-[110px]" type="number" min="0" defaultValue={m.yearly_price || 0} onBlur={e => updatePrice(m, 'yearly_price', e.target.value)} /></td>
+                    <td>
+                      {m.locked ? <span className="text-xs text-slate-500" title={tx('Module socle : toujours actif', 'وحدة أساسية')}>🔒 {tx('Socle', 'أساس')}</span> : (
+                        <button disabled={busy} onClick={() => toggle(m)} data-mod-toggle={m.code} className={'saas-switch ' + (m.enabled !== false ? 'on' : 'off')} aria-pressed={m.enabled !== false}>
+                          <i />{m.enabled !== false ? tx('Activé', 'مفعّل') : tx('Désactivé', 'معطّل')}
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
+function SaasUsage({ data, stats, reload }) {
+  const [users, setUsers] = useState(null);
+  const [activity, setActivity] = useState([]);
+  const [msg, setMsg] = useState('');
+  const c = data.control || {};
+  const counts = data.state?.counts || {};
+  async function loadMore() {
+    if (!data.ready) return;
+    const [u, a] = await Promise.all([supabase.rpc('app_saas_users'), supabase.rpc('app_saas_activity')]);
+    if (u.error) setMsg(u.error.message);
+    setUsers(u.data || []);
+    setActivity(a.data || []);
+  }
+  useEffect(() => { loadMore(); }, []);
+  async function kick(u) {
+    if (!confirm(u ? tx('Déconnecter ' + (u.full_name || u.username) + ' ?', 'قطع اتصال المستخدم؟') : tx('Déconnecter tous les utilisateurs (sauf SuperAdmin) ?', 'قطع اتصال الجميع؟'))) return;
+    const { data: n, error } = await supabase.rpc('app_saas_kick', { p_user: u ? u.id : null });
+    if (error) return alert(error.message);
+    await auditLog('SaaS', 'LOGOUT', u ? (u.full_name || u.username) : 'Tous les utilisateurs', (n || 0) + ' session(s) fermée(s)');
+    showToast(tx((n || 0) + ' session(s) fermée(s)', 'تم إغلاق ' + (n || 0) + ' جلسة'));
+    await loadMore();
+    reload();
+  }
+  const ago = d => {
+    if (!d) return tx('Jamais', 'أبدا');
+    const days = Math.floor((Date.now() - new Date(d).getTime()) / 86400000);
+    return new Date(d).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) + (days >= 1 ? ' · ' + tx('il y a ' + days + ' j', 'منذ ' + days + ' يوم') : '');
+  };
+
+  return (
+    <>
+      {data.ready ? (
+        <div className="grid md:grid-cols-3 gap-4 mb-4">
+          {SAAS_LIMITS.map(l => <SaasGauge key={l.key} label={tx(l.fr, l.ar)} icon={l.icon} used={counts[l.key]} limit={c[l.col]} />)}
+        </div>
+      ) : null}
+      {data.ready ? (
+        <div className="grid gap-4 mb-4">
+          <div className="card p-5 overflow-auto">
+            <div className="flex justify-between items-center mb-3 flex-wrap gap-2">
+              <h2 className="font-black">👤 {tx('Utilisateurs et connexions', 'المستخدمون والاتصالات')}</h2>
+              <button className="btn bg-white border text-sm text-red-600" data-kick-all onClick={() => kick(null)}>⏏ {tx('Déconnecter tout le monde', 'قطع اتصال الجميع')}</button>
+            </div>
+            {msg ? <p className="text-sm text-red-600">{msg}</p> : null}
+            <table className="table w-full">
+              <thead><tr><th>{tx('Utilisateur', 'المستخدم')}</th><th>{tx('Profil', 'الدور')}</th><th>{tx('Droguerie', 'المحل')}</th><th>{tx('Dernière connexion', 'آخر دخول')}</th><th>{tx('Dernière action', 'آخر عملية')}</th><th>{tx('Sessions', 'الجلسات')}</th><th></th></tr></thead>
+              <tbody>
+                {(users || []).map(u => (
+                  <tr key={u.id} data-user-row={u.username} className={u.active ? '' : 'opacity-50'}>
+                    <td><div className="font-semibold">{u.full_name || u.username}</div><div className="text-xs text-slate-400">{u.username}{u.active ? '' : ' · ' + tx('désactivé', 'معطّل')}</div></td>
+                    <td className="text-sm">{u.role}</td>
+                    <td className="text-sm">{u.branch || '—'}</td>
+                    <td className="text-xs whitespace-nowrap">{ago(u.last_login_at)}</td>
+                    <td className="text-xs whitespace-nowrap">{u.last_action ? ago(u.last_action) : '—'}</td>
+                    <td>{u.sessions ? <Badge tone="green">{u.sessions}</Badge> : <span className="text-slate-400">0</span>}</td>
+                    <td>{u.sessions && !/super/i.test(u.role) ? <button className="btn bg-white border text-xs" data-kick={u.username} onClick={() => kick(u)}>⏏ {tx('Déconnecter', 'قطع')}</button> : null}</td>
+                  </tr>
+                ))}
+                {users && !users.length ? <tr><td colSpan="7">{tx('Aucune donnée', 'لا توجد بيانات')}</td></tr> : null}
+              </tbody>
+            </table>
+          </div>
+          <div className="card p-5 overflow-auto">
+            <h2 className="font-black mb-3">📈 {tx('Activité (6 mois)', 'النشاط (6 أشهر)')}</h2>
+            <table className="table w-full">
+              <thead><tr><th>{tx('Mois', 'الشهر')}</th><th>{tx('Ventes', 'المبيعات')}</th><th>{tx('Facturé', 'مفوتر')}</th><th>{tx('Achats', 'المشتريات')}</th><th>{tx('Connexions', 'الدخول')}</th></tr></thead>
+              <tbody>
+                {activity.map(a => <tr key={a.month}><td className="whitespace-nowrap">{a.month}</td><td>{a.sales}</td><td className="whitespace-nowrap">{fmt(a.sales_total)}</td><td>{a.purchases}</td><td>{a.logins}</td></tr>)}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : null}
+      <div className="card p-5 overflow-auto">
+        <h2 className="font-black mb-3">🗄️ {tx('Statistiques de la base', 'إحصائيات قاعدة البيانات')}</h2>
+        <table className="table w-full">
+          <thead><tr><th>{tx('Table', 'الجدول')}</th><th>{tx('Enregistrements', 'السجلات')}</th></tr></thead>
+          <tbody>{stats.map(s => <tr key={s.table}><td className="font-mono">{s.table}</td><td className="font-bold">{s.count}</td></tr>)}</tbody>
+        </table>
       </div>
     </>
   );
 }
 
+function SaasAnnouncementPreview({ a }) {
+  if (!a?.announcement) return <p className="text-xs text-slate-400">{tx('Aucune annonce', 'لا يوجد إعلان')}</p>;
+  return <div className={'saas-banner ' + (a.announcement_level || 'info')}>📣 {curLang() === 'ar' && a.announcement_ar ? a.announcement_ar : a.announcement}</div>;
+}
+
+function SaasMaintenance({ data, reload }) {
+  const c = data.control || {};
+  const [ann, setAnn] = useState({ announcement: c.announcement || '', announcement_ar: c.announcement_ar || '', announcement_level: c.announcement_level || 'info', announcement_from: c.announcement_from || '', announcement_until: c.announcement_until || '', announcement_audience: c.announcement_audience || 'all' });
+  const [maint, setMaint] = useState({ maintenance: !!c.maintenance, maintenance_message: c.maintenance_message || '', kick: true });
+  const [busy, setBusy] = useState(false);
+  const [imp, setImp] = useState(null);
+
+  async function saveAnn(clear) {
+    setBusy(true);
+    try {
+      const patch = clear ? { announcement: '', announcement_ar: '', announcement_from: null, announcement_until: null } : ann;
+      await saveSaasControl(patch, clear ? 'Annonce retirée' : 'Annonce');
+      if (clear) setAnn({ ...ann, announcement: '', announcement_ar: '', announcement_from: '', announcement_until: '' });
+      showToast(clear ? tx('Annonce retirée', 'تم سحب الإعلان') : tx('Annonce publiée', 'تم نشر الإعلان'));
+      await reload();
+    } catch (e) { alert(e.message); }
+    setBusy(false);
+  }
+  async function saveMaint() {
+    setBusy(true);
+    try {
+      await saveSaasControl({ maintenance: maint.maintenance, maintenance_message: maint.maintenance_message }, maint.maintenance ? 'Maintenance activée' : 'Maintenance');
+      let n = 0;
+      if (maint.maintenance && maint.kick) { const r = await supabase.rpc('app_saas_kick', { p_user: null }); n = r.data || 0; }
+      showToast(maint.maintenance ? tx('Maintenance activée', 'تم تفعيل الصيانة') + (n ? ' · ' + n + ' ' + tx('session(s) fermée(s)', 'جلسة') : '') : tx('Maintenance enregistrée', 'تم الحفظ'));
+      await reload();
+    } catch (e) { alert(e.message); }
+    setBusy(false);
+  }
+  async function readImport(file) {
+    try {
+      const conf = JSON.parse(await file.text());
+      if (conf?.kind !== 'saas-config') throw new Error(tx('Fichier non reconnu (configuration SaaS DrogueriePro attendue)', 'ملف غير معروف'));
+      setImp(conf);
+    } catch (e) { alert(e.message); }
+  }
+  async function doImport() {
+    setBusy(true);
+    try {
+      for (const p of imp.plans || []) await saveSaasPlan(p);
+      for (const m of imp.modules || []) {
+        const cur = data.modules.find(x => x.code === m.code);
+        if (cur) {
+          const { error } = await supabase.from('saas_modules').update({ enabled: m.enabled !== false, monthly_price: Number(m.monthly_price || 0), yearly_price: Number(m.yearly_price || 0), category: m.category || cur.category, requires: m.requires || cur.requires, locked: !!m.locked }).eq('code', m.code);
+          if (error) throw new Error(error.message);
+        }
+      }
+      if (imp.control) await saveSaasControl(imp.control, 'Configuration importée');
+      if (Array.isArray(imp.featuresOff)) await supabase.from('app_settings').upsert({ key: 'features_off', value: JSON.stringify(imp.featuresOff) }, { onConflict: 'key' });
+      await auditLog('SaaS', 'IMPORT', 'Configuration SaaS', (imp.plans || []).length + ' formules, ' + (imp.modules || []).length + ' modules');
+      const d = await refreshSaasModulesCache();
+      window.dispatchEvent(new CustomEvent('droguerie_modules_changed', { detail: d }));
+      showToast(tx('Configuration importée', 'تم استيراد الإعدادات'));
+      setImp(null);
+      await reload();
+    } catch (e) { alert(e.message); }
+    setBusy(false);
+  }
+
+  return (
+    <div className="grid lg:grid-cols-2 gap-4">
+      <div className="card p-5">
+        <h2 className="font-black mb-1">📣 {tx('Annonce aux utilisateurs', 'إعلان للمستخدمين')}</h2>
+        <p className="text-xs text-slate-500 mb-3">{tx('Bandeau affiché en haut de l\'application pendant la période choisie.', 'شريط يظهر أعلى التطبيق خلال المدة المختارة.')}</p>
+        <SaasField label={tx('Message (français)', 'الرسالة (فرنسية)')}><textarea className="input mt-1" rows="2" data-ann-text value={ann.announcement} onChange={e => setAnn({ ...ann, announcement: e.target.value })} placeholder={tx('Ex. : Nouvelle version disponible samedi…', 'مثال…')} /></SaasField>
+        <SaasField label={tx('Message (arabe, facultatif)', 'الرسالة (عربية، اختياري)')}><textarea className="input mt-1" rows="2" dir="rtl" value={ann.announcement_ar} onChange={e => setAnn({ ...ann, announcement_ar: e.target.value })} /></SaasField>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2">
+          <SaasField label={tx('Niveau', 'المستوى')}>
+            <select className="input mt-1" data-ann-level value={ann.announcement_level} onChange={e => setAnn({ ...ann, announcement_level: e.target.value })}>
+              <option value="info">ℹ {tx('Information', 'معلومة')}</option>
+              <option value="warning">⚠ {tx('Attention', 'تنبيه')}</option>
+              <option value="danger">⛔ {tx('Important', 'مهم')}</option>
+            </select>
+          </SaasField>
+          <SaasField label={tx('Destinataires', 'المستهدفون')}>
+            <select className="input mt-1" value={ann.announcement_audience} onChange={e => setAnn({ ...ann, announcement_audience: e.target.value })}>
+              <option value="all">{tx('Tous', 'الكل')}</option>
+              <option value="admins">{tx('Administrateurs', 'المدراء')}</option>
+            </select>
+          </SaasField>
+          <SaasField label={tx('Du', 'من')}><input className="input mt-1" type="date" value={ann.announcement_from || ''} onChange={e => setAnn({ ...ann, announcement_from: e.target.value })} /></SaasField>
+          <SaasField label={tx('Au', 'إلى')}><input className="input mt-1" type="date" value={ann.announcement_until || ''} onChange={e => setAnn({ ...ann, announcement_until: e.target.value })} /></SaasField>
+        </div>
+        <div className="text-xs font-bold text-slate-500 mt-3 mb-1">{tx('Aperçu', 'معاينة')}</div>
+        <SaasAnnouncementPreview a={ann} />
+        <div className="flex gap-2 mt-3">
+          <button disabled={busy} onClick={() => saveAnn(false)} className="btn bg-amber-500" data-ann-save>{tx('Publier', 'نشر')}</button>
+          {c.announcement ? <button disabled={busy} onClick={() => saveAnn(true)} className="btn bg-white border">{tx('Retirer l\'annonce', 'سحب الإعلان')}</button> : null}
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <div className={'card p-5 ' + (c.maintenance ? 'saas-maint-on' : '')}>
+          <h2 className="font-black mb-1">🛠 {tx('Mode maintenance', 'وضع الصيانة')}</h2>
+          <p className="text-xs text-slate-500 mb-3">{tx('Pendant la maintenance, seuls les SuperAdmin peuvent se connecter. Le message s\'affiche sur l\'écran de connexion.', 'أثناء الصيانة يدخل المدير العام فقط.')}</p>
+          <label className="flex items-center gap-2 text-sm font-semibold mb-2"><input type="checkbox" data-maint-toggle checked={maint.maintenance} onChange={e => setMaint({ ...maint, maintenance: e.target.checked })} /> {tx('Activer la maintenance', 'تفعيل الصيانة')}</label>
+          <SaasField label={tx('Message affiché', 'الرسالة المعروضة')}><input className="input mt-1" data-maint-msg value={maint.maintenance_message} onChange={e => setMaint({ ...maint, maintenance_message: e.target.value })} placeholder={tx('Ex. : mise à jour, retour vers 14 h', 'مثال: تحديث، العودة على الساعة 14')} /></SaasField>
+          {maint.maintenance ? <label className="flex items-center gap-2 text-sm mt-2"><input type="checkbox" checked={maint.kick} onChange={e => setMaint({ ...maint, kick: e.target.checked })} /> {tx('Déconnecter immédiatement les utilisateurs connectés', 'قطع اتصال المستخدمين فورا')}</label> : null}
+          <button disabled={busy} onClick={saveMaint} className={'btn mt-3 ' + (maint.maintenance ? 'bg-red-600 text-white' : 'bg-slate-900 text-white')} data-maint-save>{tx('Enregistrer', 'حفظ')}</button>
+        </div>
+
+        <div className="card p-5">
+          <h2 className="font-black mb-1">⇄ {tx('Configuration (export / import)', 'الإعدادات (تصدير / استيراد)')}</h2>
+          <p className="text-xs text-slate-500 mb-3">{tx('Copie de l\'abonnement, des formules, des modules et des fonctions dans un fichier JSON, par exemple pour préparer une nouvelle instance. Les données métier ne sont pas concernées.', 'نسخة من الاشتراك والباقات والوحدات في ملف JSON.')}</p>
+          <input type="file" accept="application/json,.json" data-import-file onChange={e => e.target.files?.[0] && readImport(e.target.files[0])} />
+          {imp ? (
+            <div className="bg-slate-50 border rounded-xl p-3 mt-3 text-sm">
+              <div>{tx('Fichier du', 'ملف بتاريخ')} {imp.exportedAt ? new Date(imp.exportedAt).toLocaleString('fr-FR') : '?'} : <b>{(imp.plans || []).length}</b> {tx('formules', 'باقات')}, <b>{(imp.modules || []).length}</b> {tx('modules', 'وحدات')}{imp.control ? ', ' + tx('abonnement', 'اشتراك') + ' « ' + (imp.control.client_name || '-') + ' »' : ''}</div>
+              <button disabled={busy} onClick={doImport} className="btn bg-amber-500 mt-2" data-import-confirm>{tx('Importer et remplacer', 'استيراد واستبدال')}</button>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SaasJournal() {
+  const [rows, setRows] = useState(null);
+  const [kind, setKind] = useState('saas');
+  const [search, setSearch] = useState('');
+  useEffect(() => {
+    (async () => {
+      const { data, error } = await supabase.from('audit_logs').select('id, module, action, object_label, detail, user_label, created_at')
+        .in('module', kind === 'saas' ? ['SaaS'] : ['Connexion']).order('created_at', { ascending: false }).limit(300);
+      setRows(error ? [] : data || []);
+    })();
+  }, [kind]);
+  const q = normSearch(search);
+  const list = (rows || []).filter(r => !q || normSearch([r.action, r.object_label, r.detail, r.user_label].join(' ')).includes(q));
+  return (
+    <div className="card p-5 overflow-auto">
+      <div className="flex flex-wrap gap-2 items-center mb-3">
+        {[['saas', tx('Actions SuperAdmin', 'عمليات المدير العام')], ['login', tx('Connexions', 'الدخول')]].map(([k, t]) => (
+          <button key={k} className={'chip ' + (kind === k ? 'chip-on' : '')} data-journal={k} onClick={() => setKind(k)}>{t}</button>
+        ))}
+        <input className="input max-w-xs" placeholder={'🔎 ' + tx('Rechercher', 'بحث')} value={search} onChange={e => setSearch(e.target.value)} />
+        <span className="text-xs text-slate-400">{list.length}</span>
+      </div>
+      <table className="table w-full">
+        <thead><tr><th>{tx('Date', 'التاريخ')}</th><th>{tx('Utilisateur', 'المستخدم')}</th><th>{tx('Action', 'العملية')}</th><th>{tx('Objet', 'الموضوع')}</th><th>{tx('Détail', 'التفاصيل')}</th></tr></thead>
+        <tbody>
+          {list.map(r => (
+            <tr key={r.id}>
+              <td className="text-xs whitespace-nowrap">{new Date(r.created_at).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}</td>
+              <td className="text-sm">{r.user_label || '—'}</td>
+              <td><Badge tone={r.action === 'DELETE' ? 'red' : r.action === 'LOGIN' ? 'blue' : 'slate'}>{r.action}</Badge></td>
+              <td className="text-sm font-semibold">{r.object_label}</td>
+              <td className="text-xs text-slate-500 break-all">{r.detail}</td>
+            </tr>
+          ))}
+          {rows && !list.length ? <tr><td colSpan="5" className="text-center text-slate-500 py-6">{tx('Aucune donnée', 'لا توجد بيانات')}</td></tr> : null}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// Bandeaux pour tous les utilisateurs : annonce, maintenance, échéance, suspension, limites
+function SaasBanner({ session }) {
+  const [st, setSt] = useState(null);
+  const [hidden, setHidden] = useState(() => { try { return JSON.parse(sessionStorage.getItem('dp_saas_hidden') || '[]'); } catch { return []; } });
+  useEffect(() => {
+    let stop = false;
+    const load = async () => {
+      try {
+        const { data, error } = await supabase.rpc('app_saas_state');
+        if (!stop && !error) setSt(data || null);
+      } catch {}
+    };
+    load();
+    const t = setInterval(load, 10 * 60 * 1000);
+    const h = () => load();
+    window.addEventListener('droguerie_saas_changed', h);
+    return () => { stop = true; clearInterval(t); window.removeEventListener('droguerie_saas_changed', h); };
+  }, [session?.token]);
+  if (!st || !st.configured) return null;
+  const admin = isAdmin(session);
+  const sa = isSuperAdmin(session);
+  const items = [];
+  if (st.announcement) items.push({ key: 'ann-' + String(st.announcement.text).slice(0, 40), level: st.announcement.level || 'info', text: '📣 ' + (curLang() === 'ar' && st.announcement.textAr ? st.announcement.textAr : st.announcement.text) });
+  if (st.maintenance && sa) items.push({ key: 'maint', level: 'danger', text: '🛠 ' + tx('Mode maintenance actif : seuls les SuperAdmin peuvent se connecter.', 'وضع الصيانة مفعّل: الدخول للمدير العام فقط.'), sticky: true });
+  if (['suspended', 'canceled'].includes(st.status)) items.push({ key: 'susp', level: 'danger', text: '⛔ ' + tx('Abonnement ' + (st.status === 'suspended' ? 'suspendu' : 'résilié') + '. Contactez votre fournisseur DrogueriePro.', 'الاشتراك موقوف. اتصلوا بمزود DrogueriePro.'), sticky: true });
+  else if (st.expired && (admin || st.onExpiry === 'block')) items.push({ key: 'exp', level: 'danger', text: '⌛ ' + tx('Abonnement expiré le ' + frDate(st.expiry) + (st.onExpiry === 'block' ? ' : l\'accès sera bloqué le ' + frDate(st.blockDate) + '.' : '.') + ' Contactez votre fournisseur DrogueriePro.', 'انتهى الاشتراك في ' + frDate(st.expiry)), sticky: true });
+  else if (admin && st.daysLeft !== null && st.daysLeft !== undefined && st.daysLeft <= Number(st.warnDays || 0)) items.push({ key: 'warn-' + st.expiry, level: 'warning', text: '⏳ ' + tx((sa ? 'Abonnement du client : échéance le ' : 'Votre abonnement arrive à échéance le ') + frDate(st.expiry) + ' (dans ' + st.daysLeft + ' jour(s)).', 'ينتهي الاشتراك في ' + frDate(st.expiry)) });
+  if (admin && !sa) {
+    SAAS_LIMITS.forEach(l => {
+      const lim = st.limits?.[l.key]; const used = Number(st.counts?.[l.key] || 0);
+      if (lim !== null && lim !== undefined && used >= Number(lim)) items.push({ key: 'lim-' + l.key, level: 'info', text: l.icon + ' ' + tx('Limite de votre formule atteinte : ' + l.fr.toLowerCase() + ' ' + used + ' / ' + lim + '.', 'تم بلوغ حد الباقة: ' + l.ar) });
+    });
+  }
+  const show = items.filter(i => i.sticky || !hidden.includes(i.key));
+  if (!show.length) return null;
+  const hide = k => { const next = [...hidden, k]; setHidden(next); try { sessionStorage.setItem('dp_saas_hidden', JSON.stringify(next)); } catch {} };
+  return (
+    <div className="saas-banners no-print" data-saas-banners>
+      {show.map(i => (
+        <div key={i.key} className={'saas-banner ' + i.level} role="status" data-banner={i.key.split('-')[0]}>
+          <span>{i.text}</span>
+          {!i.sticky ? <button type="button" aria-label={tx('Fermer', 'إغلاق')} onClick={() => hide(i.key)}>✕</button> : null}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 function Dashboard({ L }) {
   const [data, setData] = useState(null);
