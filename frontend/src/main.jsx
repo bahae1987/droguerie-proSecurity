@@ -4,7 +4,7 @@ import { flushSync } from 'react-dom';
 import { createClient } from '@supabase/supabase-js';
 import './index.css';
 
-console.log('DROGUERIEPRO V54 OK');
+console.log('DROGUERIEPRO V55 OK');
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -538,6 +538,44 @@ Object.assign(TXT.fr, {
   docPdfShared: 'PDF partagé',
   rcNumber: 'N° BR',
   pBranch: 'Droguerie',
+  uxSearch: 'Rechercher…',
+  uxPeriod: 'Période',
+  uxToday: 'Aujourd\'hui',
+  uxWeek: '7 jours',
+  uxMonth: 'Ce mois',
+  uxAll: 'Tout',
+  uxShowMore: 'Afficher plus',
+  uxShown: 'affichés',
+  uxMore: 'Plus d\'actions',
+  uxReset: 'Effacer les filtres',
+  uxStatus: 'Statut',
+  uxAuthor: 'Auteur',
+  uxMode: 'Mode',
+  uxNet: 'Solde net',
+  uxByMode: 'Par mode de paiement',
+  uxAuthorFromDoc: 'Auteur du règlement non enregistré (ancien règlement) : auteur du document',
+  uxCanceledBy: 'Annulé par',
+  uxReason: 'Motif',
+  uxNew: 'Nouveau',
+  uxMenuSearch: 'Chercher un écran…',
+  uxPalette: 'Aller à… (Ctrl+K)',
+  uxNoResult: 'Aucun résultat',
+  uxGroup_home: 'Accueil',
+  uxGroup_sales: 'Ventes',
+  uxGroup_purchases: 'Achats',
+  uxGroup_stock: 'Stock',
+  uxGroup_finance: 'Finances et analyses',
+  uxGroup_admin: 'Administration',
+  uxNewSale: 'Vente (devis / commande)',
+  uxNewInvoice: 'Facture directe',
+  uxNewPurchase: 'Commande fournisseur',
+  uxNewReceipt: 'Réception directe',
+  uxNewClient: 'Client',
+  uxNewSupplier: 'Fournisseur',
+  uxNewProduct: 'Produit',
+  uxOpenPos: 'Caisse rapide',
+  uxMenu: 'Menu',
+  uxShortcuts: 'Raccourcis : Ctrl+K aller à · Alt+N nouveau · / rechercher · Échap fermer',
   wiTitleClients: 'Clients comptoir',
   wiTitleSuppliers: 'Fournisseurs divers',
   wiHint: 'Une fiche par droguerie, utilisée pour les ventes sans client nommé (caisse rapide, ventes directes). Réservé à l\'administrateur.',
@@ -680,6 +718,44 @@ Object.assign(TXT.ar, {
   docPdfShared: 'تمت مشاركة PDF',
   rcNumber: 'رقم وصل الاستلام',
   pBranch: 'المحل',
+  uxSearch: 'بحث…',
+  uxPeriod: 'الفترة',
+  uxToday: 'اليوم',
+  uxWeek: '7 أيام',
+  uxMonth: 'هذا الشهر',
+  uxAll: 'الكل',
+  uxShowMore: 'عرض المزيد',
+  uxShown: 'معروضة',
+  uxMore: 'إجراءات أخرى',
+  uxReset: 'مسح المرشحات',
+  uxStatus: 'الحالة',
+  uxAuthor: 'المنفذ',
+  uxMode: 'طريقة الأداء',
+  uxNet: 'الصافي',
+  uxByMode: 'حسب طريقة الأداء',
+  uxAuthorFromDoc: 'منفذ الأداء غير مسجل (أداء قديم): منشئ الوثيقة',
+  uxCanceledBy: 'أُلغي بواسطة',
+  uxReason: 'السبب',
+  uxNew: 'جديد',
+  uxMenuSearch: 'ابحث عن صفحة…',
+  uxPalette: 'انتقال إلى… (Ctrl+K)',
+  uxNoResult: 'لا توجد نتائج',
+  uxGroup_home: 'الرئيسية',
+  uxGroup_sales: 'المبيعات',
+  uxGroup_purchases: 'المشتريات',
+  uxGroup_stock: 'المخزون',
+  uxGroup_finance: 'المالية والتحليلات',
+  uxGroup_admin: 'الإدارة',
+  uxNewSale: 'بيع (عرض أثمان / طلبية)',
+  uxNewInvoice: 'فاتورة مباشرة',
+  uxNewPurchase: 'طلبية مورد',
+  uxNewReceipt: 'استلام مباشر',
+  uxNewClient: 'زبون',
+  uxNewSupplier: 'مورد',
+  uxNewProduct: 'منتج',
+  uxOpenPos: 'الصندوق السريع',
+  uxMenu: 'القائمة',
+  uxShortcuts: 'اختصارات: Ctrl+K انتقال · Alt+N جديد · / بحث · Échap إغلاق',
   wiTitleClients: 'الزبناء العابرون',
   wiTitleSuppliers: 'الموردون المتنوعون',
   wiHint: 'بطاقة لكل محل، تُستعمل للبيع بدون زبون مسمى (الصندوق السريع، البيع المباشر). خاص بالمدير.',
@@ -4158,7 +4234,8 @@ async function returnDoc(type, id, body) {
   Object.entries(linesToMap(lines)).forEach(([k, q]) => { returned[k] = Number((Number(returned[k] || 0) + Number(q)).toFixed(4)); });
   const payments = jsonValue(inv.payments_json, []);
   if (imputed > 0.01) {
-    payments.push({ id: 'AV' + Date.now(), canceled: false, canceledAt: '', canceledBy: '', cancelReason: '', date: body.date || today(), mode: 'Avoir', montant: Number(imputed.toFixed(2)), avoirNumber: number, note: (isSales ? 'Avoir ' : 'Retour ') + number });
+    payments.push({ id: 'AV' + Date.now(), canceled: false, canceledAt: '', canceledBy: '', cancelReason: '', date: body.date || today(), mode: 'Avoir', montant: Number(imputed.toFixed(2)), avoirNumber: number, note: (isSales ? 'Avoir ' : 'Retour ') + number,
+      createdBy: session?.user?.id || null, createdByLabel: currentUserLabel() || '', createdAt: new Date().toISOString() });
   }
   const { error: e3 } = await supabase.from(type).update({ returned_lines_json: returned, payments_json: payments }).eq('id', inv.id);
   if (e3) throw new Error(e3.message);
@@ -4287,8 +4364,11 @@ async function payDoc(type, id, body) {
   const info = paymentInfo(doc);
   const montant = Number(body.montant || info.rest || 0);
   if (montant <= 0) throw new Error('Montant de règlement invalide');
+  const payer = getStoredSession();
   payments.push({
     id: String(Date.now()), canceled: false, canceledAt: '', canceledBy: '', cancelReason: '', date: body.date || today(), mode: body.mode || 'Espèces', montant,
+    // V55 : auteur et heure du règlement (avant : non enregistrés → « Créé par » vide)
+    createdBy: payer?.user?.id || null, createdByLabel: currentUserLabel() || '', createdAt: new Date().toISOString(),
     cashRegister: body.cashRegister || '', receiptNo: body.receiptNo || '', chequeNo: body.chequeNo || '', bank: body.bank || '', dueDate: body.dueDate || '', paymentStatus: body.paymentStatus || '', transferRef: body.transferRef || '', valueDate: body.valueDate || '', terminal: body.terminal || '', transactionNo: body.transactionNo || '', billNo: body.billNo || '', note: body.note || ''
   });
   const { error: e2 } = await supabase.from(type).update({ payments_json: payments }).eq('id', id);
@@ -4313,6 +4393,7 @@ async function cancelPayment(type, docId, paymentId, reason = '') {
     canceled: true,
     canceledAt: new Date().toISOString(),
     canceledBy: currentUserLabel(),
+    canceledById: session?.user?.id || null,
     cancelReason: reason || 'Annulation règlement'
   };
 
@@ -4405,15 +4486,28 @@ async function partialDoc(type, id, body) {
 }
 
 async function loadPayments() {
-  const [{ data: sales, error: e1 }, { data: purchases, error: e2 }] = await Promise.all([
+  const [{ data: sales, error: e1 }, { data: purchases, error: e2 }, labels] = await Promise.all([
     applyDocScope(supabase.from('sales').select('*'), 'sales', getStoredSession()).order('id', { ascending: false }),
-    applyDocScope(supabase.from('purchases').select('*'), 'purchases', getStoredSession()).order('id', { ascending: false })
+    applyDocScope(supabase.from('purchases').select('*'), 'purchases', getStoredSession()).order('id', { ascending: false }),
+    loadUserLabels()
   ]);
   if (e1) throw new Error(e1.message);
   if (e2) throw new Error(e2.message);
-  const enc = (sales || []).flatMap(d => jsonValue(d.payments_json, []).map(p => ({ type: 'encaissement', sourceTable: 'sales', docType: 'vente', docId: d.id, docNumber: docNo(d), tiers: d.client_name, branchId: d.branch_id, ...p })));
-  const dec = (purchases || []).flatMap(d => jsonValue(d.payments_json, []).map(p => ({ type: 'decaissement', sourceTable: 'purchases', docType: 'achat', docId: d.id, docNumber: docNo(d), tiers: d.supplier_name, branchId: d.branch_id, ...p })));
-  return [...enc, ...dec].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  // V55 : « Créé par » = l'auteur du règlement (enregistré depuis la V55, repris du journal pour les anciens).
+  // Inconnu : on affiche l'auteur du document, signalé comme tel.
+  const author = (p, d) => {
+    const label = p.createdByLabel || (p.createdBy ? labels[p.createdBy] : '');
+    if (label) return { createdByLabel: label, createdById: p.createdBy || null, authorFromDoc: false };
+    return { createdByLabel: labels[d.created_by] || d.created_by_label || '', createdById: d.created_by || null, authorFromDoc: true };
+  };
+  const map = (d, type, table) => jsonValue(d.payments_json, []).map(p => ({
+    type, sourceTable: table, docType: table === 'sales' ? 'vente' : 'achat', docStage: d.stage, docId: d.id, docNumber: docNo(d),
+    tiers: table === 'sales' ? d.client_name : d.supplier_name, partyId: table === 'sales' ? d.client_id : d.supplier_id, branchId: d.branch_id,
+    ...p, ...author(p, d)
+  }));
+  const enc = (sales || []).flatMap(d => map(d, 'encaissement', 'sales'));
+  const dec = (purchases || []).flatMap(d => map(d, 'decaissement', 'purchases'));
+  return [...enc, ...dec].sort((a, b) => (b.date || '').localeCompare(a.date || '') || String(b.createdAt || b.id || '').localeCompare(String(a.createdAt || a.id || '')));
 }
 
 async function loadParties(type) {
@@ -4602,17 +4696,45 @@ function LoginPage({ L, lang, onLogin }) {
   );
 }
 
+const MENU_GROUPS = [
+  { key: 'home', items: ['dashboard'] },
+  { key: 'sales', items: ['pos', 'sales', 'clients'] },
+  { key: 'purchases', items: ['purchases', 'suppliers'] },
+  { key: 'stock', items: ['products', 'stockMoves'] },
+  { key: 'finance', items: ['payments', 'expenses', 'reporting', 'profit', 'tools'] },
+  { key: 'admin', items: ['settings', 'permissions', 'branches', 'users', 'mobileApp', 'backup', 'saas'] }
+];
+const MENU_ICONS = {
+  dashboard: '🏠', pos: '🛒', sales: '🧾', clients: '👥', purchases: '📦', suppliers: '🚚', products: '🏷️', stockMoves: '🔄',
+  payments: '💳', expenses: '⛽', reporting: '📈', profit: '💹', tools: '🧮', settings: '⚙️', permissions: '🔐', branches: '🏬',
+  users: '👤', mobileApp: '📱', backup: '🗄️', saas: '☁️'
+};
+
 function Layout({ L, lang, toggleLang, session, setSession }) {
-  const [page, setPage] = useState(isSuperAdmin(session) ? 'saas' : 'dashboard');
+  const defaultPage = isSuperAdmin(session) ? 'saas' : 'dashboard';
+  const [page, setPageState] = useState(() => { try { return localStorage.getItem('droguerie_last_page') || defaultPage; } catch { return defaultPage; } });
   const [disabledModules, setDisabledModules] = useState(getDisabledModulesCache());
   const [globalBranchFilter, setGlobalBranchFilter] = useState(getSelectedBranchFilter());
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [pwdOpen, setPwdOpen] = useState(false);
+  const [menuQ, setMenuQ] = useState('');
+  const [collapsed, setCollapsed] = useState(() => { try { return JSON.parse(localStorage.getItem('droguerie_menu_collapsed') || '{}'); } catch { return {}; } });
+  const [palette, setPalette] = useState(false);
+  const [newOpen, setNewOpen] = useState(false);
+  const [pageKey, setPageKey] = useState(0);
   const brand = useBrand();
   useEffect(() => { loadSettings().catch(() => null); }, []);
 
+  function setPage(p) {
+    setPageState(p);
+    setPageKey(k => k + 1);
+    try { localStorage.setItem('droguerie_last_page', p); } catch {}
+    setMobileMenuOpen(false);
+    try { window.scrollTo(0, 0); } catch {}
+  }
+
   const items = [
-['dashboard', L('dashboard'), 'dashboard.read'],
+    ['dashboard', L('dashboard'), 'dashboard.read'],
     ['saas', L('saasCenter'), 'superadmin.manage'],
     ['backup', L('backupCenter'), 'backup.manage'],
     ['profit', L('profitCenter'), 'profit.read'],
@@ -4653,21 +4775,60 @@ function Layout({ L, lang, toggleLang, session, setSession }) {
   useEffect(() => {
     const visible = items.filter(item => visibleMenuItem(item, session, disabledModules));
     if (!visible.some(x => x[0] === page)) {
-      setPage(visible[0]?.[0] || (isSuperAdmin(session) ? 'saas' : 'dashboard'));
+      setPageState(visible[0]?.[0] || defaultPage);
     }
   }, [disabledModules, session, page]);
 
   const visibleItems = items.filter(item => visibleMenuItem(item, session, disabledModules));
+  const byKey = Object.fromEntries(visibleItems.map(x => [x[0], x]));
+  const groups = MENU_GROUPS.map(g => ({ ...g, items: g.items.map(k => byKey[k]).filter(Boolean) })).filter(g => g.items.length);
+  const grouped = new Set(MENU_GROUPS.flatMap(g => g.items));
+  const others = visibleItems.filter(x => !grouped.has(x[0]));
+  if (others.length) groups.push({ key: 'admin', items: others });
+
+  // Actions « + Nouveau » selon les droits
+  const newActions = [
+    byKey.pos && { key: 'pos', icon: '🛒', label: L('uxOpenPos'), run: () => setPage('pos') },
+    byKey.sales && can('sales.write') && { key: 'sale', icon: '🧾', label: L('uxNewSale'), run: () => { queueQuickAction('sales', 'devis'); setPage('sales'); } },
+    byKey.sales && can('sales.write') && { key: 'inv', icon: '⚡', label: L('uxNewInvoice'), run: () => { queueQuickAction('sales', 'facture'); setPage('sales'); } },
+    byKey.purchases && can('purchases.write') && { key: 'po', icon: '📦', label: L('uxNewPurchase'), run: () => { queueQuickAction('purchases', 'commande'); setPage('purchases'); } },
+    byKey.purchases && can('purchases.write') && { key: 'rc', icon: '📥', label: L('uxNewReceipt'), run: () => { queueQuickAction('purchases', 'reception'); setPage('purchases'); } },
+    byKey.clients && can('clients.write') && { key: 'cl', icon: '👥', label: L('uxNewClient'), run: () => { queueQuickAction('clients', 'new'); setPage('clients'); } },
+    byKey.suppliers && can('suppliers.write') && { key: 'su', icon: '🚚', label: L('uxNewSupplier'), run: () => { queueQuickAction('suppliers', 'new'); setPage('suppliers'); } },
+    byKey.products && can('products.write') && { key: 'pr', icon: '🏷️', label: L('uxNewProduct'), run: () => { queueQuickAction('products', 'new'); setPage('products'); } }
+  ].filter(Boolean);
+
+  // Raccourcis clavier globaux
+  useEffect(() => {
+    const h = e => {
+      const k = (e.key || '').toLowerCase();
+      if ((e.ctrlKey || e.metaKey) && k === 'k') { e.preventDefault(); setPalette(true); return; }
+      if (e.altKey && k === 'n') { e.preventDefault(); setNewOpen(o => !o); return; }
+      if (e.key === '/' && !/input|textarea|select/i.test(document.activeElement?.tagName || '')) {
+        const f = document.querySelector('[data-list-search]') || document.querySelector('main input[type=text], main input:not([type])');
+        if (f) { e.preventDefault(); f.focus(); }
+      }
+    };
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
+  }, []);
+
+  const q = normSearch(menuQ).trim();
+  const toggleGroup = key => { const c = { ...collapsed, [key]: !collapsed[key] }; setCollapsed(c); try { localStorage.setItem('droguerie_menu_collapsed', JSON.stringify(c)); } catch {} };
+  const bottom = ['dashboard', 'pos', 'sales', 'clients'].map(k => byKey[k]).filter(Boolean).slice(0, 4);
 
   return (
     <div className={(lang === 'ar' ? 'rtl ' : '') + (brand.applyApp ? 'brand-app' : '')}>
       <div className="mobile-topbar">
-        <button className="mobile-menu-btn" onClick={() => setMobileMenuOpen(true)}>☰</button>
+        <button className="mobile-menu-btn" onClick={() => setMobileMenuOpen(true)} aria-label={L('uxMenu')}>☰</button>
         <div className="font-bold flex items-center gap-2">
           {brand.logo ? <img src={brand.logo} alt="" className="topbar-logo" /> : null}
           {brand.name ? <span>{brand.name}</span> : <span>Droguerie<span className="text-amber-500">Pro</span></span>}
         </div>
-        <button className="mobile-menu-btn" onClick={toggleLang}>{L('lang')}</button>
+        <div className="flex gap-1">
+          <button className="mobile-menu-btn" onClick={() => setPalette(true)} aria-label={L('uxPalette')}>🔎</button>
+          <button className="mobile-menu-btn" onClick={toggleLang}>{lang === 'fr' ? 'ع' : 'Fr'}</button>
+        </div>
       </div>
       {mobileMenuOpen ? <div className="mobile-backdrop" onClick={() => setMobileMenuOpen(false)} /> : null}
       <div className="min-h-screen flex app-shell">
@@ -4682,16 +4843,34 @@ function Layout({ L, lang, toggleLang, session, setSession }) {
             ) : <div className="text-xl font-black text-white">Droguerie<span className="text-amber-500">Pro</span></div>}
             <div className="text-xs text-slate-400 mt-1">{session.user.full_name || session.user.username} · {session.user.role}</div>
           </div>
-          <nav className="flex-1 p-4 space-y-1 overflow-auto">
-            {visibleItems.map(item => (
-              <button
-                key={item[0]}
-                onClick={() => { setPage(item[0]); setMobileMenuOpen(false); }}
-                className={'w-full text-left px-3 py-2 rounded-lg ' + (page === item[0] ? 'bg-amber-500 text-slate-900 font-bold' : 'hover:bg-slate-800 text-white')}
-              >
-                {item[1]}
-              </button>
-            ))}
+          <div className="px-3 pt-3">
+            <input className="menu-search" placeholder={'🔎 ' + L('uxMenuSearch')} value={menuQ} onChange={e => setMenuQ(e.target.value)} aria-label={L('uxMenuSearch')} />
+          </div>
+          <nav className="flex-1 p-3 overflow-auto menu-nav" aria-label={L('uxMenu')}>
+            {groups.map(g => {
+              const list = g.items.filter(it => !q || normSearch(it[1]).includes(q));
+              if (!list.length) return null;
+              const open = q || !collapsed[g.key] || list.some(it => it[0] === page);
+              return (
+                <div key={g.key} className="menu-group">
+                  {g.key !== 'home' ? (
+                    <button type="button" className="menu-group-title" aria-expanded={!!open} onClick={() => toggleGroup(g.key)}>
+                      <span>{L('uxGroup_' + g.key)}</span><span aria-hidden="true">{open ? '▾' : '▸'}</span>
+                    </button>
+                  ) : null}
+                  {open ? list.map(item => (
+                    <button
+                      key={item[0]}
+                      onClick={() => setPage(item[0])}
+                      aria-current={page === item[0] ? 'page' : undefined}
+                      className={'menu-item w-full text-left px-3 py-2 rounded-lg ' + (page === item[0] ? 'bg-amber-500 text-slate-900 font-bold' : 'hover:bg-slate-800 text-white')}
+                    >
+                      <span className="menu-icon" aria-hidden="true">{MENU_ICONS[item[0]] || '•'}</span>{item[1]}
+                    </button>
+                  )) : null}
+                </div>
+              );
+            })}
           </nav>
           <div className="p-4 border-t border-slate-800 space-y-2">
             <button className="btn bg-white text-slate-900 w-full" onClick={toggleLang}>{L('lang')}</button>
@@ -4701,8 +4880,26 @@ function Layout({ L, lang, toggleLang, session, setSession }) {
           </div>
         </aside>
         <main className="flex-1 p-6 max-w-[1500px] mx-auto w-full app-main pro-main">
-          <BranchFilter L={L} value={globalBranchFilter} onChange={v => { setSelectedBranchFilter(v); setGlobalBranchFilter(v); }} />
-          <div key={page + '-' + globalBranchFilter}>
+          <div className="app-topline no-print">
+            <BranchFilter L={L} value={globalBranchFilter} onChange={v => { setSelectedBranchFilter(v); setGlobalBranchFilter(v); }} />
+            <div className="app-topline-actions">
+              <button type="button" className="btn bg-white border palette-btn" onClick={() => setPalette(true)} title={L('uxShortcuts')}>🔎 {L('uxPalette')}</button>
+              {newActions.length ? (
+                <span className="row-menu">
+                  <button type="button" className="btn bg-amber-500 new-btn" aria-expanded={newOpen} onClick={() => setNewOpen(!newOpen)} title="Alt+N">＋ {L('uxNew')}</button>
+                  {newOpen ? (
+                    <>
+                      <span className="new-backdrop" onClick={() => setNewOpen(false)} />
+                      <span className="row-menu-pop new-pop" role="menu">
+                        {newActions.map(a => <button key={a.key} type="button" role="menuitem" className="row-menu-item" onClick={() => { setNewOpen(false); a.run(); }}>{a.icon} {a.label}</button>)}
+                      </span>
+                    </>
+                  ) : null}
+                </span>
+              ) : null}
+            </div>
+          </div>
+          <div key={page + '-' + globalBranchFilter + '-' + pageKey}>
 
           {page === 'dashboard' ? <Dashboard L={L} /> : null}
           {page === 'saas' ? <SuperAdminCenter L={L} /> : null}
@@ -4724,12 +4921,53 @@ function Layout({ L, lang, toggleLang, session, setSession }) {
           {page === 'suppliers' ? <Parties L={L} type="suppliers" /> : null}
           {page === 'expenses' ? <ExpensesCenter L={L} /> : null}
           {page === 'users' ? <Users L={L} /> : null}
-        
+
           </div>
         </main>
       </div>
+      {bottom.length ? (
+        <nav className="bottom-nav no-print" aria-label={L('uxMenu')}>
+          {bottom.map(it => (
+            <button key={it[0]} type="button" onClick={() => setPage(it[0])} aria-current={page === it[0] ? 'page' : undefined} className={page === it[0] ? 'on' : ''}>
+              <span aria-hidden="true">{MENU_ICONS[it[0]]}</span><small>{it[1]}</small>
+            </button>
+          ))}
+          <button type="button" onClick={() => setMobileMenuOpen(true)}><span aria-hidden="true">☰</span><small>{L('uxMenu')}</small></button>
+        </nav>
+      ) : null}
+      {palette ? <CommandPalette L={L} items={visibleItems} actions={newActions} go={setPage} close={() => setPalette(false)} /> : null}
       {pwdOpen ? <ChangePasswordModal L={L} close={() => setPwdOpen(false)} /> : null}
     </div>
+  );
+}
+
+// V55 : palette « Aller à… » (Ctrl+K) : écrans et actions rapides
+function CommandPalette({ L, items, actions, go, close }) {
+  const [q, setQ] = useState('');
+  const [sel, setSel] = useState(0);
+  const entries = [
+    ...items.map(it => ({ key: 'p-' + it[0], icon: MENU_ICONS[it[0]] || '•', label: it[1], hint: L('uxMenu'), run: () => go(it[0]) })),
+    ...actions.map(a => ({ key: 'a-' + a.key, icon: '＋', label: a.label, hint: L('uxNew'), run: a.run }))
+  ].filter(e => matchSearch(q, [e.label, e.hint]));
+  useEffect(() => { setSel(0); }, [q]);
+  function onKey(e) {
+    if (e.key === 'ArrowDown') { e.preventDefault(); setSel(s => Math.min(entries.length - 1, s + 1)); }
+    if (e.key === 'ArrowUp') { e.preventDefault(); setSel(s => Math.max(0, s - 1)); }
+    if (e.key === 'Enter' && entries[sel]) { e.preventDefault(); close(); entries[sel].run(); }
+  }
+  return (
+    <Modal title={'🔎 ' + L('uxPalette')} onClose={close}>
+      <input autoFocus className="input mb-3" placeholder={L('uxMenuSearch')} value={q} onChange={e => setQ(e.target.value)} onKeyDown={onKey} aria-label={L('uxMenuSearch')} />
+      <div className="palette-list" role="listbox">
+        {entries.map((e, i) => (
+          <button key={e.key} type="button" role="option" aria-selected={i === sel} className={'palette-item ' + (i === sel ? 'on' : '')} onMouseEnter={() => setSel(i)} onClick={() => { close(); e.run(); }}>
+            <span>{e.icon} {e.label}</span><small>{e.hint}</small>
+          </button>
+        ))}
+        {!entries.length ? <p className="text-sm text-slate-500 p-3">{L('uxNoResult')}</p> : null}
+      </div>
+      <p className="text-xs text-slate-400 mt-3">{L('uxShortcuts')}</p>
+    </Modal>
   );
 }
 
@@ -4765,20 +5003,152 @@ function Header({ title, children }) {
 }
 
 function Table({ children }) {
-  return <div className="card overflow-hidden"><table className="table w-full">{children}</table></div>;
+  return <div className="card overflow-x-auto table-wrap"><table className="table w-full">{children}</table></div>;
 }
 
+// V55 : Échap ferme la fenêtre du dessus ; bouton de fermeture accessible
+const modalStack = [];
 function Modal({ title, onClose, children, wide }) {
+  const idRef = useRef(Math.random());
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  useEffect(() => {
+    const id = idRef.current;
+    modalStack.push(id);
+    const h = e => {
+      if (e.key !== 'Escape' || modalStack[modalStack.length - 1] !== id) return;
+      e.stopPropagation();
+      closeRef.current && closeRef.current();
+    };
+    window.addEventListener('keydown', h);
+    return () => { window.removeEventListener('keydown', h); const i = modalStack.indexOf(id); if (i >= 0) modalStack.splice(i, 1); };
+  }, []);
   return (
-    <div className="fixed inset-0 bg-slate-900/60 z-50 grid place-items-center p-4 overflow-auto">
-      <div className={'bg-white rounded-2xl shadow-2xl w-full p-5 ' + (wide ? 'max-w-4xl' : 'max-w-lg')}>
-        <div className="flex justify-between mb-4">
+    <div className="fixed inset-0 bg-slate-900/60 z-50 grid place-items-center p-4 overflow-auto app-modal" role="dialog" aria-modal="true" aria-label={typeof title === 'string' ? title : undefined}>
+      <div className={'bg-white rounded-2xl shadow-2xl w-full p-5 modal-panel ' + (wide ? 'max-w-4xl' : 'max-w-lg')}>
+        <div className="flex justify-between items-start gap-3 mb-4">
           <h2 className="font-bold text-lg">{title}</h2>
-          <button onClick={onClose}>✕</button>
+          <button type="button" onClick={onClose} className="modal-close" aria-label="Fermer (Échap)" title="Fermer (Échap)">✕</button>
         </div>
         {children}
       </div>
     </div>
+  );
+}
+
+/* ---------- V55 : notifications (remplacent les fenêtres d'alerte bloquantes) ---------- */
+const TOAST_ERROR_RE = /erreur|error|impossible|refus|non autoris|insuffisant|invalide|obligatoire|dépass|introuvable|échec|failed|incorrect|ne peut|manquant|déjà|interdit|bloqu|incohéren|supérieure|aucun|veuillez|réservé/i;
+function showToast(message, kind) {
+  try {
+    if (typeof document === 'undefined' || typeof document.createElement !== 'function') return;
+    let box = document.getElementById('dp-toasts');
+    if (!box) { box = document.createElement('div'); box.id = 'dp-toasts'; box.setAttribute('role', 'status'); box.setAttribute('aria-live', 'polite'); document.body.appendChild(box); }
+    const text = String(message ?? '');
+    const type = kind || (TOAST_ERROR_RE.test(text) ? 'error' : 'success');
+    const el = document.createElement('div');
+    el.className = 'dp-toast ' + type;
+    const span = document.createElement('span'); span.textContent = (type === 'error' ? '⚠ ' : '✔ ') + text;
+    const x = document.createElement('button'); x.type = 'button'; x.textContent = '✕'; x.setAttribute('aria-label', 'Fermer');
+    x.onclick = () => el.remove();
+    el.appendChild(span); el.appendChild(x);
+    box.appendChild(el);
+    while (box.children.length > 4) box.firstChild.remove();
+    setTimeout(() => el.remove(), type === 'error' ? 9000 : 4000);
+  } catch {}
+}
+try {
+  if (typeof window !== 'undefined' && typeof document !== 'undefined' && typeof document.createElement === 'function' && !window.__dpToasts) {
+    window.__dpToasts = true;
+    window.nativeAlert = window.alert ? window.alert.bind(window) : null;
+    window.alert = msg => showToast(msg);
+  }
+} catch {}
+
+/* ---------- V55 : actions rapides (« + Nouveau », palette) ---------- */
+let pendingQuickAction = null;
+function queueQuickAction(page, action) { pendingQuickAction = { page, action, at: Date.now() }; }
+function takeQuickAction(page) {
+  const a = pendingQuickAction;
+  if (a && a.page === page && Date.now() - a.at < 15000) { pendingQuickAction = null; return a.action; }
+  return null;
+}
+
+/* ===================== V55 : briques d'ergonomie communes ===================== */
+// Période : presets + dates libres
+function periodRange(preset) {
+  const d = new Date(), iso = x => x.toISOString().slice(0, 10);
+  if (preset === 'today') return [today(), today()];
+  if (preset === 'week') { const f = new Date(d); f.setDate(d.getDate() - 6); return [iso(f), today()]; }
+  if (preset === 'month') return [today().slice(0, 8) + '01', today()];
+  return ['', ''];
+}
+function inPeriod(date, from, to) {
+  const v = String(date || '').slice(0, 10);
+  if (!v) return !from && !to;
+  return (!from || v >= from) && (!to || v <= to);
+}
+function normSearch(v) { return String(v ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(); }
+function matchSearch(q, parts) { const n = normSearch(q).trim(); if (!n) return true; const hay = normSearch(parts.filter(x => x !== null && x !== undefined).join(' ')); return n.split(/\s+/).every(w => hay.includes(w)); }
+
+// Barre de filtres : recherche + période (+ filtres propres à l'écran en enfants)
+function ListToolbar({ L, search, setSearch, from, to, setPeriod, children, count, total, onReset }) {
+  const presets = [['today', L('uxToday')], ['week', L('uxWeek')], ['month', L('uxMonth')], ['all', L('uxAll')]];
+  const active = presets.find(([k]) => { const [f, t] = periodRange(k); return f === (from || '') && t === (to || ''); })?.[0];
+  return (
+    <div className="list-toolbar card p-3 mb-3">
+      {setSearch ? <input className="input list-search" data-list-search placeholder={'🔎 ' + L('uxSearch')} value={search} onChange={e => setSearch(e.target.value)} /> : null}
+      {setPeriod ? (
+        <div className="flex flex-wrap items-center gap-1">
+          {presets.map(([k, t]) => <button key={k} type="button" onClick={() => setPeriod(...periodRange(k))} className={'chip ' + (active === k ? 'chip-on' : '')}>{t}</button>)}
+          <input type="date" className="input list-date" aria-label={L('dateFrom')} value={from || ''} onChange={e => setPeriod(e.target.value, to)} />
+          <span className="text-slate-400 text-xs">→</span>
+          <input type="date" className="input list-date" aria-label={L('dateTo')} value={to || ''} onChange={e => setPeriod(from, e.target.value)} />
+        </div>
+      ) : null}
+      {children}
+      <div className="list-count">
+        {count !== undefined ? <span>{count}{total !== undefined && total !== count ? ' / ' + total : ''}</span> : null}
+        {onReset ? <button type="button" onClick={onReset} className="text-xs text-sky-700 underline">{L('uxReset')}</button> : null}
+      </div>
+    </div>
+  );
+}
+
+// Affichage progressif des longues listes
+function useShowMore(list, step = 50) {
+  const [n, setN] = useState(step);
+  useEffect(() => { setN(step); }, [list.length]);
+  return [list.slice(0, n), list.length > n ? () => setN(n + step) : null];
+}
+function ShowMore({ L, more, shown, total }) {
+  if (!more) return null;
+  return <div className="text-center my-3"><button type="button" onClick={more} className="btn bg-white border">{L('uxShowMore')} ({shown} / {total} {L('uxShown')})</button></div>;
+}
+
+// Menu « ⋯ » d'actions secondaires d'une ligne
+function RowMenu({ L, items }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!open) return undefined;
+    const h = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    const k = e => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', h); document.addEventListener('keydown', k);
+    return () => { document.removeEventListener('mousedown', h); document.removeEventListener('keydown', k); };
+  }, [open]);
+  const list = (items || []).filter(x => x && !x.hidden);
+  if (!list.length) return null;
+  return (
+    <span className="row-menu" ref={ref}>
+      <button type="button" className="btn bg-white border row-menu-btn" aria-label={L('uxMore')} aria-expanded={open} onClick={e => { e.stopPropagation(); setOpen(!open); }}>⋯</button>
+      {open ? (
+        <span className="row-menu-pop" role="menu">
+          {list.map((x, i) => (
+            <button key={i} type="button" role="menuitem" className={'row-menu-item ' + (x.tone === 'danger' ? 'danger' : '')} onClick={e => { e.stopPropagation(); setOpen(false); x.onClick(); }}>{x.icon ? x.icon + ' ' : ''}{x.label}</button>
+          ))}
+        </span>
+      ) : null}
+    </span>
   );
 }
 
@@ -6117,6 +6487,10 @@ function Products({ L }) {
       setBranches(branchData || []);
       setSummary(stockSummary || []);
       setLists(listData);
+      // V55 : « + Nouveau → Produit »
+      if (takeQuickAction('products') === 'new' && can('products.write')) {
+        setForm({ ref: '', nom: '', categorie: listData?.categories?.[0]?.name || 'Divers', unite: listData?.units?.[0]?.name || 'Pièce', prixAchat: 0, prixVente: 0, quantite: 0, stockMin: 0, branchId: currentBranchId() || branchData?.[0]?.id || '' });
+      }
     } catch (e) { setErr(e.message); }
   }
 
@@ -7860,6 +8234,9 @@ function Docs({ L, type }) {
   const [preview, setPreview] = useState(null);
   const [tab, setTab] = useState('all');
   const [showClosed, setShowClosed] = useState(false);
+  const [search, setSearch] = useState('');
+  const [[from, to], setRange] = useState(['', '']);
+  const [payF, setPayF] = useState('all');
   const [err, setErr] = useState('');
   const [userFilter, setUserFilter] = useState(getSelectedUserFilter(type));
 
@@ -7896,8 +8273,21 @@ function Docs({ L, type }) {
   // V52 : les BL / BR sont toujours « clôturés » côté stock → ils restent affichés (avant : onglet Réceptions vide)
   const filtered = applyUserFilterToRows((tab === 'all' ? rows : rows.filter(x => x.stage === tab)).filter(x => {
     if (tab === 'commande' && docStatus(x) === 'closed' && !showClosed) return false;
-    return true;
+    // V55 : recherche, période, règlement
+    if (!inPeriod(x.date, from, to)) return false;
+    if (payF !== 'all' && (x.stage !== 'facture' || (payF === 'unpaid' ? x.statutPaiement === 'paid' : x.statutPaiement !== payF))) return false;
+    return matchSearch(search, [docNo(x), ...Object.values(jsonValue(x.numbers_json, {})), x.client_name, x.supplier_name, x.createdByLabel, x.supplier_ref,
+      ...(x.lignes || []).map(l => (l.nom || '') + ' ' + (l.ref || '')), String(Math.round(Number(x.totalTTC || 0)))]);
   }), type);
+  const [shown, more] = useShowMore(filtered, 50);
+  const totalShown = filtered.filter(d => !isReturnDoc(d)).reduce((t, d) => t + Number(d.totalTTC || 0), 0);
+  const restShown = filtered.filter(d => d.stage === 'facture').reduce((t, d) => t + Number(d.reste || 0), 0);
+  // V55 : « + Nouveau » depuis n'importe quel écran
+  useEffect(() => {
+    if (!parties.length && !products.length) return;
+    const a = takeQuickAction(type);
+    if (a && canWriteDoc) create(a);
+  }, [parties.length, products.length]);
   const childrenOf = id => rows.filter(x => String(x.base_doc_id || '') === String(id));
   const openReceive = d => setPartial({ doc: d, date: today(), supplierRef: '', lignes: docRemainingLines(d).filter(l => Number(l.remainingQty || 0) > 0).map(l => ({ ...l, qteToProcess: Number(l.remainingQty || 0), excluded: false })) });
   const openInvoice = d => setPartial({ mode: 'invoice', doc: d, date: today(), supplierRef: '', dueDate: '', lignes: docInvoiceRemainingLines(d).filter(l => Number(l.remainingQty || 0) > 0).map(l => ({ ...l, qteToProcess: Number(l.remainingQty || 0), excluded: false })) });
@@ -8049,6 +8439,21 @@ function Docs({ L, type }) {
         ) : null}
       </div>
 
+      {isSales || tab !== 'reception' ? (
+        <ListToolbar L={L} search={search} setSearch={setSearch} from={from} to={to} setPeriod={(f, t) => setRange([f, t])}
+          count={filtered.length} onReset={() => { setSearch(''); setRange(['', '']); setPayF('all'); }}>
+          {tab === 'all' || tab === 'facture' ? (
+            <select className="input list-select" aria-label={L('payment')} value={payF} onChange={e => setPayF(e.target.value)}>
+              <option value="all">{L('payment')} : {L('all')}</option>
+              <option value="unpaid">{L('unpaid')} / {L('partial')}</option>
+              <option value="partial">{L('partial')}</option>
+              <option value="paid">{L('paid')}</option>
+            </select>
+          ) : null}
+          <span className="text-xs text-slate-500 whitespace-nowrap">{L('totalTTC')} <b className="text-slate-900">{dh(totalShown)}</b>{restShown > 0.009 ? <> · {L('remaining')} <b className="text-red-700">{dh(restShown)}</b></> : null}</span>
+        </ListToolbar>
+      ) : null}
+
       {!isSales && tab === 'reception' ? (
         <PurchaseReceptionsView L={L} rows={applyUserFilterToRows(rows, type)} allRows={rows}
           canWriteDoc={canWriteDoc} canDeleteDoc={canDeleteDoc}
@@ -8072,19 +8477,19 @@ function Docs({ L, type }) {
           </tr>
         </thead>
         <tbody>
-          {filtered.map(d => {
+          {shown.map(d => {
             const status = d.statutPaiement === 'paid' ? L('paid') : d.statutPaiement === 'partial' ? L('partial') : L('unpaid');
             const tone = d.statutPaiement === 'paid' ? 'green' : d.statutPaiement === 'partial' ? 'amber' : 'red';
             return (
               <tr key={d.id}>
                 <td><Badge tone="blue">{docTypeLabel(d, type, L)}</Badge></td>
-                <td className="font-mono text-xs font-bold">{docNo(d)}</td>
+                <td className="font-mono text-xs font-bold"><button type="button" className="doc-link" onClick={() => setPreview(d)} title={L('preview')}>{docNo(d)}</button></td>
                 <td>{d.baseDocId ? <Badge tone="slate">{d.baseDocNumber || ('#' + d.baseDocId)}</Badge> : '-'}</td>
                 <td>
                   <div className="font-semibold">{d.createdByLabel || '-'}</div>
                   <div className="text-xs text-slate-400">{L('createdBy')}</div>
                 </td>
-                <td>{d.date}</td>
+                <td className="whitespace-nowrap">{frDate(d.date)}</td>
                 <td>
                   <div className="font-semibold">{d.client_name || d.supplier_name || d.clientNom || d.fournisseurNom}</div>
                   <div className="text-xs text-slate-400">{isSales ? L('customer') : L('supplier')}</div>
@@ -8108,24 +8513,39 @@ function Docs({ L, type }) {
                 </td>
                 <td className="font-mono font-bold">{dh(d.totalTTC)}</td>
                 {tab === 'facture' ? <td><Badge tone={tone}>{status}{d.reste > 0 ? ' · ' + L('remaining') + ' ' + dh(d.reste) : ''}</Badge></td> : null}
-                <td className="flex gap-1 flex-wrap">
-                  {canWriteDoc && !isSales && d.stage === 'commande' && docRemainingQty(d) > 0 ? <button onClick={() => openReceive(d)} className="btn bg-slate-800 text-white">📦 {L('receiveAction')}</button> : null}
-                  {canWriteDoc && !isSales && d.stage === 'reception' && docInvoiceRemainingQty(d) > 0 ? <button onClick={() => openInvoice(d)} className="btn bg-slate-800 text-white">🧾 {L('invoiceAction')}</button> : null}
-                  {canWriteDoc && isSales && !isReturnDoc(d) && d.stage !== 'facture' ? <button onClick={() => advance(d.id)} className="btn bg-slate-800 text-white">{L('advance')}</button> : null}
-                  <button onClick={() => setPreview(d)} className="btn bg-white border">{L('preview')}</button>
-                  {canPayDoc && paymentButtonVisible(d) ? <button onClick={() => setPay({ ...d, date: today(), mode: 'Espèces', montant: d.reste || d.totalTTC, cashRegister: '', receiptNo: '', chequeNo: '', bank: '', dueDate: '', paymentStatus: 'En portefeuille', transferRef: '', valueDate: '', terminal: '', transactionNo: '', billNo: '', note: '' })} className="btn bg-emerald-600 text-white">{L('pay')}</button> : null}
-                  {canWriteDoc && isSales && d.stage !== 'facture' && !isReturnDoc(d) && docRemainingQty(d) > 0 ? <button onClick={() => setPartial({ doc: d, date: today(), lignes: docRemainingLines(d).map(l => ({ ...l, qteToProcess: Number(l.remainingQty || 0), excluded: false })) })} className="btn bg-white border">{isSales ? L('partialDelivery') : L('partialReceipt')}</button> : null}
-                  {canWriteDoc && canUse(isSales ? 'sales.return' : 'purchases.return') && canReturnDoc(d) ? <button onClick={() => setPartial({ mode: 'return', restock: true, doc: d, date: today(), lignes: docReturnRemainingLines(d).filter(l => Number(l.remainingQty || 0) > 0).map(l => ({ ...l, qteToProcess: 0, excluded: false })) })} className="btn bg-white border">{isSales ? L('creditNote') : L('supplierReturn')}</button> : null}
-                  {canWriteDoc && isSales && canPartialInvoice(d, type) ? <button onClick={() => setPartial({ mode: 'invoice', doc: d, date: today(), lignes: docInvoiceRemainingLines(d).filter(l => Number(l.remainingQty || 0) > 0).map(l => ({ ...l, qteToProcess: Number(l.remainingQty || 0), excluded: false })) })} className="btn bg-white border">{L('partialInvoice')}</button> : null}
-                  {canWriteDoc && !isReturnDoc(d) ? <button onClick={() => setForm({ id: d.id, start: d.stage, date: d.date, partyId: isSales ? d.client_id : d.supplier_id, supplierRef: d.supplier_ref || '', dueDate: d.due_date || '', lignes: (d.lignes || []).map(l => ({ produitId: l.produitId, qte: l.qte, prixUnit: l.prixUnit, remise: l.remise || 0 })) })} className="btn bg-white border">{L('edit')}</button> : null}
-                  {canDeleteDoc ? <button onClick={() => remove(d.id)} className="btn bg-red-600 text-white">{L('del')}</button> : null}
+                <td>
+                  {(() => {
+                    // V55 : une action principale visible, les autres dans le menu « ⋯ »
+                    const payIt = () => setPay({ ...d, date: today(), mode: 'Espèces', montant: d.reste || d.totalTTC, cashRegister: '', receiptNo: '', chequeNo: '', bank: '', dueDate: '', paymentStatus: 'En portefeuille', transferRef: '', valueDate: '', terminal: '', transactionNo: '', billNo: '', note: '' });
+                    const acts = [
+                      canWriteDoc && !isSales && d.stage === 'commande' && docRemainingQty(d) > 0 && { icon: '📦', label: L('receiveAction'), onClick: () => openReceive(d), main: true },
+                      canWriteDoc && !isSales && d.stage === 'reception' && docInvoiceRemainingQty(d) > 0 && { icon: '🧾', label: L('invoiceAction'), onClick: () => openInvoice(d), main: true },
+                      canWriteDoc && isSales && !isReturnDoc(d) && d.stage !== 'facture' && { icon: '➜', label: L('advance'), onClick: () => advance(d.id), main: true },
+                      canPayDoc && paymentButtonVisible(d) && { icon: '💳', label: L('pay'), onClick: payIt, main: true, pay: true },
+                      { icon: '👁', label: L('preview'), onClick: () => setPreview(d) },
+                      canWriteDoc && isSales && d.stage !== 'facture' && !isReturnDoc(d) && docRemainingQty(d) > 0 && { icon: '🚚', label: L('partialDelivery'), onClick: () => setPartial({ doc: d, date: today(), lignes: docRemainingLines(d).map(l => ({ ...l, qteToProcess: Number(l.remainingQty || 0), excluded: false })) }) },
+                      canWriteDoc && isSales && canPartialInvoice(d, type) && { icon: '🧾', label: L('partialInvoice'), onClick: () => setPartial({ mode: 'invoice', doc: d, date: today(), lignes: docInvoiceRemainingLines(d).filter(l => Number(l.remainingQty || 0) > 0).map(l => ({ ...l, qteToProcess: Number(l.remainingQty || 0), excluded: false })) }) },
+                      canWriteDoc && canUse(isSales ? 'sales.return' : 'purchases.return') && canReturnDoc(d) && { icon: '↩', label: isSales ? L('creditNote') : L('supplierReturn'), onClick: () => setPartial({ mode: 'return', restock: true, doc: d, date: today(), lignes: docReturnRemainingLines(d).filter(l => Number(l.remainingQty || 0) > 0).map(l => ({ ...l, qteToProcess: 0, excluded: false })) }) },
+                      canWriteDoc && !isReturnDoc(d) && { icon: '✏️', label: L('edit'), onClick: () => setForm({ id: d.id, start: d.stage, date: d.date, partyId: isSales ? d.client_id : d.supplier_id, supplierRef: d.supplier_ref || '', dueDate: d.due_date || '', lignes: (d.lignes || []).map(l => ({ produitId: l.produitId, qte: l.qte, prixUnit: l.prixUnit, remise: l.remise || 0 })) }) },
+                      canDeleteDoc && { icon: '🗑', label: L('del'), onClick: () => remove(d.id), tone: 'danger' }
+                    ].filter(Boolean);
+                    const main = acts.find(x => x.main) || acts[0];
+                    return (
+                      <div className="flex gap-1 items-center flex-nowrap">
+                        {main ? <button onClick={main.onClick} className={'btn whitespace-nowrap ' + (main.pay ? 'bg-emerald-600 text-white' : main.main ? 'bg-slate-800 text-white' : 'bg-white border')}>{main.icon} {main.label}</button> : null}
+                        <RowMenu L={L} items={acts.filter(x => x !== main)} />
+                      </div>
+                    );
+                  })()}
                 </td>
               </tr>
             );
           })}
+          {!filtered.length ? <tr><td colSpan="11" className="text-center text-slate-500 py-6">{L('noData')}</td></tr> : null}
         </tbody>
       </Table>
       )}
+      {isSales || tab !== 'reception' ? <ShowMore L={L} more={more} shown={shown.length} total={filtered.length} /> : null}
 
       {form ? <DocModal L={L} isSales={isSales} form={form} setForm={setForm} products={products} parties={parties} save={save} close={() => setForm(null)} /> : null}
       {pay ? <PaymentModal L={L} isSales={isSales} pay={pay} setPay={setPay} save={settle} close={() => setPay(null)} /> : null}
@@ -8579,7 +8999,7 @@ function DocumentPreview({ L, type, doc, close }) {
           ) : null}
           <div>
             <span>{L('createdBy')}</span>
-            <b>{doc.createdByLabel || currentUserLabel() || '-'}</b>
+            <b>{doc.createdByLabel && doc.createdByLabel !== '-' ? doc.createdByLabel : (doc.created_by_label || '-')}</b>
           </div>
           <div>
             <span>{L('baseDocNo')}</span>
@@ -8658,7 +9078,12 @@ function DocumentPreview({ L, type, doc, close }) {
 function Payments({ L }) {
   const [rows, setRows] = useState([]);
   const [err, setErr] = useState('');
-  const [filter, setFilter] = useState('all');
+  const [filter, setFilter] = useState('active');
+  const [typeF, setTypeF] = useState('all');
+  const [modeF, setModeF] = useState('all');
+  const [authorF, setAuthorF] = useState('all');
+  const [search, setSearch] = useState('');
+  const [[from, to], setRange] = useState(periodRange('month'));
   const [attach, setAttach] = useState(null);
   const [closure, setClosure] = useState(false);
   const attachEnabled = hasModuleAccess('attachments');
@@ -8669,20 +9094,26 @@ function Payments({ L }) {
       const data = await loadPayments();
       setRows(data || []);
     } catch (e) {
-      console.warn('Payments load error:', e.message);
+      // V55 : l'erreur est affichée (avant : liste vide sans explication)
       setRows([]);
-      setErr('');
+      setErr(e.message);
     }
   }
 
   useEffect(() => { load(); }, []);
 
+  const modes = [...new Set(rows.map(p => p.mode).filter(Boolean))].sort();
+  const authors = [...new Set(rows.map(p => p.createdByLabel).filter(Boolean))].sort();
   const filtered = rows.filter(p => {
-    if (filter === 'all') return true;
-    if (filter === 'active') return !p.canceled;
-    if (filter === 'canceled') return !!p.canceled;
-    return p.type === filter;
+    if (filter === 'active' && p.canceled) return false;
+    if (filter === 'canceled' && !p.canceled) return false;
+    if (typeF !== 'all' && p.type !== typeF) return false;
+    if (modeF !== 'all' && p.mode !== modeF) return false;
+    if (authorF !== 'all' && p.createdByLabel !== authorF) return false;
+    if (!inPeriod(p.date, from, to)) return false;
+    return matchSearch(search, [p.docNumber, p.tiers, p.mode, p.chequeNo, p.bank, p.transferRef, p.transactionNo, p.billNo, p.receiptNo, p.note, p.createdByLabel, String(p.montant)]);
   });
+  const [shown, more] = useShowMore(filtered, 100);
 
   async function cancel(p) {
     if (!can('payments.cancel')) return alert('Autorisation insuffisante : payments.cancel');
@@ -8694,86 +9125,134 @@ function Payments({ L }) {
     } catch (e) { alert(e.message); }
   }
 
-  const activeTotal = filtered.filter(p => !p.canceled).reduce((s, p) => s + Number(p.montant || 0), 0);
+  const real = p => !p.canceled && p.mode !== 'Avoir';
+  const cashIn = filtered.filter(p => p.type === 'encaissement' && real(p)).reduce((s, p) => s + Number(p.montant || 0), 0);
+  const cashOut = filtered.filter(p => p.type === 'decaissement' && real(p)).reduce((s, p) => s + Number(p.montant || 0), 0);
   const canceledTotal = filtered.filter(p => p.canceled).reduce((s, p) => s + Number(p.montant || 0), 0);
+  const byMode = {};
+  filtered.filter(real).forEach(p => { const m = byMode[p.mode] || (byMode[p.mode] = { in: 0, out: 0, n: 0 }); m.n++; if (p.type === 'encaissement') m.in += Number(p.montant || 0); else m.out += Number(p.montant || 0); });
 
   return (
     <>
       <Header title={L('payments')}>
-        <select className="input max-w-xs" value={filter} onChange={e => setFilter(e.target.value)}>
-          <option value="all">{L('all')}</option>
-          <option value="active">Actifs</option>
-          <option value="canceled">{L('canceled')}</option>
-          <option value="encaissement">{L('cashIn')}</option>
-          <option value="decaissement">{L('cashOut')}</option>
-        </select>
-        <button onClick={load} className="btn bg-white border">↻</button>
+        <button onClick={load} className="btn bg-white border" aria-label="↻">↻</button>
         {canUse('cash.close') ? <button onClick={() => setClosure(true)} className="btn bg-amber-500">🧾 {L('cashClosure')}</button> : null}
         <ExportButtons L={L} spec={() => ({
-          fileName: 'Paiements', title: L('payments'),
+          fileName: 'Paiements', title: L('payments'), period: from || to ? (frDate(from) || '…') + ' → ' + (frDate(to) || '…') : L('uxAll'),
           sheets: [{ name: L('payments'), columns: [
             { key: 'date', header: L('date'), type: 'date' },
             { value: p => p.type === 'encaissement' ? L('cashIn') : L('cashOut'), header: 'Type' },
-            { key: 'docType', header: L('docType') }, { key: 'docNumber', header: L('document') }, { key: 'tiers', header: L('customer') + ' / ' + L('supplier') },
-            { key: 'createdByLabel', header: L('createdBy') }, { key: 'mode', header: 'Mode' },
+            { key: 'docNumber', header: L('document') }, { key: 'tiers', header: L('customer') + ' / ' + L('supplier') },
+            { key: 'mode', header: L('uxMode') },
             { value: p => [p.chequeNo, p.bank, p.transferRef, p.transactionNo, p.note].filter(Boolean).join(' · '), header: L('detail') },
             { value: p => p.type === 'encaissement' && !p.canceled ? Number(p.montant || 0) : null, header: L('cashIn'), type: 'money' },
             { value: p => p.type !== 'encaissement' && !p.canceled ? Number(p.montant || 0) : null, header: L('cashOut'), type: 'money' },
-            { value: p => p.canceled ? L('canceled') : 'Actif', header: L('paymentStatus') }
+            { value: p => p.createdByLabel + (p.authorFromDoc ? ' (document)' : ''), header: L('createdBy') },
+            { value: p => p.createdAt || '', header: L('date') + ' / heure', type: 'datetime' },
+            { value: p => p.canceled ? L('canceled') + ' — ' + (p.canceledBy || '') + ' — ' + (p.cancelReason || '') : 'Actif', header: L('paymentStatus') }
           ], rows: filtered }]
         })} />
       </Header>
 
-      <div className="pro-kpi-grid mb-4">
-        <div className="pro-kpi-card"><span>{L('kpiCashIn')}</span><b>{dh(rows.filter(p => p.type === 'encaissement' && !p.canceled && p.mode !== 'Avoir').reduce((s,p)=>s+Number(p.montant||0),0))}</b><small>{L('cashIn')}</small></div>
-        <div className="pro-kpi-card"><span>{L('kpiCashOut')}</span><b>{dh(rows.filter(p => p.type === 'decaissement' && !p.canceled && p.mode !== 'Avoir').reduce((s,p)=>s+Number(p.montant||0),0))}</b><small>{L('cashOut')}</small></div>
-        <div className="pro-kpi-card"><span>{L('paymentList')}</span><b>{filtered.length}</b><small>{L('document')}</small></div>
+      {err ? <ErrorBox msg={err} /> : null}
+
+      <ListToolbar L={L} search={search} setSearch={setSearch} from={from} to={to} setPeriod={(f, t) => setRange([f, t])}
+        count={filtered.length} total={rows.length}
+        onReset={() => { setSearch(''); setRange(['', '']); setFilter('active'); setTypeF('all'); setModeF('all'); setAuthorF('all'); }}>
+        <select className="input list-select" aria-label="Type" value={typeF} onChange={e => setTypeF(e.target.value)}>
+          <option value="all">{L('cashIn')} + {L('cashOut')}</option>
+          <option value="encaissement">{L('cashIn')}</option>
+          <option value="decaissement">{L('cashOut')}</option>
+        </select>
+        <select className="input list-select" aria-label={L('uxStatus')} value={filter} onChange={e => setFilter(e.target.value)}>
+          <option value="active">Actifs</option>
+          <option value="canceled">{L('canceled')}</option>
+          <option value="all">{L('all')}</option>
+        </select>
+        <select className="input list-select" aria-label={L('uxMode')} value={modeF} onChange={e => setModeF(e.target.value)}>
+          <option value="all">{L('uxMode')} : {L('all')}</option>
+          {modes.map(m => <option key={m} value={m}>{m}</option>)}
+        </select>
+        <select className="input list-select" aria-label={L('uxAuthor')} value={authorF} onChange={e => setAuthorF(e.target.value)}>
+          <option value="all">{L('createdBy')} : {L('all')}</option>
+          {authors.map(a => <option key={a} value={a}>{a}</option>)}
+        </select>
+      </ListToolbar>
+
+      <div className="pro-kpi-grid mb-3">
+        <div className="pro-kpi-card"><span>{L('kpiCashIn')}</span><b className="text-emerald-700">{dh(cashIn)}</b><small>{L('cashIn')}</small></div>
+        <div className="pro-kpi-card"><span>{L('kpiCashOut')}</span><b className="text-red-700">{dh(cashOut)}</b><small>{L('cashOut')}</small></div>
+        <div className="pro-kpi-card"><span>{L('uxNet')}</span><b>{dh(cashIn - cashOut)}</b><small>{filtered.length} {L('paymentList').toLowerCase()}</small></div>
         <div className="pro-kpi-card"><span>{L('canceled')}</span><b>{dh(canceledTotal)}</b><small>{L('cancelPayment')}</small></div>
       </div>
-
-      {err ? <ErrorBox msg={err} /> : null}
+      {Object.keys(byMode).length ? (
+        <div className="flex flex-wrap gap-2 mb-3 text-xs" aria-label={L('uxByMode')}>
+          {Object.entries(byMode).sort((a, b) => (b[1].in + b[1].out) - (a[1].in + a[1].out)).map(([m, v]) => (
+            <button key={m} type="button" onClick={() => setModeF(modeF === m ? 'all' : m)} className={'chip ' + (modeF === m ? 'chip-on' : '')}>
+              <b>{m}</b> · {v.n} · {v.in ? '+' + fmt(v.in) : ''}{v.in && v.out ? ' / ' : ''}{v.out ? '-' + fmt(v.out) : ''}
+            </button>
+          ))}
+        </div>
+      ) : null}
 
       <Table>
         <thead>
           <tr>
             <th>{L('date')}</th>
             <th>Type</th>
-            <th>{L('docType')}</th>
             <th>{L('document')}</th>
             <th>{L('customer')} / {L('supplier')}</th>
-            <th>{L('createdBy')}</th>
-            <th>Mode</th>
-            <th>{L('detail')}</th>
+            <th>{L('uxMode')}</th>
             <th>{L('totalTTC')}</th>
+            <th>{L('createdBy')}</th>
             <th>{L('paymentStatus')}</th>
             <th>{L('actions')}</th>
           </tr>
         </thead>
         <tbody>
-          {filtered.map((p, i) => (
-            <tr key={(p.docId || '') + '-' + (p.id || i)} className={p.canceled ? 'payment-canceled' : ''}>
-              <td>{p.date || '-'}</td>
+          {shown.map((p, i) => (
+            <tr key={(p.sourceTable || '') + (p.docId || '') + '-' + (p.id || i)} className={p.canceled ? 'payment-canceled' : ''}>
+              <td className="whitespace-nowrap">{frDate(p.date) || '-'}{p.createdAt ? <div className="text-xs text-slate-400">{new Date(p.createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</div> : null}</td>
               <td><Badge tone={p.type === 'encaissement' ? 'green' : 'amber'}>{p.type === 'encaissement' ? L('cashIn') : L('cashOut')}</Badge></td>
-              <td>{p.docType || '-'}</td>
-              <td className="font-mono text-xs">{p.docNumber || '-'}</td>
+              <td className="font-mono text-xs whitespace-nowrap">{p.docNumber || '-'}</td>
               <td>{p.tiers || '-'}</td>
-              <td><Badge tone="blue">{p.createdByLabel || '-'}</Badge></td>
-              <td>{p.mode || '-'}</td>
-              <td className="text-xs text-slate-500">{[p.chequeNo, p.bank, p.transferRef, p.transactionNo, p.note].filter(Boolean).join(' · ') || '-'}</td>
-              <td className="font-bold">{dh(p.montant || 0)}</td>
-              <td>{p.canceled ? <Badge tone="red">{L('canceled')}</Badge> : <Badge tone="green">Actif</Badge>}</td>
-              <td className="flex gap-1 flex-wrap">
-                {attachEnabled ? <button onClick={() => setAttach(p)} className="btn bg-white border" title={L('attach')}>📎</button> : null}
-                {!p.canceled && p.mode !== 'Avoir' ? <button onClick={() => cancel(p)} className="btn bg-red-600 text-white">{L('cancelPayment')}</button> : null}
+              <td>
+                <div>{p.mode || '-'}</div>
+                <div className="text-xs text-slate-500">{[p.chequeNo, p.bank, p.transferRef, p.transactionNo, p.billNo, p.note].filter(Boolean).join(' · ')}</div>
+              </td>
+              <td className={'font-bold whitespace-nowrap ' + (p.type === 'encaissement' ? 'text-emerald-700' : 'text-red-700')}>{p.type === 'encaissement' ? '+' : '-'}{dh(p.montant || 0)}</td>
+              <td>
+                {p.createdByLabel ? (
+                  p.authorFromDoc
+                    ? <span className="text-slate-500 italic" title={L('uxAuthorFromDoc')}>{p.createdByLabel} <span aria-hidden="true">ⓘ</span></span>
+                    : <Badge tone="blue">{p.createdByLabel}</Badge>
+                ) : '-'}
+              </td>
+              <td>
+                {p.canceled ? (
+                  <>
+                    <Badge tone="red">{L('canceled')}</Badge>
+                    <div className="text-xs text-slate-500 mt-1">{L('uxCanceledBy')} {p.canceledBy || '-'}{p.canceledAt ? ' · ' + new Date(p.canceledAt).toLocaleDateString('fr-FR') : ''}</div>
+                    {p.cancelReason ? <div className="text-xs text-slate-500">{L('uxReason')} : {p.cancelReason}</div> : null}
+                  </>
+                ) : <Badge tone="green">Actif</Badge>}
+              </td>
+              <td>
+                <div className="flex gap-1 items-center">
+                  {attachEnabled ? <button onClick={() => setAttach(p)} className="btn bg-white border" title={L('attach')} aria-label={L('attach')}>📎</button> : null}
+                  {!p.canceled && p.mode !== 'Avoir' && can('payments.cancel') ? <button onClick={() => cancel(p)} className="btn bg-white border text-red-700">{L('cancelPayment')}</button> : null}
+                </div>
               </td>
             </tr>
           ))}
+          {!filtered.length ? <tr><td colSpan="9" className="text-center text-slate-500 py-6">{L('noData')}</td></tr> : null}
         </tbody>
       </Table>
+      <ShowMore L={L} more={more} shown={shown.length} total={filtered.length} />
 
       {attach ? (
         <Modal title={L('attach') + ' — ' + (attach.docNumber || '') + ' · ' + dh(attach.montant || 0)} onClose={() => setAttach(null)}>
-          <div className="text-sm text-slate-500 mb-2">{attach.date} · {attach.mode} · {attach.tiers || '-'}</div>
+          <div className="text-sm text-slate-500 mb-2">{frDate(attach.date)} · {attach.mode} · {attach.tiers || '-'}</div>
           <AttachmentsPanel L={L} entityType="payment" entityId={paymentAttachmentId(attach)} />
         </Modal>
       ) : null}
@@ -9435,6 +9914,10 @@ function Parties({ L, type }) {
       setRows(data);
       setUsers(usersData);
       setBranches(branchesData);
+      // V55 : « + Nouveau → Client / Fournisseur »
+      if (takeQuickAction(type) === 'new' && can(type === 'clients' ? 'clients.write' : 'suppliers.write')) {
+        setForm({ name: '', type: 'entreprise', ice: '', phone: '', city: '', address: '', contact: '', assigned_to: getStoredSession()?.user?.id || '', branch_id: currentBranchId() || branchesData[0]?.id || '', branch_ids: [] });
+      }
       let bal = await loadPartyBalances(type);
       if (!bal) {
         // Ancienne base (avant V53) : calcul limité aux documents visibles
@@ -10031,6 +10514,8 @@ function StockMovements({ L }) {
   const [rows, setRows] = useState([]);
   const [tab, setTab] = useState('all');
   const [err, setErr] = useState('');
+  const [search, setSearch] = useState('');
+  const [[from, to], setRange] = useState(['', '']);
 
   async function load() {
     try {
@@ -10045,11 +10530,13 @@ function StockMovements({ L }) {
 
   if (err) return <ErrorBox msg={err} />;
 
-  const filtered = tab === 'in'
+  const filtered = (tab === 'in'
     ? rows.filter(x => x.quantity > 0)
     : tab === 'out'
       ? rows.filter(x => x.quantity < 0)
-      : rows;
+      : rows)
+    .filter(x => inPeriod(x.date, from, to) && matchSearch(search, [x.ref, x.productName, x.branchName, x.docType, x.docNumber, x.userLabel, x.reason]));
+  const [shown, more] = useShowMore(filtered, 100);
 
   const totalIn = rows.filter(x => x.quantity > 0).reduce((s, x) => s + x.quantity, 0);
   const totalOut = rows.filter(x => x.quantity < 0).reduce((s, x) => s + Math.abs(x.quantity), 0);
@@ -10080,6 +10567,8 @@ function StockMovements({ L }) {
         <button onClick={() => setTab('out')} className={'btn ' + (tab === 'out' ? 'bg-red-600 text-white' : 'bg-white border')}>{L('stockOut')}</button>
       </div>
 
+      <ListToolbar L={L} search={search} setSearch={setSearch} from={from} to={to} setPeriod={(f, t) => setRange([f, t])} count={filtered.length} total={rows.length} onReset={() => { setSearch(''); setRange(['', '']); }} />
+
       <Table>
         <thead>
           <tr>
@@ -10095,7 +10584,7 @@ function StockMovements({ L }) {
           </tr>
         </thead>
         <tbody>
-          {filtered.map(m => (
+          {shown.map(m => (
             <tr key={m.id}>
               <td>{m.date ? new Date(m.date).toLocaleString('fr-FR') : '-'}</td>
               <td className="font-mono text-xs">{m.ref || '-'}</td>
@@ -10108,8 +10597,10 @@ function StockMovements({ L }) {
               <td>{m.reason || '-'}</td>
             </tr>
           ))}
+          {!filtered.length ? <tr><td colSpan="9" className="text-center text-slate-500 py-6">{L('noData')}</td></tr> : null}
         </tbody>
       </Table>
+      <ShowMore L={L} more={more} shown={shown.length} total={filtered.length} />
     </>
   );
 }
