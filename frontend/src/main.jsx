@@ -4,7 +4,7 @@ import { flushSync } from 'react-dom';
 import { createClient } from '@supabase/supabase-js';
 import './index.css';
 
-console.log('DROGUERIEPRO V55 OK');
+console.log('DROGUERIEPRO V56 OK');
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -578,8 +578,8 @@ Object.assign(TXT.fr, {
   uxShortcuts: 'Raccourcis : Ctrl+K aller à · Alt+N nouveau · / rechercher · Échap fermer',
   wiTitleClients: 'Clients comptoir',
   wiTitleSuppliers: 'Fournisseurs divers',
-  wiHint: 'Une fiche par droguerie, utilisée pour les ventes sans client nommé (caisse rapide, ventes directes). Réservé à l\'administrateur.',
-  wiHintSuppliers: 'Une fiche par droguerie pour les achats ponctuels sans fournisseur habituel. Réservé à l\'administrateur.',
+  wiHint: 'Fiches utilisées pour les ventes sans client nommé (caisse rapide, ventes directes). Chaque droguerie a sa fiche par défaut ; « ＋ Ajouter une fiche » en crée d\'autres (ex. : artisans, tarif gros). Réservé à l\'administrateur.',
+  wiHintSuppliers: 'Fiches pour les achats ponctuels sans fournisseur habituel. Chaque droguerie a sa fiche par défaut ; « ＋ Ajouter une fiche » en crée d\'autres. Réservé à l\'administrateur.',
   wiMissing: 'Fiche manquante',
   wiCreateMissing: 'Créer les fiches manquantes',
   wiDocs: 'Documents',
@@ -588,6 +588,18 @@ Object.assign(TXT.fr, {
   wiToday: 'Aujourd\'hui',
   wiLast: 'Dernière opération',
   wiAdminOnly: 'Fiche comptoir : modification réservée à l\'administrateur',
+  posVisible: '🏪 Comptoir : afficher ce client dans la caisse rapide',
+  posVisibleHint: 'Décochée : le client n\'apparaît plus dans la caisse rapide. Il reste disponible pour les devis, commandes et factures.',
+  posHidden: 'Hors caisse',
+  posOnly: 'En caisse',
+  posAdminOnly: 'Case « Comptoir » : réservée à l\'administrateur',
+  wiAdd: 'Ajouter une fiche',
+  wiAddTitle: 'Nouvelle fiche comptoir',
+  wiAddSupplierTitle: 'Nouveau fournisseur divers',
+  wiDefault: 'Par défaut',
+  wiDefaultHint: 'Fiche proposée par défaut dans la caisse de la droguerie (la première créée). Elle ne se supprime pas.',
+  wiPrivate: 'Ces fiches sont visibles uniquement par l\'administrateur dans les listes Clients et Fournisseurs. La caisse et les documents continuent de les utiliser.',
+  wiDeleted: 'Fiche supprimée',
   wiSaved: 'Fiche comptoir enregistrée',
   wiNameHint: 'Nom imprimé sur les tickets et factures comptoir',
   pScope: 'Drogueries',
@@ -758,8 +770,8 @@ Object.assign(TXT.ar, {
   uxShortcuts: 'اختصارات: Ctrl+K انتقال · Alt+N جديد · / بحث · Échap إغلاق',
   wiTitleClients: 'الزبناء العابرون',
   wiTitleSuppliers: 'الموردون المتنوعون',
-  wiHint: 'بطاقة لكل محل، تُستعمل للبيع بدون زبون مسمى (الصندوق السريع، البيع المباشر). خاص بالمدير.',
-  wiHintSuppliers: 'بطاقة لكل محل للمشتريات العرضية. خاص بالمدير.',
+  wiHint: 'بطاقات تُستعمل للبيع بدون زبون مسمى (الصندوق السريع، البيع المباشر). لكل محل بطاقته الافتراضية، ويمكن إضافة بطاقات أخرى. خاص بالمدير.',
+  wiHintSuppliers: 'بطاقات للمشتريات العرضية. لكل محل بطاقته الافتراضية، ويمكن إضافة بطاقات أخرى. خاص بالمدير.',
   wiMissing: 'بطاقة غير موجودة',
   wiCreateMissing: 'إنشاء البطاقات الناقصة',
   wiDocs: 'الوثائق',
@@ -768,6 +780,18 @@ Object.assign(TXT.ar, {
   wiToday: 'اليوم',
   wiLast: 'آخر عملية',
   wiAdminOnly: 'بطاقة الزبون العابر: التعديل خاص بالمدير',
+  posVisible: '🏪 الكونطوار: إظهار هذا الزبون في الصندوق السريع',
+  posVisibleHint: 'غير مؤشر: لا يظهر الزبون في الصندوق السريع، ويبقى متاحا لعروض الأسعار والطلبيات والفواتير.',
+  posHidden: 'خارج الصندوق',
+  posOnly: 'في الصندوق',
+  posAdminOnly: 'خانة « الكونطوار »: خاصة بالمدير',
+  wiAdd: 'إضافة بطاقة',
+  wiAddTitle: 'بطاقة زبون عابر جديدة',
+  wiAddSupplierTitle: 'مورد متنوع جديد',
+  wiDefault: 'افتراضية',
+  wiDefaultHint: 'البطاقة المقترحة افتراضيا في صندوق المحل (أول بطاقة). لا يمكن حذفها.',
+  wiPrivate: 'هذه البطاقات تظهر للمدير فقط في قوائم الزبناء والموردين. الصندوق والوثائق تستعملها دائما.',
+  wiDeleted: 'تم حذف البطاقة',
   wiSaved: 'تم حفظ البطاقة',
   wiNameHint: 'الاسم المطبوع على التذاكر والفواتير',
   pScope: 'المحلات',
@@ -4510,14 +4534,16 @@ async function loadPayments() {
   return [...enc, ...dec].sort((a, b) => (b.date || '').localeCompare(a.date || '') || String(b.createdAt || b.id || '').localeCompare(String(a.createdAt || a.id || '')));
 }
 
-async function loadParties(type) {
+async function loadParties(type, opts = {}) {
   const session = getStoredSession();
   const { data, error } = await supabase.from(type).select('*').order('name');
   if (error) throw new Error(error.message);
   // V53 : fiches communes à plusieurs drogueries → filtrage par droguerie sur branch_ids
   const bId = (isAdmin(session) || isSuperAdmin(session)) ? selectedBranchId(session) : branchId(session);
   const labels = await loadUserLabels();
-  return enrichParties((data || []).filter(x => partyInBranch(x, bId) && canSeePartyRecord(x, type, session)), labels)
+  // V56 : fiches comptoir / fournisseurs divers masquées dans les listes pour les profils autres que l'administrateur
+  const hideWalkIns = opts.list && !(isAdmin(session) || isSuperAdmin(session));
+  return enrichParties((data || []).filter(x => partyInBranch(x, bId) && canSeePartyRecord(x, type, session) && !(hideWalkIns && x.is_walk_in)), labels)
     .sort((a, b) => Number(!!b.is_walk_in) - Number(!!a.is_walk_in));
 }
 
@@ -4552,10 +4578,12 @@ async function saveParty(type, body) {
   const payload = type === 'clients'
     ? { ...common, type: body.type || 'entreprise', price_tier: body.price_tier === 'gros' ? 'gros' : 'detail', credit_limit: Math.max(0, Number(body.credit_limit || 0)) }
     : { ...common, contact: body.contact || '' };
+  // V56 : case « Comptoir » (visible dans la caisse rapide) — modifiable par l'administrateur seulement
+  if (type === 'clients' && !body.is_walk_in && isAdmin(session) && body.pos_visible !== undefined) payload.pos_visible = body.pos_visible !== false;
 
   const run = pl => (body.id ? supabase.from(type).update(pl).eq('id', body.id) : supabase.from(type).insert(pl).select('id').single());
   let { data, error } = await run(payload);
-  if (error && /branch_ids|is_walk_in/.test(error.message || '')) { const pl = { ...payload }; delete pl.branch_ids; ({ data, error } = await run(pl)); }
+  if (error && /branch_ids|is_walk_in|pos_visible/.test(error.message || '')) { const pl = { ...payload }; delete pl.branch_ids; delete pl.pos_visible; ({ data, error } = await run(pl)); }
   if (error) throw new Error(error.message);
 
   await auditLog(type === 'clients' ? 'Clients' : 'Fournisseurs', body.id ? 'UPDATE' : 'CREATE', payload.name, body.id ? 'Modification tiers' : 'Création tiers');
@@ -4566,7 +4594,12 @@ async function deleteParty(type, id) {
   requirePerm(delPerm, type === 'clients' ? 'Suppression client' : 'Suppression fournisseur');
 
   const { data: row } = await supabase.from(type).select('*').eq('id', id).maybeSingle();
-  if (row?.is_walk_in) throw new Error(Lc('pWalkInHint'));
+  if (row?.is_walk_in) {
+    // V56 : seule une fiche comptoir supplémentaire (pas celle par défaut de la droguerie) peut être supprimée, par l'administrateur
+    if (!isAdmin(getStoredSession())) throw new Error(Lc('wiAdminOnly'));
+    const { data: same } = await supabase.from(type).select('id').eq('is_walk_in', true).eq('branch_id', row.branch_id).order('id');
+    if (!same || !same.length || Number(same[0].id) === Number(row.id)) throw new Error(Lc('pWalkInHint'));
+  }
   const docTable = type === 'clients' ? 'sales' : 'purchases';
   const { count } = await supabase.from(docTable).select('id', { count: 'exact', head: true }).eq(type === 'clients' ? 'client_id' : 'supplier_id', id);
   if (count) throw new Error(Lc('pHasDocs'));
@@ -7952,12 +7985,15 @@ async function loadCounterClients() {
   const { data, error } = await supabase.from('clients').select('*').order('name');
   if (error) throw new Error(error.message);
   const bId = isAdmin(session) ? selectedBranchId(session) : branchId(session);
-  return (data || []).filter(x => partyInBranch(x, bId)).sort((a, b) => Number(!!b.is_walk_in) - Number(!!a.is_walk_in));
+  // V56 : case « Comptoir » décochée → client absent de la caisse (les fiches comptoir restent toujours visibles)
+  return (data || []).filter(x => partyInBranch(x, bId) && (x.is_walk_in || x.pos_visible !== false))
+    .sort((a, b) => Number(!!b.is_walk_in) - Number(!!a.is_walk_in) || (a.is_walk_in && b.is_walk_in ? Number(a.id) - Number(b.id) : 0));
 }
 function counterWalkIn(clients) {
   const session = getStoredSession();
   const bId = isAdmin(session) ? (selectedBranchId(session) || branchId(session)) : branchId(session);
-  const walks = (clients || []).filter(c => c.is_walk_in);
+  // V56 : plusieurs fiches comptoir possibles par droguerie → la première créée est celle par défaut
+  const walks = (clients || []).filter(c => c.is_walk_in).sort((a, b) => Number(a.id) - Number(b.id));
   return walks.find(c => Number(c.branch_id) === Number(bId)) || walks[0] || null;
 }
 
@@ -9910,13 +9946,13 @@ function Parties({ L, type }) {
 
   async function load() {
     try {
-      const [data, usersData, branchesData] = await Promise.all([loadParties(type), loadUsers(), loadBranches()]);
+      const [data, usersData, branchesData] = await Promise.all([loadParties(type, { list: true }), loadUsers(), loadBranches()]);
       setRows(data);
       setUsers(usersData);
       setBranches(branchesData);
       // V55 : « + Nouveau → Client / Fournisseur »
       if (takeQuickAction(type) === 'new' && can(type === 'clients' ? 'clients.write' : 'suppliers.write')) {
-        setForm({ name: '', type: 'entreprise', ice: '', phone: '', city: '', address: '', contact: '', assigned_to: getStoredSession()?.user?.id || '', branch_id: currentBranchId() || branchesData[0]?.id || '', branch_ids: [] });
+        setForm({ name: '', type: 'entreprise', ice: '', phone: '', city: '', address: '', contact: '', assigned_to: getStoredSession()?.user?.id || '', branch_id: currentBranchId() || branchesData[0]?.id || '', branch_ids: [], pos_visible: true });
       }
       let bal = await loadPartyBalances(type);
       if (!bal) {
@@ -10000,7 +10036,8 @@ function Parties({ L, type }) {
       name: '', type: 'entreprise', ice: '', phone: '', city: '', address: '', contact: '',
       assigned_to: session?.user?.id || '',
       branch_id: currentBranchId() || branches[0]?.id || '',
-      branch_ids: []
+      branch_ids: [],
+      pos_visible: true
     });
   }
 
@@ -10012,7 +10049,8 @@ function Parties({ L, type }) {
   const isDup = x => !x.is_walk_in && nameCount[norm(x.name)] > 1;
 
   const filteredRows = (ownerFilter === 'all' ? rows : rows.filter(x => String(x.assigned_to || '') === String(ownerFilter)))
-    .filter(x => scopeFilter === 'all' || (scopeFilter === 'shared' ? !partyBranchIds(x).length && !x.is_walk_in : scopeFilter === 'walkin' ? x.is_walk_in : scopeFilter === 'dups' ? isDup(x) : partyBranchIds(x).length && !x.is_walk_in))
+    .filter(x => scopeFilter === 'all' || (scopeFilter === 'shared' ? !partyBranchIds(x).length && !x.is_walk_in : scopeFilter === 'walkin' ? x.is_walk_in : scopeFilter === 'dups' ? isDup(x)
+      : scopeFilter === 'pos' ? (x.is_walk_in || x.pos_visible !== false) : scopeFilter === 'nopos' ? (!x.is_walk_in && x.pos_visible === false) : partyBranchIds(x).length && !x.is_walk_in))
     .filter(x => !search || [x.name, x.ice, x.phone, x.city, x.contact, x.assignedToLabel].join(' ').toLowerCase().includes(search.toLowerCase()));
 
   const uniqueOwners = users.filter(u => rows.some(x => String(x.assigned_to || '') === String(u.id)));
@@ -10034,6 +10072,7 @@ function Parties({ L, type }) {
               { key: 'name', header: 'Nom' }, { key: 'type', header: 'Type (entreprise / particulier)' }, { key: 'phone', header: 'Téléphone' },
               { key: 'city', header: 'Ville' }, { key: 'address', header: 'Adresse' }, { key: 'ice', header: 'ICE' },
               { key: 'price_tier', header: 'Tarif (detail / gros)' }, { key: 'credit_limit', header: 'Plafond de crédit (DH, 0 = aucun)', type: 'money' },
+              { value: x => (x.is_walk_in || x.pos_visible !== false) ? 'Oui' : 'Non', header: 'Caisse (comptoir)' },
               { value: x => Number(balances[x.id]?.outstanding || 0), header: L('outstanding'), type: 'money', total: true },
               { value: x => scopeLabel(x), header: L('pScope') }, { value: x => branchName(x.branch_id), header: L('pOrigin') },
               { key: 'createdByLabel', header: L('createdBy') }, { key: 'assignedToLabel', header: L('assignedTo') }
@@ -10064,7 +10103,9 @@ function Parties({ L, type }) {
       </div>
 
       <div className="flex flex-wrap gap-2 mb-3">
-        {[['all', L('all')], ['shared', L('pScopeAll')], ['only', L('pScopeOnly')], ['walkin', L('pWalkIn')], ['dups', L('pDuplicatesFound') + ' (' + dupCount + ')']].map(([k, t]) => (
+        {[['all', L('all')], ['shared', L('pScopeAll')], ['only', L('pScopeOnly')], admin && ['walkin', '🏪 ' + L('pWalkIn')],
+          isClients && ['pos', L('posOnly')], isClients && ['nopos', L('posHidden') + ' (' + rows.filter(x => !x.is_walk_in && x.pos_visible === false).length + ')'],
+          ['dups', L('pDuplicatesFound') + ' (' + dupCount + ')']].filter(Boolean).map(([k, t]) => (
           <button key={k} onClick={() => setScopeFilter(k)} className={'px-3 py-1.5 rounded-full text-xs font-semibold ' + (scopeFilter === k ? 'bg-slate-800 text-white' : 'bg-white border text-slate-600')}>{t}</button>
         ))}
       </div>
@@ -10090,7 +10131,7 @@ function Parties({ L, type }) {
               <tr key={x.id} className={x.is_walk_in ? 'party-walkin' : ''}>
                 <td>
                   <div className="font-semibold">{x.is_walk_in ? '🏪 ' : ''}{x.name}</div>
-                  <div className="text-xs text-slate-400">{x.is_walk_in ? <Badge tone="amber">{L('pWalkIn')}</Badge> : (L('createdBy') + ' ' + (x.createdByLabel || '-'))}{isDup(x) ? <> <Badge tone="red">{L('pDuplicatesFound')}</Badge></> : null}</div>
+                  <div className="text-xs text-slate-400">{x.is_walk_in ? <Badge tone="amber">{L('pWalkIn')}</Badge> : (L('createdBy') + ' ' + (x.createdByLabel || '-'))}{isDup(x) ? <> <Badge tone="red">{L('pDuplicatesFound')}</Badge></> : null}{isClients && !x.is_walk_in && x.pos_visible === false ? <> <span className="badge-pos-off" title={L('posVisibleHint')}>🚫 {L('posHidden')}</span></> : null}</div>
                 </td>
                 <td className="text-xs text-slate-500">{isClients ? (x.ice || '-') : [x.contact, x.ice].filter(Boolean).join(' · ') || '-'}</td>
                 <td>{x.phone || '-'}</td>
@@ -10159,6 +10200,17 @@ function Parties({ L, type }) {
                 <input className="input mt-1" type="number" min="0" disabled={!can('clients.credit_limit')} value={form.credit_limit ?? 0} onChange={e => setForm({ ...form, credit_limit: e.target.value })} />
                 <span className="text-xs text-slate-400">0 = {L('noLimit')}</span>
               </label>
+            </div>
+          ) : null}
+
+          {isClients && !form.is_walk_in ? (
+            <div className={'pos-visible-box ' + (form.pos_visible !== false ? 'on' : 'off')}>
+              <label className="flex items-center gap-2 text-sm font-semibold">
+                <input type="checkbox" data-pos-visible disabled={!admin} checked={form.pos_visible !== false} onChange={e => setForm({ ...form, pos_visible: e.target.checked })} />
+                {L('posVisible')}
+                {!admin ? <span className="text-xs text-slate-400" title={L('posAdminOnly')}>🔒</span> : null}
+              </label>
+              <div className="text-xs text-slate-500 mt-1">{admin ? L('posVisibleHint') : L('posAdminOnly')}</div>
             </div>
           ) : null}
 
@@ -10255,19 +10307,48 @@ function WalkInManager({ L, type, close }) {
   const [stats, setStats] = useState([]);
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
+  const [branchList, setBranchList] = useState([]);
+  const [adding, setAdding] = useState(null);
   async function load() {
     try {
       const [{ data: parties, error }, st, bs] = await Promise.all([
-        supabase.from(type).select('*').eq('is_walk_in', true).order('branch_id'),
+        supabase.from(type).select('*').eq('is_walk_in', true).order('branch_id').order('id'),
         supabase.rpc('app_walk_in_stats'),
         loadBranches()
       ]);
       if (error) throw new Error(error.message);
       const stRows = (st.data || []).filter(r => r.kind === type);
       setStats(stRows);
-      setRows(bs.map(b => ({ branch: b, party: (parties || []).find(p => Number(p.branch_id) === Number(b.id)) || null, st: stRows.find(r => Number(r.branch_id) === Number(b.id)) || null })));
+      setBranchList(bs);
+      // V56 : plusieurs fiches par droguerie ; la première créée reste celle par défaut
+      const out = [];
+      bs.forEach(b => {
+        const list = (parties || []).filter(p => Number(p.branch_id) === Number(b.id)).sort((x, y) => Number(x.id) - Number(y.id));
+        if (!list.length) out.push({ branch: b, party: null, st: null, isDefault: false });
+        list.forEach((p, i) => out.push({ branch: b, party: p, st: stRows.find(r => Number(r.party_id) === Number(p.id)) || null, isDefault: i === 0, first: i === 0 }));
+      });
+      setRows(out);
       setEdits({});
     } catch (e) { setMsg(e.message); }
+  }
+  async function addOne() {
+    if (!adding?.name || !String(adding.name).trim()) return setMsg(L('name') + ' ?');
+    setBusy(true); setMsg('');
+    const { error } = await supabase.rpc('app_admin_add_walk_in', { p_type: type, p_branch: Number(adding.branch_id), p_name: String(adding.name).trim(), p_phone: adding.phone || '', p_price_tier: adding.price_tier === 'gros' ? 'gros' : 'detail' });
+    if (error) setMsg(error.message);
+    else {
+      await auditLog(isClients ? 'Clients' : 'Fournisseurs', 'CREATE', adding.name, isClients ? 'Nouvelle fiche comptoir' : 'Nouveau fournisseur divers');
+      setMsg(L('wiSaved') + ' : ' + adding.name); setAdding(null);
+    }
+    await load();
+    setBusy(false);
+  }
+  async function removeOne(p) {
+    if (!confirm(L('del') + ' « ' + p.name + ' » ?')) return;
+    setBusy(true); setMsg('');
+    try { await deleteParty(type, p.id); setMsg(L('wiDeleted') + ' : ' + p.name); } catch (e) { setMsg(e.message); }
+    await load();
+    setBusy(false);
   }
   useEffect(() => { load(); }, []);
   const val = (p, k) => (edits[p.id] && edits[p.id][k] !== undefined ? edits[p.id][k] : (p[k] ?? ''));
@@ -10293,7 +10374,8 @@ function WalkInManager({ L, type, close }) {
   const sum = k => stats.reduce((t, r) => t + Number(r[k] || 0), 0);
   return (
     <Modal title={'🏪 ' + (isClients ? L('wiTitleClients') : L('wiTitleSuppliers'))} onClose={close} wide>
-      <p className="text-sm text-slate-500 mb-3">{isClients ? L('wiHint') : L('wiHintSuppliers')}</p>
+      <p className="text-sm text-slate-500 mb-1">{isClients ? L('wiHint') : L('wiHintSuppliers')}</p>
+      <p className="text-xs text-slate-400 mb-3">🔒 {L('wiPrivate')}</p>
       <div className="pro-kpi-grid mb-3">
         <div className="pro-kpi-card"><span>{L('wiToday')}</span><b>{dh(sum('today_total'))}</b><small>{isClients ? L('sales') : L('purchases')}</small></div>
         <div className="pro-kpi-card"><span>{L('wiMonth')}</span><b>{dh(sum('month_total'))}</b><small>{isClients ? L('sales') : L('purchases')}</small></div>
@@ -10308,12 +10390,15 @@ function WalkInManager({ L, type, close }) {
             </tr>
           </thead>
           <tbody>
-            {rows.map(({ branch, party, st }) => (
-              <tr key={branch.id}>
-                <td className="font-semibold whitespace-nowrap">{branch.name}</td>
+            {rows.map(({ branch, party, st, isDefault, first }) => (
+              <tr key={branch.id + '-' + (party?.id || 'x')}>
+                <td className={'whitespace-nowrap ' + (first || !party ? 'font-semibold' : 'text-xs text-slate-400')}>{branch.name}</td>
                 {party ? (
                   <>
-                    <td><input className="input" style={{ minWidth: 190 }} title={L('wiNameHint')} value={val(party, 'name')} onChange={e => setVal(party, 'name', e.target.value)} /></td>
+                    <td>
+                      <input className="input" style={{ minWidth: 190 }} title={L('wiNameHint')} value={val(party, 'name')} onChange={e => setVal(party, 'name', e.target.value)} />
+                      {isDefault ? <div className="mt-1"><span title={L('wiDefaultHint')}><Badge tone="amber">{L('wiDefault')}</Badge></span></div> : null}
+                    </td>
                     {isClients ? (
                       <td>
                         <select className="input" style={{ minWidth: 100 }} value={val(party, 'price_tier') || 'detail'} onChange={e => setVal(party, 'price_tier', e.target.value)}>
@@ -10327,7 +10412,10 @@ function WalkInManager({ L, type, close }) {
                     <td className="whitespace-nowrap">{dh(st?.month_total || 0)}</td>
                     <td className="whitespace-nowrap font-semibold">{dh(st?.total || 0)}</td>
                     <td className="whitespace-nowrap">{st?.last_date ? frDate(st.last_date) : '-'}</td>
-                    <td><button disabled={busy || !edits[party.id]} onClick={() => saveRow(party)} className="btn bg-amber-500 text-sm">{L('save')}</button></td>
+                    <td className="whitespace-nowrap">
+                      <button disabled={busy || !edits[party.id]} onClick={() => saveRow(party)} className="btn bg-amber-500 text-sm">{L('save')}</button>
+                      {!isDefault && !Number(st?.docs || 0) ? <button disabled={busy} onClick={() => removeOne(party)} className="btn bg-white border text-red-600 text-sm ms-1" title={L('del')}>🗑</button> : null}
+                    </td>
                   </>
                 ) : (
                   <td colSpan={isClients ? 8 : 7}><Badge tone="red">{L('wiMissing')}</Badge></td>
@@ -10337,6 +10425,34 @@ function WalkInManager({ L, type, close }) {
           </tbody>
         </table>
       </div>
+      {adding ? (
+        <div className="wi-add card p-3 mt-3" data-wi-add>
+          <div className="font-semibold mb-2">＋ {isClients ? L('wiAddTitle') : L('wiAddSupplierTitle')}</div>
+          <div className="flex flex-wrap gap-2 items-end">
+            <label className="text-xs text-slate-500">{L('pBranch')}
+              <select className="input mt-1" value={adding.branch_id} onChange={e => setAdding({ ...adding, branch_id: e.target.value })}>
+                {branchList.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+              </select>
+            </label>
+            <label className="text-xs text-slate-500 flex-1" style={{ minWidth: 200 }}>{L('name')}
+              <input className="input mt-1" autoFocus value={adding.name} onChange={e => setAdding({ ...adding, name: e.target.value })} placeholder={isClients ? 'Ex. : Client comptoir — Artisans' : 'Ex. : Fournisseur divers — Quincaillerie'} />
+            </label>
+            {isClients ? (
+              <label className="text-xs text-slate-500">{L('priceTier')}
+                <select className="input mt-1" value={adding.price_tier} onChange={e => setAdding({ ...adding, price_tier: e.target.value })}>
+                  <option value="detail">{L('retail')}</option>
+                  <option value="gros">{L('wholesale')}</option>
+                </select>
+              </label>
+            ) : null}
+            <label className="text-xs text-slate-500">{L('phone')}
+              <input className="input mt-1" inputMode="tel" value={adding.phone} onChange={e => setAdding({ ...adding, phone: e.target.value })} />
+            </label>
+            <button disabled={busy} onClick={addOne} className="btn bg-amber-500">{L('save')}</button>
+            <button disabled={busy} onClick={() => setAdding(null)} className="btn bg-white border">{L('closeBtn')}</button>
+          </div>
+        </div>
+      ) : null}
       <div className="flex flex-wrap justify-between items-center gap-2 mt-3">
         <span className="text-sm text-slate-600">{msg}</span>
         <div className="flex gap-2">
@@ -10350,6 +10466,7 @@ function WalkInManager({ L, type, close }) {
             ], rows }]
           })} />
           {missing ? <button disabled={busy} onClick={createMissing} className="btn bg-slate-900 text-white">＋ {L('wiCreateMissing')} ({missing})</button> : null}
+          {!adding ? <button disabled={busy} onClick={() => setAdding({ branch_id: String(currentBranchId() || branchList[0]?.id || ''), name: '', phone: '', price_tier: 'detail' })} className="btn bg-amber-500" data-wi-add-btn>＋ {L('wiAdd')}</button> : null}
           <button onClick={close} className="btn bg-white border">{L('closeBtn')}</button>
         </div>
       </div>
