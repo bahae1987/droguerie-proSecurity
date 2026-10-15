@@ -1156,6 +1156,8 @@ body {
 .wa-head small { font-weight: 400; opacity: .8; font-size: 11px; }
 .wa-chat { background: #efeae2; padding: 14px; min-height: 260px; max-height: 420px; overflow: auto; }
 .wa-bubble { background: #d9fdd3; border-radius: 10px 10px 2px 10px; padding: 8px 10px; font-size: 13px; white-space: pre-wrap; word-break: break-word; box-shadow: 0 1px 1px rgba(0,0,0,.08); margin-inline-start: auto; max-width: 92%; }
+/* V66 : pièce jointe dans l'aperçu WhatsApp */
+.wa-file { background: #d9fdd3; border-radius: 10px; padding: 10px 12px; font-size: 13px; font-weight: 600; color: #0f172a; margin: 0 0 6px; margin-inline-start: auto; max-width: 92%; width: fit-content; box-shadow: 0 1px 1px rgba(0,0,0,.08); }
 
 /* V52 : achats / réceptions */
 .rc-progress { height: 4px; background: #e2e8f0; border-radius: 99px; overflow: hidden; margin-top: 3px; min-width: 70px; }
@@ -1597,3 +1599,36 @@ tr.party-walkin > td { background: #fffbeb; }
 .app-topline-start { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 @media (min-width: 901px) { .app-shell.nav-hidden .app-sidebar { display: none !important; } }
 @media (max-width: 900px) { .nav-toggle { display: none !important; } }
+
+/* V66 : montant reçu saisissable au pavé numérique */
+.pm-recv { display: flex; flex-direction: column; border: 2px solid transparent; border-radius: 10px; padding: 2px 6px; margin: -4px -6px; cursor: text; }
+.pm-recv.on { border-color: var(--pm-amber); background: var(--pm-amber-soft); }
+.pm-recv input { border: 0; background: transparent; font-size: 22px; font-weight: 800; color: var(--pm-ink); width: 150px; padding: 0; outline: none; font-variant-numeric: tabular-nums; }
+.pm-recv input::placeholder { color: #cbd5e1; }
+.pm-pad-target { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--pm-mute); flex-wrap: wrap; }
+.pm-pad-target button { background: #fff; border: 1px solid #cbd5e1; border-radius: 999px; padding: 2px 10px; font-size: 12px; font-weight: 600; color: #334155; }
+.pm-pad-target button.on { background: var(--pm-amber); border-color: var(--pm-amber); color: #422006; }
+.pm .pm-recv input, .pm .pm-recv input:focus { border: 0 !important; box-shadow: none !important; outline: none !important; background: transparent !important; }
+.pm-k { padding: 6px 0; }
+
+/* V66 : fenêtres adaptées à la hauteur de l'écran (aperçu de documents longs) */
+.app-modal { display: flex !important; align-items: center; justify-content: center; }
+.modal-panel { display: flex; flex-direction: column; max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px); }
+.modal-head { flex: none; }
+.modal-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; margin-inline-end: -8px; padding-inline-end: 8px; scrollbar-gutter: stable; }
+.modal-body::-webkit-scrollbar { width: 10px; }
+.modal-body::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; border: 2px solid #fff; }
+.modal-body::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+.modal-actions { position: sticky; bottom: 0; z-index: 2; background: #fff; padding-top: 10px; padding-bottom: 2px; border-top: 1px solid #e2e8f0; box-shadow: 0 -10px 14px -12px rgba(15, 23, 42, .25); }
+@media (max-width: 900px) {
+  .modal-panel { max-height: calc(100vh - 16px); max-height: calc(100dvh - 16px); }
+}
+@media print {
+  .modal-panel { max-height: none !important; display: block !important; }
+  .modal-body { overflow: visible !important; max-height: none !important; }
+}
+/* V66 : à l'impression d'un aperçu, la page derrière ne crée plus de pages blanches */
+@media print {
+  body:has(.app-modal .print-area) .app-main > div > *:not(.app-modal):not(:has(.app-modal)) { display: none !important; }
+  body:has(.app-modal .print-area) .app-topline, body:has(.app-modal .print-area) .saas-banners { display: none !important; }
+}

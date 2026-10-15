@@ -4,7 +4,7 @@ import { flushSync, createPortal } from 'react-dom';
 import { createClient } from '@supabase/supabase-js';
 import './index.css';
 
-console.log('DROGUERIEPRO V65 OK');
+console.log('DROGUERIEPRO V66 OK');
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -1366,7 +1366,8 @@ const WA_DEFAULTS = {
     doc: 'Bonjour {client},\nVeuillez trouver votre {document} N° {numero} du {date}, d\'un montant de {montant}.\nReste à régler : {reste}\n📄 {lien}\nCordialement,\n{societe}\n{telephone_societe}',
     statement: 'Bonjour {client},\nVoici votre relevé de compte au {date}.\nTotal facturé : {total_facture}\nTotal réglé : {total_regle}\nSolde dû : {montant}\n📄 {lien}\nCordialement,\n{societe}\n{telephone_societe}',
     reminder: 'Bonjour {client},\nSauf erreur de notre part, les factures suivantes restent à régler :\n{factures}\nTotal dû : {montant}\n📄 Relevé : {lien}\nMerci de bien vouloir procéder au règlement.\nCordialement,\n{societe}\n{telephone_societe}',
-    ticket: '{societe}\nTicket {numero} du {date}\n{articles}\nTotal : {montant} ({paiement})\nMerci de votre visite !',
+    // V66 : message standard (le détail des articles est dans le ticket ou la facture joints ; {articles} reste utilisable)
+    ticket: 'Bonjour {client},\nMerci pour votre achat chez {societe}.\nVotre {document} N° {numero} du {date} : {montant} ({paiement}).\n📄 {lien}\nÀ bientôt !\n{telephone_societe}',
     payment_in: 'Bonjour {client},\nNous confirmons la réception de votre règlement N° {numero} du {date} : {montant} ({paiement}).\nFactures réglées :\n{factures}\n📄 Reçu : {lien}\nMerci pour votre confiance,\n{societe}\n{telephone_societe}',
     payment_out: 'Bonjour {client},\nVeuillez trouver notre règlement N° {numero} du {date} : {montant} ({paiement}).\nFactures concernées :\n{factures}\n📄 Bon : {lien}\nCordialement,\n{societe}\n{telephone_societe}'
   },
@@ -1374,7 +1375,7 @@ const WA_DEFAULTS = {
     doc: 'السلام عليكم {client}،\nتجدون {document} رقم {numero} بتاريخ {date}، بمبلغ {montant}.\nالمبلغ المتبقي: {reste}\n📄 {lien}\nمع التحية،\n{societe}\n{telephone_societe}',
     statement: 'السلام عليكم {client}،\nإليكم كشف حسابكم بتاريخ {date}.\nمجموع الفواتير: {total_facture}\nمجموع المؤدى: {total_regle}\nالرصيد المستحق: {montant}\n📄 {lien}\nمع التحية،\n{societe}\n{telephone_societe}',
     reminder: 'السلام عليكم {client}،\nنذكّركم بأن الفواتير التالية لم تُؤدَّ بعد:\n{factures}\nالمجموع المستحق: {montant}\n📄 كشف الحساب: {lien}\nنرجو منكم التفضل بالأداء.\nمع التحية،\n{societe}\n{telephone_societe}',
-    ticket: '{societe}\nتذكرة {numero} بتاريخ {date}\n{articles}\nالمجموع: {montant} ({paiement})\nشكراً لزيارتكم!',
+    ticket: 'السلام عليكم {client}،\nشكراً على مشترياتكم لدى {societe}.\n{document} رقم {numero} بتاريخ {date}: {montant} ({paiement}).\n📄 {lien}\nإلى اللقاء!\n{telephone_societe}',
     payment_in: 'السلام عليكم {client}،\nنؤكد توصلنا بأدائكم رقم {numero} بتاريخ {date}: {montant} ({paiement}).\nالفواتير المؤداة:\n{factures}\n📄 الوصل: {lien}\nشكراً على ثقتكم،\n{societe}\n{telephone_societe}',
     payment_out: 'السلام عليكم {client}،\nتجدون أداءنا رقم {numero} بتاريخ {date}: {montant} ({paiement}).\nالفواتير المعنية:\n{factures}\n📄 السند: {lien}\nمع التحية،\n{societe}\n{telephone_societe}'
   }
@@ -1424,18 +1425,24 @@ const isMobileDevice = () => /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.u
    kind : doc | statement | reminder | ticket
    party : { id, name, phone, table: 'clients' | 'suppliers' }
    buildVars(lang) : variables du message ; makePdf() : Blob PDF (facultatif) */
-function WhatsAppModal({ L, kind, party, buildVars, makePdf, pdfFolder, pdfName, auditModule, auditObject, close }) {
+// V66 : pdfChoices = [{ key, label, make, name, folder }] → choix du document joint (caisse : ticket ou facture A4)
+function WhatsAppModal({ L, kind, party, buildVars, makePdf: makePdf0, pdfFolder: pdfFolder0, pdfName: pdfName0, pdfChoices, defaultPdf, defaultAttach, onPrefs, auditModule, auditObject, close }) {
   const prefs = waPrefs();
+  const [pdfKey, setPdfKey] = useState(() => (pdfChoices && pdfChoices.length ? ((pdfChoices.find(c => c.key === defaultPdf) || pdfChoices[0]).key) : ''));
+  const choice = pdfChoices && pdfChoices.length ? (pdfChoices.find(c => c.key === pdfKey) || pdfChoices[0]) : null;
+  const makePdf = choice ? choice.make : makePdf0;
+  const pdfFolder = choice ? choice.folder : pdfFolder0;
+  const pdfName = choice ? choice.name : pdfName0;
   const [lang, setLang] = useState(prefs.lang);
   const [phone, setPhone] = useState(party?.phone || '');
-  const [message, setMessage] = useState(() => renderWa(waTemplate(kind, prefs.lang), buildVars(prefs.lang), prefs.lang));
+  const [message, setMessage] = useState(() => renderWa(waTemplate(kind, prefs.lang), buildVars(prefs.lang, pdfKey), prefs.lang));
   const [edited, setEdited] = useState(false);
-  const [attach, setAttach] = useState(makePdf ? 'link' : 'none');
+  const [attach, setAttach] = useState(() => (makePdf ? (['link', 'file', 'none'].includes(defaultAttach) ? defaultAttach : 'link') : 'none'));
   const [days, setDays] = useState(prefs.days);
   const [saveNum, setSaveNum] = useState(true);
   const [busy, setBusy] = useState('');
   const [info, setInfo] = useState('');
-  useEffect(() => { if (!edited) setMessage(renderWa(waTemplate(kind, lang), buildVars(lang), lang)); }, [lang]);
+  useEffect(() => { if (!edited) setMessage(renderWa(waTemplate(kind, lang), buildVars(lang, pdfKey), lang)); }, [lang, pdfKey]);
 
   const num = whatsappNumber(phone);
   const invalid = !!phone.trim() && !num;
@@ -1446,6 +1453,7 @@ function WhatsAppModal({ L, kind, party, buildVars, makePdf, pdfFolder, pdfName,
   async function send() {
     if (invalid) return;
     try { localStorage.setItem('droguerie_wa_prefs', JSON.stringify({ lang, days })); } catch {}
+    if (onPrefs) onPrefs({ pdf: pdfKey, attach });
     const mobile = isMobileDevice();
     const nativeFile = attach === 'file' && canShareFiles();
     // Ordinateur : la fenêtre est ouverte tout de suite, sinon le navigateur la bloque après la préparation du PDF
@@ -1520,8 +1528,16 @@ function WhatsAppModal({ L, kind, party, buildVars, makePdf, pdfFolder, pdfName,
           {makePdf ? (
             <div className="border rounded-xl p-3 space-y-1 text-sm">
               <div className="text-xs text-slate-500 font-semibold">{L('waAttach')}</div>
+              {choice ? (
+                <div className="flex flex-wrap gap-2 py-1" data-wa-doc>
+                  {pdfChoices.map(c => (
+                    <button key={c.key} type="button" data-wa-doc-choice={c.key} onClick={() => setPdfKey(c.key)}
+                      className={'btn text-sm ' + (c.key === choice.key ? 'bg-slate-900 text-white' : 'bg-white border')}>{c.label}</button>
+                  ))}
+                </div>
+              ) : null}
               {[['link', L('waAttachLink')], ['file', L('waAttachFile')], ['none', L('waAttachNone')]].map(([k, lbl]) => (
-                <label key={k} className="flex items-center gap-2"><input type="radio" name="wa-attach" checked={attach === k} onChange={() => setAttach(k)} /> {lbl}</label>
+                <label key={k} className="flex items-center gap-2"><input type="radio" name="wa-attach" data-wa-attach={k} checked={attach === k} onChange={() => setAttach(k)} /> {lbl}</label>
               ))}
               {attach === 'link' ? (
                 <label className="text-xs text-slate-500 flex items-center gap-2 mt-1">{L('waLinkDays')}
@@ -1535,6 +1551,7 @@ function WhatsAppModal({ L, kind, party, buildVars, makePdf, pdfFolder, pdfName,
           <div className="wa-phone">
             <div className="wa-head">{party?.name || 'WhatsApp'}<small dir="ltr">{num ? waDisplayNumber(num) : ''}</small></div>
             <div className="wa-chat">
+              {attach === 'file' && makePdf ? <div className="wa-file" data-wa-file>📄 {storageSafe(pdfName)}.pdf</div> : null}
               <div className="wa-bubble" dir={lang === 'ar' ? 'rtl' : 'ltr'}>{preview}</div>
             </div>
           </div>
@@ -5147,11 +5164,12 @@ function Modal({ title, onClose, children, wide }) {
   return (
     <div className="fixed inset-0 bg-slate-900/60 z-50 grid place-items-center p-4 overflow-auto app-modal" role="dialog" aria-modal="true" aria-label={typeof title === 'string' ? title : undefined}>
       <div className={'bg-white rounded-2xl shadow-2xl w-full p-5 modal-panel ' + (wide ? 'max-w-4xl' : 'max-w-lg')}>
-        <div className="flex justify-between items-start gap-3 mb-4">
+        <div className="flex justify-between items-start gap-3 mb-4 modal-head">
           <h2 className="font-bold text-lg">{title}</h2>
           <button type="button" onClick={onClose} className="modal-close" aria-label="Fermer (Échap)" title="Fermer (Échap)">✕</button>
         </div>
-        {children}
+        {/* V66 : le titre et ✕ restent en haut, le contenu défile dans la fenêtre, les boutons d'action restent visibles en bas */}
+        <div className="modal-body">{children}</div>
       </div>
     </div>
   );
@@ -5656,7 +5674,7 @@ function StatementModal({ L, title, docs, type, party, close }) {
   return (
     <Modal title={L('statement') + ' — ' + party.name} onClose={close} wide>
       <StatementDocument L={L} company={c} party={party} st={st} docRef={ref} branchNames={branchNames} />
-      <div className="flex flex-wrap justify-end gap-2 mt-4 no-print">
+      <div className="flex flex-wrap justify-end gap-2 mt-4 no-print modal-actions">
         <ExportButtons L={L} spec={() => ({
           fileName: 'Releve_' + storageSafe(party.name), title: L('statement') + ' — ' + party.name,
           sheets: [{ name: L('statement'), columns: [
@@ -8118,7 +8136,7 @@ function PaymentReceiptModal({ L, receipt, close }) {
   return (
     <Modal title={(r.kind === 'encaissement' ? tx('Reçu d\'encaissement', 'وصل استلام') : tx('Bon de décaissement', 'سند أداء')) + ' — ' + r.number} onClose={close} wide>
       <PaymentReceiptDocument L={L} company={c} r={r} docRef={ref} />
-      <div className="flex flex-wrap justify-end gap-2 mt-4 no-print">
+      <div className="flex flex-wrap justify-end gap-2 mt-4 no-print modal-actions">
         {featureOn('share') ? <button onClick={() => setWa(true)} className="btn wa-send" data-receipt-wa>🟢 WhatsApp</button> : null}
         <button disabled={busy} onClick={pdf} className="btn bg-white border" data-receipt-pdf>{busy ? L('pdfBuilding') : '📄 PDF'}</button>
         <button onClick={() => window.print()} className="btn bg-slate-900 text-white" data-receipt-print>🖨 {L('print')}</button>
@@ -10679,23 +10697,15 @@ function escapeHtml(v) {
 }
 
 // Ticket 80 mm imprimé dans une fenêtre dédiée (indépendant de la mise en page de l'app)
-function printTicket(t) {
+// V66 : contenu du ticket (impression et PDF WhatsApp)
+function ticketBodyHtml(t) {
   const c = t.company || {};
   const rows = (t.lines || []).map(l => {
     const r = lineDiscount(l);
     return `<tr><td colspan="3" class="n">${escapeHtml(l.nom)}</td></tr>
       <tr><td>${fmt(l.qte)} ${escapeHtml(l.unite || '')} x ${fmt(l.prixUnit)}${r ? ` <i>-${fmt(r)}%</i>` : ''}</td><td></td><td class="r">${fmt(lineNet(l))}</td></tr>`;
   }).join('');
-  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(t.number)}</title>
-  <style>
-    @page { size: 80mm auto; margin: 0; }
-    body { width: 72mm; margin: 4mm; font-family: 'Courier New', monospace; font-size: 12px; color: #000; }
-    h1 { font-size: 16px; text-align: center; margin: 0 0 2px; }
-    .c { text-align: center; } .r { text-align: right; } .n { font-weight: bold; padding-top: 4px; }
-    table { width: 100%; border-collapse: collapse; } hr { border: 0; border-top: 1px dashed #000; margin: 6px 0; }
-    .tot td { font-size: 14px; font-weight: bold; } i { font-style: normal; }
-    img.logo { max-width: 56mm; max-height: 22mm; object-fit: contain; filter: grayscale(1) contrast(1.3); margin-bottom: 2px; }
-  </style></head><body>
+  return `
   ${c.logo && c.ticketLogo !== false ? `<div class="c"><img class="logo" src="${c.logo}" alt=""></div>` : ''}
   <h1>${escapeHtml(c.name || 'DrogueriePro')}</h1>
   ${c.slogan ? `<div class="c"><i>${escapeHtml(c.slogan)}</i></div>` : ''}
@@ -10714,12 +10724,59 @@ function printTicket(t) {
     <tr><td>Paiement</td><td class="r">${escapeHtml(t.payMode)}</td></tr>
     ${t.payMode === 'Espèces' && Number(t.received) > 0 ? `<tr><td>Reçu</td><td class="r">${fmt(t.received)}</td></tr><tr><td>Rendu</td><td class="r">${fmt(t.change)}</td></tr>` : ''}
   </table><hr>
-  <div class="c">${escapeHtml(c.ticketMessage || 'Merci de votre visite')}</div>
+  <div class="c">${escapeHtml(c.ticketMessage || 'Merci de votre visite')}</div>`;
+}
+const TICKET_CSS = `
+    h1 { font-size: 16px; text-align: center; margin: 0 0 2px; }
+    .c { text-align: center; } .r { text-align: right; } .n { font-weight: bold; padding-top: 4px; }
+    table { width: 100%; border-collapse: collapse; } hr { border: 0; border-top: 1px dashed #000; margin: 6px 0; }
+    .tot td { font-size: 14px; font-weight: bold; } i { font-style: normal; }
+    img.logo { max-width: 56mm; max-height: 22mm; object-fit: contain; filter: grayscale(1) contrast(1.3); margin-bottom: 2px; }`;
+function printTicket(t) {
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(t.number)}</title>
+  <style>
+    @page { size: 80mm auto; margin: 0; }
+    body { width: 72mm; margin: 4mm; font-family: 'Courier New', monospace; font-size: 12px; color: #000; }${TICKET_CSS}
+  </style></head><body>${ticketBodyHtml(t)}
   <script>window.onload = function () { window.print(); setTimeout(function () { window.close(); }, 500); };</script>
   </body></html>`;
   const w = window.open('', '_blank', 'width=380,height=640');
   if (!w) { alert('Autorisez les fenêtres pop-up pour imprimer le ticket'); return; }
   w.document.open(); w.document.write(html); w.document.close();
+}
+
+function posWaPrefs() {
+  let p = {};
+  try { p = JSON.parse(localStorage.getItem('droguerie_wa_pos') || '{}') || {}; } catch {}
+  return { pdf: p.pdf === 'facture' ? 'facture' : 'ticket', attach: ['link', 'file', 'none'].includes(p.attach) ? p.attach : 'file' };
+}
+// V66 : ticket de caisse en PDF (largeur 80 mm, hauteur selon le contenu) pour WhatsApp
+async function ticketToPdfBlob(t) {
+  const [{ default: html2canvas }, { jsPDF }] = await Promise.all([import('html2canvas'), import('jspdf')]);
+  const host = document.createElement('div');
+  host.style.cssText = 'position:fixed;left:-12000px;top:0;width:302px;background:#fff;pointer-events:none;z-index:-1';
+  const css = TICKET_CSS.replace(/(^|\})\s*([^{}]+)\{/g, (m, b, sel) => b + ' ' + sel.split(',').map(x => '.tk-pdf ' + x.trim()).join(', ') + ' {');
+  host.innerHTML = `<style>.tk-pdf { width: 302px; box-sizing: border-box; padding: 15px; font-family: 'Courier New', monospace; font-size: 12px; color: #000; background: #fff; line-height: 1.25; }${css}</style><div class="tk-pdf">${ticketBodyHtml(t)}</div>`;
+  document.body.appendChild(host);
+  try {
+    const el = host.querySelector('.tk-pdf');
+    await waitImages(el);
+    const canvas = await html2canvas(el, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false });
+    const w = 80, h = Math.max(60, canvas.height * w / canvas.width);
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [w, h], compress: true });
+    pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, w, h);
+    return pdf.output('blob');
+  } finally {
+    host.remove();
+  }
+}
+// V66 : facture A4 d'une vente de la caisse (même rendu que l'aperçu)
+async function saleInvoicePdfBlob(L, docId, company) {
+  const { data, error } = await supabase.from('sales').select('*').eq('id', docId).maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error(tx('Facture introuvable', 'الفاتورة غير موجودة'));
+  const c = company || await loadCompanySettings().catch(() => ({ name: getBrand().name || 'DrogueriePro' }));
+  return jsxToPdfBlob(<DocSheet L={L} type="sales" doc={mapDoc(data)} company={c} />);
 }
 
 // Lecture code-barres par la caméra (navigateurs compatibles : Chrome Android, Edge…)
@@ -10798,6 +10855,14 @@ function PosCenter({ L }) {
   useEffect(() => { if (!readLocal(themeKey, '')) loadSettings().then(st => setThemeState(st.pos_theme === 'market' ? 'market' : 'classic')).catch(() => {}); }, []);
   const [selId, setSelId] = useState(null);
   const [mult, setMult] = useState(null);
+  // V66 : le pavé numérique écrit soit dans l'article (scan), soit dans le montant reçu
+  const [padTarget, setPadTarget] = useState('scan');
+  const receivedRef = useRef(null);
+  // V66 : en revenant sur le montant reçu, le premier chiffre tapé remplace l'ancien montant (comme une caisse)
+  const freshRecvRef = useRef(false);
+  const enterRecu = () => { if (padTarget !== 'recu') freshRecvRef.current = true; setPadTarget('recu'); };
+  const focusPad = t => setTimeout(() => (t === 'recu' ? receivedRef.current : searchRef.current)?.focus(), 0);
+  const cleanAmount = v => { const t = String(v ?? '').replace(',', '.').replace(/[^0-9.]/g, ''); const i = t.indexOf('.'); return i < 0 ? t : t.slice(0, i + 1) + t.slice(i + 1).replace(/\./g, '').slice(0, 2); };
   const [muted, setMuted] = useState(() => !!readLocal('dp_pos_mute', false));
   const [kiosk, setKiosk] = useState(false);
   const [clock, setClock] = useState(Date.now());
@@ -10877,6 +10942,17 @@ function PosCenter({ L }) {
   // V65 : pavé numérique et opérations sur la ligne sélectionnée
   const numOf = v => Number(String(v ?? '').replace(',', '.'));
   function keyPress(k) {
+    // V66 : montant reçu sélectionné → les chiffres vont dans le montant reçu
+    if (padTarget === 'recu' && payMode === 'Espèces') {
+      const fresh = freshRecvRef.current; freshRecvRef.current = false;
+      if (/^[0-9]+$/.test(k)) setReceived(r => cleanAmount((fresh || r === '0' ? '' : r) + k));
+      else if (k === ',') setReceived(r => (fresh ? '0.' : /\./.test(r) ? r : (r || '0') + '.'));
+      else if (k === 'back') setReceived(r => r.slice(0, -1));
+      else if (k === 'C') setReceived('');
+      else if (k === 'enter' || k === 'recu' || k === 'x') { setPadTarget('scan'); focusPad('scan'); return; }
+      focusPad('recu');
+      return;
+    }
     if (/^[0-9]+$/.test(k)) setSearch(x => x + k);
     else if (k === ',') setSearch(x => (/[.,]/.test(x) ? x : (x || '0') + ','));
     else if (k === 'back') setSearch(x => x.slice(0, -1));
@@ -10887,10 +10963,11 @@ function PosCenter({ L }) {
       else showToast(tx('Tapez la quantité puis « × Qté », puis scannez l\'article', 'اكتب الكمية ثم « × »'), 'warn');
     } else if (k === 'recu') {
       const n = numOf(search);
-      if (n > 0) { setPayMode('Espèces'); setReceived(String(n)); setSearch(''); }
-      else showToast(tx('Tapez le montant donné par le client puis « Reçu »', 'اكتب المبلغ ثم « مقبوض »'), 'warn');
+      setPayMode('Espèces');
+      if (n > 0 && /^[0-9.,]+$/.test(search.trim())) { setReceived(cleanAmount(search)); setSearch(''); }
+      else { enterRecu(); focusPad('recu'); return; }
     } else if (k === 'enter') onSearchEnter();
-    setTimeout(() => searchRef.current?.focus(), 0);
+    focusPad('scan');
   }
   const setLine = (id, patch) => setCart(prev => prev.map(l => String(l.produitId) === String(id) ? { ...l, ...patch } : l));
   const changeQty = (id, d) => setCart(prev => prev.map(l => String(l.produitId) === String(id) ? { ...l, qte: Math.max(1, Math.round((numOf(l.qte) + d) * 1000) / 1000) } : l));
@@ -10903,7 +10980,7 @@ function PosCenter({ L }) {
     showToast(tx('Article annulé : ', 'تم إلغاء المنتج: ') + l.nom, 'warn');
     setTimeout(() => searchRef.current?.focus(), 0);
   }
-  function addNote(v) { setPayMode('Espèces'); setReceived(r => String(Math.round((numOf(r || 0) + v) * 100) / 100)); setTimeout(() => searchRef.current?.focus(), 0); }
+  function addNote(v) { freshRecvRef.current = false; setPayMode('Espèces'); setReceived(r => String(Math.round((numOf(r || 0) + v) * 100) / 100)); focusPad(padTarget); }
   function selectedLine() { return cart.find(l => String(l.produitId) === String(selId)) || cart[cart.length - 1] || null; }
   function setSelectedQtyFromInput() {
     const l = selectedLine(); const n = numOf(search);
@@ -10989,7 +11066,7 @@ function PosCenter({ L }) {
       }
       setPromiseDate('');
       const ticket = {
-        company, number: res.number, date: new Date().toLocaleString('fr-FR'), client: client?.name || L('walkInClient'),
+        company, docId: res.id, number: res.number, date: new Date().toLocaleString('fr-FR'), client: client?.name || L('walkInClient'),
         clientId: client && !client.is_walk_in ? client.id : null, clientPhone: client && !client.is_walk_in ? (client.phone || '') : '', clientName: client && !client.is_walk_in ? client.name : '',
         cashier: currentUserLabel(), lines: cart, totals: res.totals, payMode,
         received: payMode === 'Espèces' ? Number(received || res.totals.totalTTC) : 0,
@@ -11066,13 +11143,21 @@ function PosCenter({ L }) {
       {waTicket ? (
         <WhatsAppModal L={L} kind="ticket" close={() => setWaTicket(null)}
           party={{ id: waTicket.clientId, name: waTicket.clientName, phone: waTicket.clientPhone, table: 'clients' }}
-          buildVars={lang => ({
+          buildVars={(lang, pdf) => ({
             societe: waTicket.company?.name || '', numero: waTicket.number, date: waTicket.date,
+            document: pdf === 'facture' ? (lang === 'ar' ? 'فاتورتكم' : 'facture') : (lang === 'ar' ? 'تذكرتكم' : 'ticket'),
             articles: (waTicket.lines || []).map(l => '• ' + (lang === 'ar' && l.nomAr ? l.nomAr : l.nom) + ' × ' + fmt(l.qte) + ' = ' + dh(lineNet(l))).join('\n'),
             montant: dh(waTicket.totals?.totalTTC || 0), paiement: Lx(lang)('pm_' + waTicket.payMode) || waTicket.payMode,
             client: waTicket.clientName || '', telephone_societe: waTicket.company?.phone || ''
           })}
-          pdfName={waTicket.number} auditModule="Caisse" auditObject={waTicket.number} />
+          // V66 : ticket ou facture A4 en pièce jointe (choix mémorisé sur le poste)
+          pdfChoices={[
+            { key: 'ticket', label: '🧾 ' + tx('Ticket', 'التذكرة'), folder: 'caisse', name: 'Ticket_' + waTicket.number, make: () => ticketToPdfBlob(waTicket) },
+            ...(waTicket.docId ? [{ key: 'facture', label: '📄 ' + tx('Facture A4', 'فاتورة A4'), folder: 'ventes', name: waTicket.number, make: () => saleInvoicePdfBlob(L, waTicket.docId, waTicket.company) }] : [])
+          ]}
+          defaultPdf={posWaPrefs().pdf} defaultAttach={posWaPrefs().attach}
+          onPrefs={p => { try { localStorage.setItem('droguerie_wa_pos', JSON.stringify(p)); } catch {} }}
+          auditModule="Caisse" auditObject={waTicket.number} />
       ) : null}
       {showHolds ? <PosHoldsModal holds={holds} resume={resumeHold} drop={id => saveHolds(holds.filter(h => h.id !== id))} close={() => setShowHolds(false)} /> : null}
       {camera ? <CameraScanner L={L} close={() => setCamera(false)} onCode={code => { const p = findByCode(code); if (p) addProduct(p); else { posBeep(false, muted); alert(L('productNotFound') + ' : ' + code); } }} /> : null}
@@ -11123,7 +11208,7 @@ function PosCenter({ L }) {
             <div className="pm-scan">
               {mult ? <span className="pm-mult" data-pm-mult>{String(mult).replace('.', ',')} ×</span> : <span className="pm-scan-icon" aria-hidden="true">🔎</span>}
               <input ref={searchRef} autoFocus className="pm-scan-input" placeholder={tx('Scanner ou taper un code, un nom… (F2)', 'امسح أو اكتب رمزا أو اسما… (F2)')} value={search}
-                onChange={e => setSearch(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); onSearchEnter(); } }} data-pm-scan />
+                onChange={e => setSearch(e.target.value)} onFocus={() => setPadTarget('scan')} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); onSearchEnter(); } }} data-pm-scan />
               <button type="button" onClick={() => setCamera(true)} className="pm-cam" title={L('cameraScan')}>📷</button>
             </div>
 
@@ -11213,7 +11298,7 @@ function PosCenter({ L }) {
 
             <div className="pm-modes">
               {modes.map(([m, icon]) => (
-                <button key={m} type="button" onClick={() => setPayMode(m)} className={'pm-mode' + (payMode === m ? ' on' : '')} data-pm-mode={m}><span>{icon}</span>{L('pm_' + m)}</button>
+                <button key={m} type="button" onClick={() => { setPayMode(m); if (m !== 'Espèces') setPadTarget('scan'); }} className={'pm-mode' + (payMode === m ? ' on' : '')} data-pm-mode={m}><span>{icon}</span>{L('pm_' + m)}</button>
               ))}
             </div>
 
@@ -11229,7 +11314,12 @@ function PosCenter({ L }) {
             {payMode === 'Espèces' ? (
               <div className="pm-cash">
                 <div className="pm-cash-row">
-                  <div><small>{L('cashReceived')}</small><b data-pm-received>{received === '' ? '—' : fmt(received)}</b></div>
+                  <label className={'pm-recv' + (padTarget === 'recu' ? ' on' : '')} onClick={enterRecu}>
+                    <small>{L('cashReceived')}</small>
+                    <input ref={receivedRef} inputMode="decimal" autoComplete="off" value={String(received).replace('.', ',')} placeholder="0,00"
+                      onFocus={e => { enterRecu(); if (freshRecvRef.current) e.target.select(); }} onMouseUp={e => { if (freshRecvRef.current) e.preventDefault(); }} onChange={e => { freshRecvRef.current = false; setReceived(cleanAmount(e.target.value)); }}
+                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); setPadTarget('scan'); focusPad('scan'); } }} data-pm-received />
+                  </label>
                   {received !== '' && numOf(received) + 0.001 < totals.totalTTC
                     ? <div className="pm-change short"><small>{tx('Il manque', 'الناقص')}</small><b data-pm-change>{fmt(totals.totalTTC - numOf(received))}</b></div>
                     : <div className="pm-change"><small>{L('changeDue')}</small><b data-pm-change>{fmt(change)}</b></div>}
@@ -11242,12 +11332,17 @@ function PosCenter({ L }) {
               </div>
             ) : null}
 
+            <div className="pm-pad-target" data-pad-target={padTarget === 'recu' && payMode === 'Espèces' ? 'recu' : 'scan'}>
+              {tx('Le pavé écrit dans :', 'لوحة الأرقام تكتب في:')}
+              <button type="button" className={padTarget !== 'recu' || payMode !== 'Espèces' ? 'on' : ''} onClick={() => { setPadTarget('scan'); focusPad('scan'); }}>{tx('Article', 'المنتج')}</button>
+              {payMode === 'Espèces' ? <button type="button" className={padTarget === 'recu' ? 'on' : ''} onClick={() => { enterRecu(); focusPad('recu'); }} data-pad-recu>{L('cashReceived')}</button> : null}
+            </div>
             <div className="pm-pad">
               <div className="pm-keys">
                 {keys.map(k => <button key={k} type="button" className="pm-k" onClick={() => keyPress(k)} data-pm-key={k}>{k}</button>)}
               </div>
               <div className="pm-keys-side">
-                <button type="button" className="pm-k fn" onClick={() => keyPress('back')} aria-label={tx('Effacer un chiffre', 'مسح رقم')}>⌫</button>
+                <button type="button" className="pm-k fn" onClick={() => keyPress('back')} aria-label={tx('Effacer un chiffre', 'مسح رقم')} data-pm-key="back">⌫</button>
                 <button type="button" className="pm-k fn" onClick={() => keyPress('C')} data-pm-key="C">C</button>
                 <button type="button" className="pm-k fn" onClick={() => keyPress('x')} data-pm-key="x" title={tx('Quantité pour le prochain article', 'كمية المنتج التالي')}>× {tx('Qté', 'كم')}</button>
                 {payMode === 'Espèces' ? <button type="button" className="pm-k fn" onClick={() => keyPress('recu')} data-pm-key="recu" title={tx('Montant donné par le client', 'المبلغ المقدم')}>{tx('Reçu', 'مقبوض')}</button> : null}
@@ -12235,6 +12330,99 @@ function docShareMessage(doc, title, companyName, isSales) {
   return lines.join('\n');
 }
 
+// V66 : feuille A4 d'un document (aperçu, PDF de la caisse)
+function DocSheet({ L, type, doc, company, docRef }) {
+  const isSales = type === 'sales' || doc?.client_id || doc?.client_name;
+  const c = company || { name: getBrand().name || 'DrogueriePro', logo: getBrand().logo };
+  const third = isSales ? (doc.client_name || doc.clientName || '-') : (doc.supplier_name || doc.supplierName || '-');
+  const docTitle = preciseDocTitle(doc, type, L);
+  const vatRate = Number(doc.vat_rate || 20);
+  const hasDiscount = (doc.lignes || []).some(l => lineDiscount(l) > 0);
+  return (
+  <div className="print-area simple-document" ref={docRef} style={docStyle(c)}>
+    <DocBrandHeader L={L} company={c} title={docTitle} number={docNo(doc)} date={frDate(doc.date || today())} />
+
+    <div className="simple-doc-meta">
+      <div>
+        <span>{isSales ? L('customer') : L('supplier')}</span>
+        <b>{third}</b>
+      </div>
+      <div>
+        <span>{doc.stage === 'facture' ? L('payment') : L('status')}</span>
+        <b>{doc.stage === 'facture' ? paymentLabel(doc, L) : docStatusView(doc, isSales ? 'sales' : 'purchases', L).label}</b>
+      </div>
+      {!isSales && doc.supplier_ref ? (
+        <div>
+          <span>{doc.stage === 'facture' ? L('supplierInvRef') : L('supplierBlRef')}</span>
+          <b>{doc.supplier_ref}</b>
+        </div>
+      ) : null}
+      {!isSales && doc.stage === 'facture' && doc.due_date ? (
+        <div>
+          <span>{L('dueDate')}</span>
+          <b>{frDate(doc.due_date)}</b>
+        </div>
+      ) : null}
+      <div>
+        <span>{L('createdBy')}</span>
+        <b>{doc.createdByLabel && doc.createdByLabel !== '-' ? doc.createdByLabel : (doc.created_by_label || '-')}</b>
+      </div>
+      <div>
+        <span>{L('baseDocNo')}</span>
+        <b>{doc.baseDocId ? (doc.baseDocNumber || ('#' + doc.baseDocId)) : '-'}</b>
+      </div>
+    </div>
+
+    <table className="simple-lines">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>{L('ref')}</th>
+          <th>{L('product')}</th>
+          <th>{L('quantity')}</th>
+          <th>{isSales ? L('unitPrice') : L('unitPriceHT')}</th>
+          {hasDiscount ? <th>{L('discount')}</th> : null}
+          <th>{isSales ? L('totalTTC') : L('totalHT')}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {(doc.lignes || []).map((l, i) => (
+          <tr key={i}>
+            <td>{i + 1}</td>
+            <td className="font-mono">{l.ref || l.produitId || '-'}</td>
+            <td>{l.nom || '-'}</td>
+            <td>{fmt(l.qte)} {l.unite || ''}</td>
+            <td>{dh(l.prixUnit)}</td>
+            {hasDiscount ? <td>{lineDiscount(l) ? fmt(lineDiscount(l)) + ' %' : '-'}</td> : null}
+            <td className="simple-bold">{dh(lineNet(l))}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+
+    <div className="simple-bottom">
+      <div className="simple-note">
+        <b>{L('note')}</b>
+        <p>{L('legalMoroccoNote') || L('legalNote')}</p>
+        <p>{L('thankYou') || ''}</p>
+      </div>
+
+      <div className="simple-totals">
+        <div><span>{L('totalHT')}</span><b>{dh(doc.totalHT || 0)}</b></div>
+        <div><span>{L('totalVAT')} ({fmt(vatRate)}%)</span><b>{dh(doc.tva || 0)}</b></div>
+        <div className="simple-grand"><span>{L('netToPay')}</span><b>{dh(doc.totalTTC || 0)}</b></div>
+      </div>
+    </div>
+
+    <div className="simple-footer">
+      <div>{L('printDate')} : {new Date().toLocaleString()}</div>
+      <div className="simple-signature">{L('signature')}</div>
+    </div>
+    <DocFooterText company={c} />
+  </div>
+  );
+}
+
 function DocumentPreview({ L, type, doc, close }) {
   const isSales = type === 'sales' || doc?.client_id || doc?.client_name;
   const [company, setCompany] = useState(null);
@@ -12289,93 +12477,12 @@ function DocumentPreview({ L, type, doc, close }) {
       societe: c.name || '', telephone_societe: c.phone || ''
     };
   };
-  const hasDiscount = (doc.lignes || []).some(l => lineDiscount(l) > 0);
 
   return (
     <Modal title={L('preview')} onClose={close} wide>
-      <div className="print-area simple-document" ref={areaRef} style={docStyle(c)}>
-        <DocBrandHeader L={L} company={c} title={docTitle} number={docNo(doc)} date={frDate(doc.date || today())} />
+      <DocSheet L={L} type={type} doc={doc} company={c} docRef={areaRef} />
 
-        <div className="simple-doc-meta">
-          <div>
-            <span>{isSales ? L('customer') : L('supplier')}</span>
-            <b>{third}</b>
-          </div>
-          <div>
-            <span>{doc.stage === 'facture' ? L('payment') : L('status')}</span>
-            <b>{doc.stage === 'facture' ? paymentLabel(doc, L) : docStatusView(doc, isSales ? 'sales' : 'purchases', L).label}</b>
-          </div>
-          {!isSales && doc.supplier_ref ? (
-            <div>
-              <span>{doc.stage === 'facture' ? L('supplierInvRef') : L('supplierBlRef')}</span>
-              <b>{doc.supplier_ref}</b>
-            </div>
-          ) : null}
-          {!isSales && doc.stage === 'facture' && doc.due_date ? (
-            <div>
-              <span>{L('dueDate')}</span>
-              <b>{frDate(doc.due_date)}</b>
-            </div>
-          ) : null}
-          <div>
-            <span>{L('createdBy')}</span>
-            <b>{doc.createdByLabel && doc.createdByLabel !== '-' ? doc.createdByLabel : (doc.created_by_label || '-')}</b>
-          </div>
-          <div>
-            <span>{L('baseDocNo')}</span>
-            <b>{doc.baseDocId ? (doc.baseDocNumber || ('#' + doc.baseDocId)) : '-'}</b>
-          </div>
-        </div>
-
-        <table className="simple-lines">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>{L('ref')}</th>
-              <th>{L('product')}</th>
-              <th>{L('quantity')}</th>
-              <th>{isSales ? L('unitPrice') : L('unitPriceHT')}</th>
-              {hasDiscount ? <th>{L('discount')}</th> : null}
-              <th>{isSales ? L('totalTTC') : L('totalHT')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(doc.lignes || []).map((l, i) => (
-              <tr key={i}>
-                <td>{i + 1}</td>
-                <td className="font-mono">{l.ref || l.produitId || '-'}</td>
-                <td>{l.nom || '-'}</td>
-                <td>{fmt(l.qte)} {l.unite || ''}</td>
-                <td>{dh(l.prixUnit)}</td>
-                {hasDiscount ? <td>{lineDiscount(l) ? fmt(lineDiscount(l)) + ' %' : '-'}</td> : null}
-                <td className="simple-bold">{dh(lineNet(l))}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        <div className="simple-bottom">
-          <div className="simple-note">
-            <b>{L('note')}</b>
-            <p>{L('legalMoroccoNote') || L('legalNote')}</p>
-            <p>{L('thankYou') || ''}</p>
-          </div>
-
-          <div className="simple-totals">
-            <div><span>{L('totalHT')}</span><b>{dh(doc.totalHT || 0)}</b></div>
-            <div><span>{L('totalVAT')} ({fmt(vatRate)}%)</span><b>{dh(doc.tva || 0)}</b></div>
-            <div className="simple-grand"><span>{L('netToPay')}</span><b>{dh(doc.totalTTC || 0)}</b></div>
-          </div>
-        </div>
-
-        <div className="simple-footer">
-          <div>{L('printDate')} : {new Date().toLocaleString()}</div>
-          <div className="simple-signature">{L('signature')}</div>
-        </div>
-        <DocFooterText company={c} />
-      </div>
-
-      <div className="flex flex-wrap justify-end gap-2 mt-4 no-print">
+      <div className="flex flex-wrap justify-end gap-2 mt-4 no-print modal-actions">
         {sharing ? <span className="text-sm text-slate-500 self-center">{L('pdfBuilding')}</span> : null}
         {featureOn('share') ? <button disabled={sharing} onClick={() => setWa(true)} className="btn wa-send" title={contact.phone || ''}>🟢 WhatsApp</button> : null}
         {canNativeShare && featureOn('share') ? <button disabled={sharing} onClick={() => share('native')} className="btn bg-amber-500">📤 {L('share')}</button> : null}
