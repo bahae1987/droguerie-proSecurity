@@ -4,7 +4,7 @@ import { flushSync, createPortal } from 'react-dom';
 import { createClient } from '@supabase/supabase-js';
 import './index.css';
 
-console.log('DROGUERIEPRO V64 OK');
+console.log('DROGUERIEPRO V65 OK');
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -3285,6 +3285,7 @@ async function loadSettings() {
   cacheWaSettings(out);
   cacheUiSettings(out);
   cacheAttachSettings(out);
+  cachePosSettings(out);
   setBrandCache(brandFromSettings(out));
   return out;
 }
@@ -3297,6 +3298,7 @@ async function saveSettings(settings) {
   cacheWaSettings(settings);
   cacheUiSettings(settings);
   cacheAttachSettings(settings);
+  cachePosSettings(settings);
   setBrandCache(brandFromSettings(settings));
 }
 
@@ -4811,6 +4813,8 @@ function Layout({ L, lang, toggleLang, session, setSession }) {
   const [palette, setPalette] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
   const [pageKey, setPageKey] = useState(0);
+  const [navHidden, setNavHidden] = useState(() => !!readLocal('dp_nav_hidden', false));
+  const toggleNav = () => setNavHidden(h => { writeLocal('dp_nav_hidden', !h); return !h; });
   const [, setUiTick] = useState(0);
   const brand = useBrand();
   // V62 : mode simplifié (réglage de la droguerie ou choix personnel)
@@ -4937,7 +4941,7 @@ function Layout({ L, lang, toggleLang, session, setSession }) {
         </div>
       </div>
       {mobileMenuOpen ? <div className="mobile-backdrop" onClick={() => setMobileMenuOpen(false)} /> : null}
-      <div className="min-h-screen flex app-shell">
+      <div className={'min-h-screen flex app-shell' + (navHidden ? ' nav-hidden' : '')}>
         <aside className={'w-64 bg-slate-900 text-slate-300 flex flex-col app-sidebar ' + (mobileMenuOpen ? 'open' : '')}>
           <div className="p-5 border-b border-slate-800">
             {brand.logo ? <div className="sidebar-logo"><img src={brand.logo} alt="" /></div> : null}
@@ -4991,7 +4995,11 @@ function Layout({ L, lang, toggleLang, session, setSession }) {
         </aside>
         <main className="flex-1 p-6 max-w-[1500px] mx-auto w-full app-main pro-main">
           <div className="app-topline no-print">
-            <BranchFilter L={L} value={globalBranchFilter} onChange={v => { setSelectedBranchFilter(v); setGlobalBranchFilter(v); }} />
+            <div className="app-topline-start">
+              <button type="button" className="btn bg-white border nav-toggle" onClick={toggleNav} data-nav-toggle aria-expanded={!navHidden}
+                title={navHidden ? tx('Afficher le menu', 'إظهار القائمة') : tx('Masquer le menu', 'إخفاء القائمة')}>{navHidden ? '☰ ' + tx('Menu', 'القائمة') : '☰'}</button>
+              <BranchFilter L={L} value={globalBranchFilter} onChange={v => { setSelectedBranchFilter(v); setGlobalBranchFilter(v); }} />
+            </div>
             <div className="app-topline-actions">
               {!isSuperAdmin(session) && featureOn('alerts') ? <NotificationBell session={session} /> : null}
               <HelpButton key={page} page={page} />
@@ -9017,6 +9025,58 @@ function CloseOrderModal({ L, doc, type, close, done }) {
   );
 }
 
+// ===================== V65 : caisse « grande surface » =====================
+function cachePosSettings(s) { try { localStorage.setItem('droguerie_pos_theme', s?.pos_theme === 'market' ? 'market' : 'classic'); } catch {} }
+// Bip du lecteur : court et aigu = article ajouté ; grave = article introuvable
+let posAudioCtx = null;
+function posBeep(ok, muted) {
+  if (muted || typeof window === 'undefined') return;
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+    posAudioCtx = posAudioCtx || new AC();
+    const o = posAudioCtx.createOscillator(), g = posAudioCtx.createGain();
+    o.type = ok ? 'square' : 'sawtooth'; o.frequency.value = ok ? 1760 : 196;
+    g.gain.value = ok ? 0.04 : 0.06;
+    o.connect(g); g.connect(posAudioCtx.destination);
+    o.start(); o.stop(posAudioCtx.currentTime + (ok ? 0.07 : 0.28));
+  } catch {}
+}
+// Écran client (second moniteur) : fenêtre qui affiche l'article scanné, le total puis la monnaie à rendre
+function openClientDisplay() {
+  if (typeof window === 'undefined' || typeof window.open !== 'function') return null;
+  const w = window.open('', 'dp_client_display', 'width=960,height=420');
+  if (!w) { alert(tx('Le navigateur a bloqué la fenêtre : autorisez les fenêtres pour ce site.', 'المتصفح منع النافذة.')); return null; }
+  w.document.open();
+  w.document.write(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Écran client</title><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+html,body{margin:0;height:100%;background:#fff;color:#0f172a;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+body{display:flex;flex-direction:column;justify-content:center;padding:4vh 5vw;box-sizing:border-box;font-variant-numeric:tabular-nums}
+.shop{color:#64748b;font-size:3.2vh;font-weight:600;margin-bottom:2vh}
+.l1{display:flex;justify-content:space-between;gap:3vw;font-size:5.5vh;white-space:nowrap;overflow:hidden;color:#334155}
+.l1 span:first-child{overflow:hidden;text-overflow:ellipsis}
+.l2{display:flex;justify-content:space-between;align-items:baseline;margin-top:3vh;background:#fff7e6;border:1px solid #fde68a;border-radius:2vh;padding:2vh 3vw}
+.l2 span{font-size:5vh;color:#92400e;font-weight:600}.l2 b{font-size:15vh;font-weight:900}
+.foot{color:#64748b;font-size:3vh;margin-top:2vh}
+</style></head><body><div class="shop" id="shop"></div><div class="l1"><span id="a">Bienvenue</span><span id="b"></span></div>
+<div class="l2"><span id="c">Total à payer</span><b id="d">0,00</b></div><div class="foot" id="e"></div>
+<script>
+var f=function(n){return Number(n||0).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2});};
+var ch=new BroadcastChannel('dp_pos_display');
+ch.onmessage=function(ev){var s=ev.data||{};if(s.type!=='state')return;
+document.getElementById('shop').textContent=s.company||'';
+if(s.paid){document.getElementById('a').textContent='Merci de votre visite';document.getElementById('b').textContent='';
+document.getElementById('c').textContent=s.paid.change>0?'Monnaie à rendre':'Payé';document.getElementById('d').textContent=f(s.paid.change>0?s.paid.change:s.paid.total)+' DH';
+document.getElementById('e').textContent='Ticket '+s.paid.number;return;}
+document.getElementById('a').textContent=s.last?(s.last.qte!=1?s.last.qte+' x ':'')+s.last.nom:'Bienvenue';
+document.getElementById('b').textContent=s.last?f(s.last.amount):'';
+document.getElementById('c').textContent='Total à payer';document.getElementById('d').textContent=f(s.total)+' DH';
+document.getElementById('e').textContent=s.count?s.count+' article(s)':'';};
+ch.postMessage({type:'hello'});
+<\/script></body></html>`);
+  w.document.close();
+  return w;
+}
+
 function Dashboard({ L }) {
   const [data, setData] = useState(null);
   const [err, setErr] = useState('');
@@ -10730,6 +10790,29 @@ function PosCenter({ L }) {
   const [waTicket, setWaTicket] = useState(null);
   const [err, setErr] = useState('');
   const searchRef = React.useRef(null);
+  // V65 : thème « grande surface » (réglage de la droguerie, choix personnel de chaque caissier)
+  const themeKey = userStoreKey('pos_theme');
+  const [theme, setThemeState] = useState(() => readLocal(themeKey, '') || (() => { try { return localStorage.getItem('droguerie_pos_theme') || 'classic'; } catch { return 'classic'; } })());
+  const market = theme === 'market';
+  const setTheme = t => { writeLocal(themeKey, t); setThemeState(t); setTimeout(() => searchRef.current?.focus(), 50); };
+  useEffect(() => { if (!readLocal(themeKey, '')) loadSettings().then(st => setThemeState(st.pos_theme === 'market' ? 'market' : 'classic')).catch(() => {}); }, []);
+  const [selId, setSelId] = useState(null);
+  const [mult, setMult] = useState(null);
+  const [muted, setMuted] = useState(() => !!readLocal('dp_pos_mute', false));
+  const [kiosk, setKiosk] = useState(false);
+  const [clock, setClock] = useState(Date.now());
+  const clientRef = useRef(null);
+  const linesRef = useRef(null);
+  const chanRef = useRef(null);
+  const stateRef = useRef(null);
+  useEffect(() => { if (!market) return undefined; const t = setInterval(() => setClock(Date.now()), 30000); return () => clearInterval(t); }, [market]);
+  useEffect(() => () => { try { document.body.classList.remove('pos-kiosk'); } catch {} }, []);
+  function toggleKiosk() {
+    const on = !kiosk; setKiosk(on);
+    try { document.body.classList.toggle('pos-kiosk', on); } catch {}
+    try { if (on && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {}); else if (!on && document.fullscreenElement) document.exitFullscreen().catch(() => {}); } catch {}
+    setTimeout(() => searchRef.current?.focus(), 80);
+  }
   // V58 : tickets en attente, favoris, plus vendus
   const holdKey = userStoreKey('pos_hold');
   const favKey = userStoreKey('pos_fav');
@@ -10766,8 +10849,12 @@ function PosCenter({ L }) {
 
   const client = clients.find(c => String(c.id) === String(clientId)) || null;
 
-  function addProduct(p, qty = 1) {
+  function addProduct(p, qtyArg) {
     if (!p) return;
+    const qty = qtyArg ?? (market && mult ? mult : 1);
+    if (market && mult) setMult(null);
+    setSelId(p.id);
+    if (market) posBeep(true, muted);
     setCart(prev => {
       const idx = prev.findIndex(l => String(l.produitId) === String(p.id));
       if (idx >= 0) return prev.map((l, i) => i === idx ? { ...l, qte: Number(l.qte || 0) + qty } : l);
@@ -10784,7 +10871,51 @@ function PosCenter({ L }) {
   function onSearchEnter() {
     const exact = findByCode(search);
     if (exact) { addProduct(exact); setSearch(''); return; }
-    if (results.length === 1) { addProduct(results[0]); setSearch(''); }
+    if (results.length === 1) { addProduct(results[0]); setSearch(''); return; }
+    if (market && search.trim() && !results.length) { posBeep(false, muted); showToast(L('productNotFound') + ' : ' + search.trim(), 'error'); setSearch(''); }
+  }
+  // V65 : pavé numérique et opérations sur la ligne sélectionnée
+  const numOf = v => Number(String(v ?? '').replace(',', '.'));
+  function keyPress(k) {
+    if (/^[0-9]+$/.test(k)) setSearch(x => x + k);
+    else if (k === ',') setSearch(x => (/[.,]/.test(x) ? x : (x || '0') + ','));
+    else if (k === 'back') setSearch(x => x.slice(0, -1));
+    else if (k === 'C') { setSearch(''); setMult(null); }
+    else if (k === 'x') {
+      const n = numOf(search);
+      if (n > 0 && /^[0-9.,]+$/.test(search.trim())) { setMult(n); setSearch(''); }
+      else showToast(tx('Tapez la quantité puis « × Qté », puis scannez l\'article', 'اكتب الكمية ثم « × »'), 'warn');
+    } else if (k === 'recu') {
+      const n = numOf(search);
+      if (n > 0) { setPayMode('Espèces'); setReceived(String(n)); setSearch(''); }
+      else showToast(tx('Tapez le montant donné par le client puis « Reçu »', 'اكتب المبلغ ثم « مقبوض »'), 'warn');
+    } else if (k === 'enter') onSearchEnter();
+    setTimeout(() => searchRef.current?.focus(), 0);
+  }
+  const setLine = (id, patch) => setCart(prev => prev.map(l => String(l.produitId) === String(id) ? { ...l, ...patch } : l));
+  const changeQty = (id, d) => setCart(prev => prev.map(l => String(l.produitId) === String(id) ? { ...l, qte: Math.max(1, Math.round((numOf(l.qte) + d) * 1000) / 1000) } : l));
+  function removeLine(id) {
+    const l = cart.find(x => String(x.produitId) === String(id)); if (!l) return;
+    const idx = cart.indexOf(l);
+    const next = cart.filter(x => x !== l);
+    setCart(next);
+    setSelId(next.length ? next[Math.max(0, idx - 1)].produitId : null);
+    showToast(tx('Article annulé : ', 'تم إلغاء المنتج: ') + l.nom, 'warn');
+    setTimeout(() => searchRef.current?.focus(), 0);
+  }
+  function addNote(v) { setPayMode('Espèces'); setReceived(r => String(Math.round((numOf(r || 0) + v) * 100) / 100)); setTimeout(() => searchRef.current?.focus(), 0); }
+  function selectedLine() { return cart.find(l => String(l.produitId) === String(selId)) || cart[cart.length - 1] || null; }
+  function setSelectedQtyFromInput() {
+    const l = selectedLine(); const n = numOf(search);
+    if (!l) return;
+    if (!(n > 0)) return showToast(tx('Tapez la nouvelle quantité puis F4', 'اكتب الكمية الجديدة ثم F4'), 'warn');
+    setLine(l.produitId, { qte: n }); setSearch('');
+  }
+  function setSelectedDiscountFromInput() {
+    const l = selectedLine(); const n = numOf(search);
+    if (!l || !can('pos.discount')) return;
+    if (!(n >= 0 && n <= 100) || search.trim() === '') return showToast(tx('Tapez la remise en % puis F6', 'اكتب نسبة التخفيض ثم F6'), 'warn');
+    setLine(l.produitId, { remise: n }); setSearch('');
   }
 
   function changeClient(id) {
@@ -10881,23 +11012,277 @@ function PosCenter({ L }) {
     setBusy(false);
   }
 
-  // Raccourcis : F2 = recherche, F9 = valider, Échap = vider la recherche
+  // Raccourcis : F2 = recherche, F9 = valider, Échap = vider la recherche (+ V65 : touches de la caisse grande surface)
   useEffect(() => {
     const h = e => {
       if (e.key === 'F2') { e.preventDefault(); searchRef.current?.focus(); }
       if (e.key === 'F9') { e.preventDefault(); validate(); }
       if (e.key === 'F8') { e.preventDefault(); parkCart(); }
-      if (e.key === 'Escape') setSearch('');
+      if (e.key === 'Escape') { setSearch(''); setMult(null); }
+      if (!market) return;
+      const typing = document.activeElement === searchRef.current || !/input|textarea|select/i.test(document.activeElement?.tagName || '');
+      if (e.key === 'F3') { e.preventDefault(); clientRef.current?.focus(); }
+      if (e.key === 'F4') { e.preventDefault(); setSelectedQtyFromInput(); }
+      if (e.key === 'F6') { e.preventDefault(); setSelectedDiscountFromInput(); }
+      if (e.key === 'F7') { e.preventDefault(); const l = selectedLine(); if (l) removeLine(l.produitId); }
+      if (typing && !search && cart.length) {
+        const idx = Math.max(0, cart.indexOf(selectedLine()));
+        if (e.key === 'ArrowUp') { e.preventDefault(); setSelId(cart[Math.max(0, idx - 1)].produitId); }
+        if (e.key === 'ArrowDown') { e.preventDefault(); setSelId(cart[Math.min(cart.length - 1, idx + 1)].produitId); }
+        if (e.key === '+') { e.preventDefault(); changeQty(selectedLine().produitId, 1); }
+        if (e.key === '-') { e.preventDefault(); changeQty(selectedLine().produitId, -1); }
+        if (e.key === 'Delete') { e.preventDefault(); removeLine(selectedLine().produitId); }
+      }
+      if (e.key === '*' && typing && /^[0-9.,]+$/.test(search.trim())) { e.preventDefault(); keyPress('x'); }
     };
     window.addEventListener('keydown', h);
     return () => window.removeEventListener('keydown', h);
   });
 
+  // V65 : écran client (BroadcastChannel) et ligne sélectionnée visible
+  const lastSel = cart.find(l => String(l.produitId) === String(selId)) || cart[cart.length - 1] || null;
+  stateRef.current = {
+    type: 'state', company: company?.name || '', total: totals.totalTTC, count: cart.reduce((t, l) => t + Number(l.qte || 0), 0),
+    last: lastSel ? { nom: lastSel.nom, qte: Number(lastSel.qte), amount: lineNet(lastSel) } : null,
+    paid: lastTicket && !cart.length ? { number: lastTicket.number, total: lastTicket.totals.totalTTC, change: lastTicket.change } : null
+  };
+  useEffect(() => {
+    if (typeof BroadcastChannel === 'undefined') return undefined;
+    const ch = new BroadcastChannel('dp_pos_display'); chanRef.current = ch;
+    ch.onmessage = ev => { if (ev.data?.type === 'hello') ch.postMessage(stateRef.current); };
+    return () => { ch.close(); chanRef.current = null; };
+  }, []);
+  useEffect(() => { try { chanRef.current?.postMessage(stateRef.current); } catch {} }, [cart, lastTicket, company, selId]);
+  useEffect(() => {
+    if (!market || !linesRef.current) return;
+    const el = linesRef.current.querySelector('.pm-line.on');
+    if (el && el.scrollIntoView) el.scrollIntoView({ block: 'nearest' });
+  }, [selId, cart.length, market]);
+
   if (err) return <ErrorBox msg={err} />;
+
+  const posModals = (
+    <>
+      {waTicket ? (
+        <WhatsAppModal L={L} kind="ticket" close={() => setWaTicket(null)}
+          party={{ id: waTicket.clientId, name: waTicket.clientName, phone: waTicket.clientPhone, table: 'clients' }}
+          buildVars={lang => ({
+            societe: waTicket.company?.name || '', numero: waTicket.number, date: waTicket.date,
+            articles: (waTicket.lines || []).map(l => '• ' + (lang === 'ar' && l.nomAr ? l.nomAr : l.nom) + ' × ' + fmt(l.qte) + ' = ' + dh(lineNet(l))).join('\n'),
+            montant: dh(waTicket.totals?.totalTTC || 0), paiement: Lx(lang)('pm_' + waTicket.payMode) || waTicket.payMode,
+            client: waTicket.clientName || '', telephone_societe: waTicket.company?.phone || ''
+          })}
+          pdfName={waTicket.number} auditModule="Caisse" auditObject={waTicket.number} />
+      ) : null}
+      {showHolds ? <PosHoldsModal holds={holds} resume={resumeHold} drop={id => saveHolds(holds.filter(h => h.id !== id))} close={() => setShowHolds(false)} /> : null}
+      {camera ? <CameraScanner L={L} close={() => setCamera(false)} onCode={code => { const p = findByCode(code); if (p) addProduct(p); else { posBeep(false, muted); alert(L('productNotFound') + ' : ' + code); } }} /> : null}
+    </>
+  );
+
+  // ---------- V65 : thème « grande surface » ----------
+  function renderMarket() {
+    const sel = cart.find(l => String(l.produitId) === String(selId)) || cart[cart.length - 1] || null;
+    const selIndex = sel ? cart.indexOf(sel) : -1;
+    const itemsCount = cart.reduce((t, l) => t + Number(l.qte || 0), 0);
+    const paidView = !!(lastTicket && !cart.length);
+    const notes = [[20, 'n20'], [50, 'n50'], [100, 'n100'], [200, 'n200']];
+    const modes = [['Espèces', '💵'], ['Carte', '💳'], ['Chèque', '🧾'], ['Virement', '🏦'], ['Crédit', '📒']].filter(([m]) => m !== 'Crédit' || can('pos.credit'));
+    const keys = ['7', '8', '9', '4', '5', '6', '1', '2', '3', '0', '00', ','];
+    const fkeys = [
+      ['F2', tx('Article', 'منتج'), () => searchRef.current?.focus()],
+      ['F3', tx('Client', 'زبون'), () => clientRef.current?.focus()],
+      ['F4', tx('Qté de la ligne', 'كمية السطر'), () => setSelectedQtyFromInput()],
+      can('pos.discount') && ['F6', tx('Remise ligne', 'تخفيض السطر'), () => setSelectedDiscountFromInput()],
+      ['F7', tx('Annuler l\'article', 'إلغاء المنتج'), () => sel && removeLine(sel.produitId)],
+      ['F8', tx('Mettre en attente', 'تعليق'), () => parkCart()],
+      ['F9', tx('Encaisser', 'تحصيل'), () => validate()],
+      ['Échap', tx('Effacer la saisie', 'مسح الإدخال'), () => { setSearch(''); setMult(null); }]
+    ].filter(Boolean);
+    return (
+      <div className={'pm' + (kiosk ? ' pm-kiosk' : '')} data-pos-market>
+        <div className="pm-bar">
+          <div className="pm-bar-id">
+            <b>🛒 {tx('Caisse', 'الصندوق')}</b>
+            <span>{company?.name || ''}</span>
+            <span>{tx('Caissier', 'أمين الصندوق')} : {currentUserLabel()}</span>
+            <span className="pm-clock">{new Date(clock).toLocaleString('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
+          </div>
+          <div className="pm-bar-actions">
+            <button type="button" onClick={() => setShowHolds(true)} className={'pm-tool' + (holds.length ? ' warn' : '')} data-holds-btn>⏸ {tx('En attente', 'في الانتظار')} ({holds.length})</button>
+            {lastTicket ? <button type="button" onClick={() => printTicket(lastTicket)} className="pm-tool">🖨 {L('lastTicket')}</button> : null}
+            {lastTicket && featureOn('share') ? <button type="button" onClick={() => setWaTicket(lastTicket)} className="pm-tool">🟢 WhatsApp</button> : null}
+            <button type="button" className="pm-tool" onClick={() => openClientDisplay()} data-client-display title={tx('Ouvrir l\'écran client sur un second moniteur', 'شاشة الزبون')}>📺 {tx('Écran client', 'شاشة الزبون')}</button>
+            <button type="button" className="pm-tool" onClick={() => { const m = !muted; setMuted(m); writeLocal('dp_pos_mute', m); }} title={tx('Bip du lecteur', 'صوت القارئ')} data-pos-mute>{muted ? '🔇' : '🔊'}</button>
+            <button type="button" className="pm-tool" onClick={toggleKiosk} data-pos-kiosk>{kiosk ? '🗗 ' + tx('Quitter le plein écran', 'الخروج من ملء الشاشة') : '⛶ ' + tx('Plein écran', 'ملء الشاشة')}</button>
+            <button type="button" className="pm-tool" onClick={() => setTheme('classic')} data-pos-theme="classic">{tx('Thème classique', 'الواجهة الكلاسيكية')}</button>
+          </div>
+        </div>
+
+        <div className="pm-body">
+          <section className="pm-left">
+            <div className="pm-scan">
+              {mult ? <span className="pm-mult" data-pm-mult>{String(mult).replace('.', ',')} ×</span> : <span className="pm-scan-icon" aria-hidden="true">🔎</span>}
+              <input ref={searchRef} autoFocus className="pm-scan-input" placeholder={tx('Scanner ou taper un code, un nom… (F2)', 'امسح أو اكتب رمزا أو اسما… (F2)')} value={search}
+                onChange={e => setSearch(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); onSearchEnter(); } }} data-pm-scan />
+              <button type="button" onClick={() => setCamera(true)} className="pm-cam" title={L('cameraScan')}>📷</button>
+            </div>
+
+            <div className="pm-journal">
+              <div className="pm-row pm-head"><span>#</span><span>{tx('Article', 'المنتج')}</span><span>{tx('Qté', 'الكمية')}</span><span>{tx('Prix', 'الثمن')}</span><span>{tx('Montant', 'المبلغ')}</span></div>
+              <div className="pm-lines" ref={linesRef} data-pm-lines>
+                {cart.map((l, i) => (
+                  <button type="button" key={l.produitId} className={'pm-row pm-line' + (sel === l ? ' on' : '')} onClick={() => { setSelId(l.produitId); searchRef.current?.focus(); }} data-pm-line={l.nom}>
+                    <span className="pm-n">{i + 1}</span>
+                    <span className="pm-name"><b>{l.nom}</b>{l.nomAr ? <small>{l.nomAr}</small> : null}
+                      {Number(l.remise) > 0 ? <small className="pm-disc">{tx('remise', 'تخفيض')} {fmt(l.remise)} %</small> : null}
+                      {Number(l.qte) > Number(l.stock || 0) ? <small className="pm-warn">{L('stock')} : {fmt(l.stock)}</small> : null}
+                    </span>
+                    <span className="pm-num">{fmt(l.qte)}</span>
+                    <span className="pm-num">{fmt(l.prixUnit)}</span>
+                    <span className="pm-num pm-amt">{fmt(lineNet(l))}</span>
+                  </button>
+                ))}
+                {!cart.length ? (paidView ? (
+                  <div className="pm-done" data-pm-done>
+                    <b>✔ {lastTicket.number}</b>
+                    <span>{dh(lastTicket.totals.totalTTC)} · {L('pm_' + lastTicket.payMode) || lastTicket.payMode}</span>
+                    {lastTicket.change > 0 ? <span className="pm-done-change">{L('changeDue')} : {dh(lastTicket.change)}</span> : null}
+                    <small>{tx('Scannez un article pour la vente suivante.', 'امسح منتجا للبيع التالي.')}</small>
+                  </div>
+                ) : <div className="pm-empty">{tx('Scannez un article pour commencer.', 'امسح منتجا للبدء.')}<small>{tx('Pour plusieurs fois le même article : tapez la quantité, « × Qté », puis scannez.', 'لعدة وحدات: اكتب الكمية ثم « × » ثم امسح.')}</small></div>) : null}
+              </div>
+              {sel ? (
+                <div className="pm-edit" data-pm-edit>
+                  <span className="pm-edit-name">{selIndex + 1}. {sel.nom}</span>
+                  <span className="pm-edit-qty">
+                    <button type="button" onClick={() => changeQty(sel.produitId, -1)} aria-label="−">−</button>
+                    <input type="number" min="0" step="0.01" value={sel.qte} onChange={e => setLine(sel.produitId, { qte: e.target.value })} data-pm-qty />
+                    <button type="button" onClick={() => changeQty(sel.produitId, 1)} aria-label="+">+</button>
+                  </span>
+                  <label>{tx('Prix', 'الثمن')}<input type="number" min="0" step="0.01" value={sel.prixUnit} readOnly={!can('sales.price_edit')} onChange={e => setLine(sel.produitId, { prixUnit: e.target.value })} /></label>
+                  {can('pos.discount') ? <label>%<input type="number" min="0" max="100" value={sel.remise || ''} placeholder="0" onChange={e => setLine(sel.produitId, { remise: e.target.value })} /></label> : null}
+                  <button type="button" className="pm-void" onClick={() => removeLine(sel.produitId)} data-pm-void>🗑 {tx('Annuler l\'article', 'إلغاء المنتج')}</button>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="pm-quick">
+              <div className="pm-quick-head">
+                {q ? <span>{results.length} {tx('résultat(s)', 'نتيجة')}</span> : [['all', tx('Tous', 'الكل')], ['fav', '★ ' + tx('Favoris', 'المفضلة') + ' (' + favList.length + ')'], ['top', '🔥 ' + tx('Les plus vendus', 'الأكثر مبيعا')]].map(([k, t]) => (
+                  <button key={k} type="button" data-grid-mode={k} className={'chip ' + (gridMode === k ? 'chip-on' : '')} onClick={() => setMode(k)}>{t}</button>
+                ))}
+              </div>
+              <div className="pm-tiles">
+                {results.slice(0, 18).map(p => (
+                  <button key={p.id} type="button" onClick={() => { addProduct(p); searchRef.current?.focus(); }} className="pm-tile pos-card" data-pos-product={p.id}>
+                    <span role="button" tabIndex={-1} className={'pos-fav ' + (favs.includes(p.id) ? 'on' : '')} data-fav={p.id} onClick={e => { e.stopPropagation(); toggleFav(p.id); }}>{favs.includes(p.id) ? '★' : '☆'}</span>
+                    <b>{p.nom}</b>
+                    <span className="pm-tile-foot"><em>{dh(priceForParty(p, client, true))}</em><small className={Number(p.quantite) <= 0 ? 'out' : ''}>{fmt(p.quantite)} {p.unite}</small></span>
+                  </button>
+                ))}
+                {!results.length ? <p className="pm-tiles-empty">{gridMode === 'fav' && !q ? tx('Touchez ☆ sur un article pour l\'ajouter aux favoris.', 'اضغط ☆ لإضافة منتج إلى المفضلة.') : L('noData')}</p> : null}
+              </div>
+            </div>
+          </section>
+
+          <section className="pm-right">
+            <div className="pm-display" data-pm-display aria-live="polite">
+              <div className="pm-display-l1">
+                <span>{sel ? (Number(sel.qte) !== 1 ? fmt(sel.qte) + ' x ' : '') + sel.nom : paidView ? tx('Merci de votre visite', 'شكرا لزيارتكم') : tx('Bienvenue', 'مرحبا')}</span>
+                <span>{sel ? fmt(lineNet(sel)) : ''}</span>
+              </div>
+              <div className="pm-display-l2">
+                <span>{paidView ? (lastTicket.change > 0 ? tx('Monnaie à rendre', 'الباقي للزبون') : tx('Payé', 'مؤدى')) : tx('Total à payer', 'المبلغ للأداء')}</span>
+                <b data-pm-total>{fmt(paidView ? (lastTicket.change > 0 ? lastTicket.change : lastTicket.totals.totalTTC) : totals.totalTTC)}</b>
+              </div>
+            </div>
+
+            <div className="pm-meta">
+              <label><span className="pm-label">{L('customer')} <span className="pm-key">F3</span></span>
+                <select ref={clientRef} value={clientId} onChange={e => changeClient(e.target.value)}>
+                  {!counterWalkIn(clients) ? <option value="">{L('walkInClient')}</option> : null}
+                  {clients.map(c => <option key={c.id} value={c.id}>{c.is_walk_in ? '🏪 ' : ''}{c.name}{c.price_tier === 'gros' ? ' (' + L('wholesale') + ')' : ''}</option>)}
+                </select>
+              </label>
+              <div className="pm-sums">
+                <span>{fmt(itemsCount)} {tx('article(s)', 'منتج')}</span>
+                <span>{L('totalHT')} {fmt(totals.totalHT)}</span>
+                <span>{L('totalVAT')} {fmt(totals.vat)}</span>
+              </div>
+            </div>
+
+            <div className="pm-modes">
+              {modes.map(([m, icon]) => (
+                <button key={m} type="button" onClick={() => setPayMode(m)} className={'pm-mode' + (payMode === m ? ' on' : '')} data-pm-mode={m}><span>{icon}</span>{L('pm_' + m)}</button>
+              ))}
+            </div>
+
+            {payMode === 'Crédit' ? (
+              <div className="pos-credit-box pm-credit" data-pos-credit>
+                <p>{tx('Rien n\'est encaissé : la facture reste à payer sur le compte du client.', 'لا شيء يُحصَّل.')}</p>
+                <label>{tx('Le client paiera le (facultatif)', 'سيؤدي الزبون يوم (اختياري)')}
+                  <input type="date" min={today()} value={promiseDate} onChange={e => setPromiseDate(e.target.value)} data-pos-promise />
+                </label>
+              </div>
+            ) : null}
+
+            {payMode === 'Espèces' ? (
+              <div className="pm-cash">
+                <div className="pm-cash-row">
+                  <div><small>{L('cashReceived')}</small><b data-pm-received>{received === '' ? '—' : fmt(received)}</b></div>
+                  {received !== '' && numOf(received) + 0.001 < totals.totalTTC
+                    ? <div className="pm-change short"><small>{tx('Il manque', 'الناقص')}</small><b data-pm-change>{fmt(totals.totalTTC - numOf(received))}</b></div>
+                    : <div className="pm-change"><small>{L('changeDue')}</small><b data-pm-change>{fmt(change)}</b></div>}
+                </div>
+                <div className="pm-notes" data-cash-quick>
+                  {cart.length ? <button type="button" className="pm-note exact" onClick={() => setReceived(String(Math.round(totals.totalTTC * 100) / 100))}>{tx('Montant exact', 'المبلغ بالضبط')}</button> : null}
+                  {notes.map(([v, c]) => <button key={v} type="button" className={'pm-note ' + c} onClick={() => addNote(v)} data-pm-note={v}>{v} DH</button>)}
+                  {received !== '' ? <button type="button" className="pm-note reset" onClick={() => setReceived('')} title={tx('Remettre à zéro', 'إعادة إلى الصفر')}>↺</button> : null}
+                </div>
+              </div>
+            ) : null}
+
+            <div className="pm-pad">
+              <div className="pm-keys">
+                {keys.map(k => <button key={k} type="button" className="pm-k" onClick={() => keyPress(k)} data-pm-key={k}>{k}</button>)}
+              </div>
+              <div className="pm-keys-side">
+                <button type="button" className="pm-k fn" onClick={() => keyPress('back')} aria-label={tx('Effacer un chiffre', 'مسح رقم')}>⌫</button>
+                <button type="button" className="pm-k fn" onClick={() => keyPress('C')} data-pm-key="C">C</button>
+                <button type="button" className="pm-k fn" onClick={() => keyPress('x')} data-pm-key="x" title={tx('Quantité pour le prochain article', 'كمية المنتج التالي')}>× {tx('Qté', 'كم')}</button>
+                {payMode === 'Espèces' ? <button type="button" className="pm-k fn" onClick={() => keyPress('recu')} data-pm-key="recu" title={tx('Montant donné par le client', 'المبلغ المقدم')}>{tx('Reçu', 'مقبوض')}</button> : null}
+                <button type="button" className="pm-k enter" onClick={() => keyPress('enter')} data-pm-key="enter">↵</button>
+              </div>
+            </div>
+
+            {can('pos.discount') ? (
+              <label className="pm-global-disc">{L('globalDiscount')}
+                <input type="number" min="0" max="100" value={globalDiscount} onChange={e => applyGlobalDiscount(e.target.value)} />
+              </label>
+            ) : null}
+
+            <div className="pm-validate">
+              <button type="button" disabled={busy || !cart.length} onClick={() => parkCart()} className="pm-park" data-park title={tx('Mettre en attente (F8)', 'وضع في الانتظار (F8)')}>⏸</button>
+              <button type="button" disabled={busy || !cart.length} onClick={() => validate()} className="pm-pay" data-pm-pay>
+                {busy ? '…' : <><span>{payMode === 'Crédit' ? tx('Valider à crédit', 'تأكيد بالدين') : tx('Encaisser', 'تحصيل')}</span><b>{dh(totals.totalTTC)}</b><small>F9</small></>}
+              </button>
+            </div>
+          </section>
+        </div>
+
+        <div className="pm-fkeys">
+          {fkeys.map(([k, t, fn]) => <button key={k} type="button" onClick={fn} className="pm-fkey"><kbd>{k}</kbd>{t}</button>)}
+        </div>
+      </div>
+    );
+  }
+
+  if (market) return <>{renderMarket()}{posModals}</>;
 
   return (
     <>
       <Header title={L('posMod')}>
+        <button onClick={() => setTheme('market')} className="btn bg-slate-900 text-white" data-pos-theme="market" title={tx('Caisse plein écran, pavé numérique, afficheur client', 'واجهة صندوق المتاجر الكبرى')}>🏬 {tx('Thème grande surface', 'واجهة المتاجر الكبرى')}</button>
         <button onClick={() => setShowHolds(true)} className={'btn ' + (holds.length ? 'bg-amber-100 border border-amber-300' : 'bg-white border')} data-holds-btn>⏸ {tx('En attente', 'في الانتظار')} ({holds.length})</button>
         {lastTicket ? <button onClick={() => printTicket(lastTicket)} className="btn bg-white border">🖨 {L('lastTicket')}</button> : null}
         {lastTicket && featureOn('share') ? <button onClick={() => setWaTicket(lastTicket)} className="btn wa-send">🟢 WhatsApp</button> : null}
@@ -11032,19 +11417,7 @@ function PosCenter({ L }) {
         </div>
       </div>
 
-      {waTicket ? (
-        <WhatsAppModal L={L} kind="ticket" close={() => setWaTicket(null)}
-          party={{ id: waTicket.clientId, name: waTicket.clientName, phone: waTicket.clientPhone, table: 'clients' }}
-          buildVars={lang => ({
-            societe: waTicket.company?.name || '', numero: waTicket.number, date: waTicket.date,
-            articles: (waTicket.lines || []).map(l => '• ' + (lang === 'ar' && l.nomAr ? l.nomAr : l.nom) + ' × ' + fmt(l.qte) + ' = ' + dh(lineNet(l))).join('\n'),
-            montant: dh(waTicket.totals?.totalTTC || 0), paiement: Lx(lang)('pm_' + waTicket.payMode) || waTicket.payMode,
-            client: waTicket.clientName || '', telephone_societe: waTicket.company?.phone || ''
-          })}
-          pdfName={waTicket.number} auditModule="Caisse" auditObject={waTicket.number} />
-      ) : null}
-      {showHolds ? <PosHoldsModal holds={holds} resume={resumeHold} drop={id => saveHolds(holds.filter(h => h.id !== id))} close={() => setShowHolds(false)} /> : null}
-      {camera ? <CameraScanner L={L} close={() => setCamera(false)} onCode={code => { const p = findByCode(code); if (p) addProduct(p); else alert(L('productNotFound') + ' : ' + code); }} /> : null}
+      {posModals}
     </>
   );
 }
@@ -14130,6 +14503,16 @@ function Settings({ L }) {
             <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={String(settings.attach_compress ?? '1') !== '0'} onChange={e => set('attach_compress', e.target.checked ? '1' : '0')} data-attach-compress /> {tx('Compresser automatiquement les photos (recommandé)', 'ضغط الصور تلقائيا (موصى به)')}</label>
           </div>
           <p className="text-xs text-slate-400 mt-2">{tx('Contrôlé aussi par la base de données : un fichier plus lourd est refusé.', 'تتحقق قاعدة البيانات أيضا من الحجم.')}</p>
+        </div>
+
+        <div className="card p-5 md:col-span-2" data-pos-settings>
+          <h2 className="font-bold mb-1">🛒 {tx('Caisse rapide : thème par défaut', 'الصندوق السريع: الواجهة الافتراضية')}</h2>
+          <p className="text-xs text-slate-500 mb-3">{tx('« Grande surface » : grande zone de scan, ticket qui défile, afficheur client, pavé numérique, billets, touches F, plein écran et écran client. Chaque caissier peut changer de thème pour lui depuis la caisse.', 'واجهة المتاجر الكبرى: منطقة مسح كبيرة، شاشة الزبون، لوحة أرقام…')}</p>
+          <div className="flex gap-2 flex-wrap">
+            {[['market', '🏬 ' + tx('Grande surface', 'المتاجر الكبرى')], ['classic', '🧾 ' + tx('Classique', 'كلاسيكي')]].map(([v, t]) => (
+              <button key={v} type="button" className={'btn ' + ((settings.pos_theme || 'classic') === v ? 'bg-slate-900 text-white' : 'bg-white border')} onClick={() => set('pos_theme', v)} data-pos-theme-setting={v}>{t}</button>
+            ))}
+          </div>
         </div>
 
         {isSimpleUi() && !showAdvanced ? (
