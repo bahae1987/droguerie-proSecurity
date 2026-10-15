@@ -4,7 +4,7 @@ import { flushSync } from 'react-dom';
 import { createClient } from '@supabase/supabase-js';
 import './index.css';
 
-console.log('DROGUERIEPRO V62 OK');
+console.log('DROGUERIEPRO V63 OK');
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -3284,6 +3284,7 @@ async function loadSettings() {
   cacheAlertSettings(out);
   cacheWaSettings(out);
   cacheUiSettings(out);
+  cacheAttachSettings(out);
   setBrandCache(brandFromSettings(out));
   return out;
 }
@@ -3295,6 +3296,7 @@ async function saveSettings(settings) {
   cacheAlertSettings(settings);
   cacheWaSettings(settings);
   cacheUiSettings(settings);
+  cacheAttachSettings(settings);
   setBrandCache(brandFromSettings(settings));
 }
 
@@ -8119,6 +8121,7 @@ async function loadOpenInvoices(kind, partyId, batch) {
 
 function GroupPaymentModal({ L, batch, preset, advanceOnly, onUseAdvance, close, done }) {
   const editing = !!batch;
+  const [files, setFiles] = useState([]);
   const [advances, setAdvances] = useState([]);
   const canIn = can('sales.pay'), canOut = can('purchases.pay');
   const [kind, setKind] = useState(batch?.kind || preset?.kind || (canIn ? 'encaissement' : 'decaissement'));
@@ -8178,6 +8181,12 @@ function GroupPaymentModal({ L, batch, preset, advanceOnly, onUseAdvance, close,
       const { data, error } = await supabase.rpc('app_save_payment_batch', { p: { id: batch?.id || null, kind, partyId: Number(partyId), date: form.date, mode: form.mode, details, note: form.note, allocations, received, advanceOnly: !!advanceOnly } });
       if (error) throw new Error(error.message);
       showToast((editing ? tx('Règlement modifié : ', 'تم تعديل الأداء: ') : tx('Règlement enregistré : ', 'تم تسجيل الأداء: ')) + data.number + ' · ' + dh(data.amount) + (Number(data.advance) > 0 ? ' · ' + tx('avance', 'تسبيق') + ' ' + dh(data.advance) : ''));
+      // V63 : pièces jointes choisies avant l'enregistrement (photo du chèque…)
+      if (files.length) {
+        let okN = 0;
+        for (const f of files) { try { await uploadAttachment('payment_batch', data.id, f, batch?.branch_id); okN++; } catch (e) { showToast(tx('Pièce jointe non envoyée : ', 'لم يُرسل المرفق: ') + f.name + ' — ' + friendlyError(e.message), 'error'); } }
+        if (okN) showToast('📎 ' + okN + ' ' + tx('pièce(s) jointe(s) au règlement ', 'مرفق(ات) للأداء ') + data.number);
+      }
       done && done(data);
     } catch (e) { alert(e.message); }
     setBusy(false);
@@ -8268,6 +8277,12 @@ function GroupPaymentModal({ L, batch, preset, advanceOnly, onUseAdvance, close,
       ) : <p className="text-sm text-slate-500 mb-3">{kind === 'encaissement' ? tx('Choisissez le client : ses factures non réglées s\'afficheront.', 'اختر الزبون لعرض فواتيره.') : tx('Choisissez le fournisseur : ses factures non réglées s\'afficheront.', 'اختر المورد لعرض فواتيره.')}</p>}
 
       <label className="text-xs text-slate-500 block mb-3">{L('note')}<input className="input mt-1" value={form.note} onChange={e => set('note', e.target.value)} /></label>
+      {hasModuleAccess('attachments') ? (
+        <div className="mb-3">
+          <AttachmentsPanel L={L} entityType="payment_batch" entityId={batch?.id} branchId={batch?.branch_id} pending={files} onPending={setFiles}
+            title={['Chèque', 'Effet'].includes(form.mode) ? '📷 ' + tx('Photo du ' + (form.mode === 'Effet' ? 'effet' : 'chèque') + ' / justificatif', 'صورة الشيك / المبرر') : '📎 ' + tx('Justificatif (photo, avis de virement, reçu…)', 'المبرر')} />
+        </div>
+      ) : null}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="text-sm">
           {tx('Total imputé', 'المجموع المخصص')} : <b className="text-lg" data-pay-total>{dh(total)}</b> · {Object.keys(sel).length} {tx('facture(s)', 'فاتورة')}
@@ -8286,6 +8301,11 @@ function PaymentBatchesView({ L, search, from, to, onChanged, openReceipt, openE
   const [rows, setRows] = useState(null);
   const [status, setStatus] = useState('active');
   const [removing, setRemoving] = useState(null);
+  const [attachOf, setAttachOf] = useState(null);
+  const [attachN, setAttachN] = useState({});
+  const attachOn = hasModuleAccess('attachments');
+  const loadAttachN = () => { if (attachOn) loadAttachmentCounts('payment_batch').then(setAttachN); };
+  useEffect(() => { loadAttachN(); }, []);
   const me = getStoredSession()?.user?.id;
   async function removeAlloc(b, a, keepAdvance) {
     const allocations = (b.allocations || []).filter(x => String(x.docId) !== String(a.docId)).map(x => ({ docId: x.docId, amount: x.amount }));
@@ -8343,6 +8363,7 @@ function PaymentBatchesView({ L, search, from, to, onChanged, openReceipt, openE
               <td>
                 <div className="flex gap-1 items-center">
                   <button className="btn bg-white border" title={tx('Bon de paiement', 'سند الأداء')} data-batch-receipt={b.number} onClick={() => openReceipt(b)}>🧾</button>
+                  {attachOn ? <button className={'btn border ' + (attachN[String(b.id)] ? 'bg-sky-50 border-sky-300' : 'bg-white')} title={tx('Pièces jointes / photo du chèque', 'المرفقات')} data-batch-attach={b.number} onClick={() => setAttachOf(b)}>📎{attachN[String(b.id)] ? <sup className="attach-n">{attachN[String(b.id)]}</sup> : null}</button> : null}
                   {(() => {
                     const mine = b.status === 'active' && canCorrect(b.created_by, b.created_at, b.branch_id, 'batch:' + b.id);
                     const pay = can(b.kind === 'encaissement' ? 'sales.pay' : 'purchases.pay');
@@ -8360,6 +8381,13 @@ function PaymentBatchesView({ L, search, from, to, onChanged, openReceipt, openE
           {!list.length ? <tr><td colSpan="9" className="text-center text-slate-500 py-6">{L('noData')}</td></tr> : null}
         </tbody>
       </Table>
+      {attachOf ? (
+        <Modal title={'📎 ' + attachOf.number + ' · ' + dh(attachOf.amount)} onClose={() => setAttachOf(null)}>
+          <div className="text-sm text-slate-500">{frDate(attachOf.date)} · {attachOf.mode} · {attachOf.party_name}{payDetailsText(L, attachOf.details) ? ' · ' + payDetailsText(L, attachOf.details) : ''}</div>
+          <AttachmentsPanel L={L} entityType="payment_batch" entityId={attachOf.id} branchId={attachOf.branch_id} onChanged={loadAttachN}
+            title={['Chèque', 'Effet'].includes(attachOf.mode) ? '📷 ' + tx('Photo du chèque / justificatif', 'صورة الشيك / المبرر') : null} />
+        </Modal>
+      ) : null}
       {removing ? (
         <Modal title={tx('Retirer la facture ', 'سحب الفاتورة ') + removing.a.docNumber + ' — ' + removing.b.number} onClose={() => setRemoving(null)}>
           <p className="text-sm text-slate-600 mb-3">{dh(removing.a.amount)} {tx('étaient imputés sur cette facture, qui redeviendra due. Que devient ce montant ?', 'كانت مخصصة لهذه الفاتورة. ماذا يصبح هذا المبلغ؟')}</p>
@@ -8605,8 +8633,13 @@ function ChequePortfolioView({ L, payments, search, onChanged }) {
   const [status, setStatus] = useState('todo');
   const [dir, setDir] = useState('all');
   const [reject, setReject] = useState(null);
+  const [attachOf, setAttachOf] = useState(null);
+  const [attachN, setAttachN] = useState({});
+  const attachOn = hasModuleAccess('attachments');
+  const loadAttachN = async () => { if (!attachOn) return; const [b, p] = await Promise.all([loadAttachmentCounts('payment_batch'), loadAttachmentCounts('payment')]); setAttachN({ b, p }); };
   async function load() { const { data } = await supabase.from('payment_batches').select('*').in('mode', ['Chèque', 'Effet']); setBatches(data || []); }
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); loadAttachN(); }, []);
+  const attachKey = i => i.target.target === 'batch' ? { type: 'payment_batch', id: String(i.target.batchId), n: (attachN.b || {})[String(i.target.batchId)] } : { type: 'payment', id: paymentAttachmentId({ sourceTable: i.target.table, docId: i.target.docId, id: i.target.paymentId }), n: (attachN.p || {})[paymentAttachmentId({ sourceTable: i.target.table, docId: i.target.docId, id: i.target.paymentId })] };
   if (batches === null) return <p>…</p>;
   const items = [
     ...payments.filter(p => ['Chèque', 'Effet'].includes(p.mode) && !p.batchId && (!p.canceled || p.paymentStatus === 'Rejeté')).map(p => ({
@@ -8662,6 +8695,7 @@ function ChequePortfolioView({ L, payments, search, onChanged }) {
                 <td className="font-bold whitespace-nowrap">{dh(i.amount)}</td><td className="font-mono text-xs">{i.ref}</td>
                 <td><Badge tone={st.tone}>{tx(st.fr, st.ar)}</Badge>{i.status === 'Rejeté' && Number(i.fees) > 0 ? <div className="text-[11px] text-red-600">{tx('frais', 'مصاريف')} {fmt(i.fees)}</div> : null}{i.history.length ? <div className="text-[11px] text-slate-400">{i.history[i.history.length - 1].by} · {new Date(i.history[i.history.length - 1].at).toLocaleDateString('fr-FR')}</div> : null}</td>
                 <td className="whitespace-nowrap">
+                  {attachOn ? <><button className={'btn border text-sm ' + (attachKey(i).n ? 'bg-sky-50 border-sky-300' : 'bg-white')} title={tx('Photo du chèque / pièces jointes', 'صورة الشيك')} data-instrument-attach={i.no || i.ref} onClick={() => setAttachOf(i)}>📷{attachKey(i).n ? <sup className="attach-n">{attachKey(i).n}</sup> : null}</button> </> : null}
                   {i.status === 'En portefeuille' && i.dir === 'in' ? <button className="btn bg-white border text-sm" data-deposit={i.no || i.ref} onClick={() => setSt(i, 'Déposé')}>🏦 {tx('Déposer', 'إيداع')}</button> : null}
                   {['En portefeuille', 'Déposé'].includes(i.status) ? <> <button className="btn bg-emerald-600 text-white text-sm" data-cash={i.no || i.ref} onClick={() => setSt(i, 'Encaissé')}>✔ {i.dir === 'in' ? tx('Encaissé', 'محصل') : tx('Débité', 'مخصوم')}</button></> : null}
                   {['En portefeuille', 'Déposé'].includes(i.status) && canReject ? <> <button className="btn bg-white border text-red-600 text-sm" data-reject={i.no || i.ref} onClick={() => setReject({ item: i, fees: '', note: '' })}>⛔ {tx('Rejeté', 'مرفوض')}</button></> : null}
@@ -8672,6 +8706,12 @@ function ChequePortfolioView({ L, payments, search, onChanged }) {
           {!list.length ? <tr><td colSpan="9" className="text-center text-slate-500 py-6">{L('noData')}</td></tr> : null}
         </tbody>
       </Table>
+      {attachOf ? (
+        <Modal title={'📷 ' + attachOf.mode + ' ' + (attachOf.no || '') + ' · ' + dh(attachOf.amount)} onClose={() => setAttachOf(null)}>
+          <div className="text-sm text-slate-500">{attachOf.party} · {attachOf.ref} · {tx('échéance', 'الاستحقاق')} {frDate(attachOf.due)}</div>
+          <AttachmentsPanel L={L} entityType={attachKey(attachOf).type} entityId={attachKey(attachOf).id} onChanged={loadAttachN} title={'📷 ' + tx('Photo du chèque / justificatif', 'صورة الشيك / المبرر')} />
+        </Modal>
+      ) : null}
       {reject ? (
         <Modal title={'⛔ ' + tx('Chèque / effet rejeté', 'شيك / كمبيالة مرفوضة') + ' — ' + (reject.item.no || reject.item.ref)} onClose={() => setReject(null)}>
           <p className="text-sm text-slate-600 mb-3">{tx('Le règlement sera annulé : la ou les facture(s) redeviennent dues. Le gérant et l\'auteur du règlement reçoivent une alerte.', 'سيتم إلغاء الأداء وتصبح الفواتير مستحقة من جديد.')} <b>{dh(reject.item.amount)}</b> · {reject.item.party}</p>
@@ -12406,11 +12446,101 @@ async function setSaleTrip(saleId, tripId) {
   if (error) throw new Error(error.message);
 }
 
-function AttachmentsPanel({ L, entityType, entityId, branchId: bId }) {
+// ===================== V63 : pièces jointes — limite réglable, photo, compression =====================
+const ATTACH_DEFAULT_MB = 2;
+function cacheAttachSettings(s) {
+  try {
+    const mb = Number(String(s?.attach_max_mb ?? '').replace(',', '.'));
+    localStorage.setItem('droguerie_attach_max_mb', String(mb > 0 ? mb : ATTACH_DEFAULT_MB));
+    localStorage.setItem('droguerie_attach_compress', String(s?.attach_compress ?? '1') === '0' ? '0' : '1');
+  } catch {}
+}
+function attachLimitMb() {
+  try { const v = Number(localStorage.getItem('droguerie_attach_max_mb')); return v > 0 ? v : ATTACH_DEFAULT_MB; } catch { return ATTACH_DEFAULT_MB; }
+}
+function attachCompressOn() { try { return localStorage.getItem('droguerie_attach_compress') !== '0'; } catch { return true; } }
+function fmtSize(n) {
+  const b = Number(n || 0);
+  if (b >= 1048576) return (Math.round(b / 104857.6) / 10).toString().replace('.', ',') + ' Mo';
+  return Math.max(1, Math.round(b / 1024)) + ' Ko';
+}
+function fmtMb(mb) { return String(mb).replace('.', ',') + ' Mo'; }
+
+// Photo → JPEG redimensionné (1600 px max) et recompressé jusqu'à la taille visée
+async function compressImage(file, targetBytes) {
+  if (typeof document === 'undefined' || typeof URL === 'undefined') return file;
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((ok, ko) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => ko(new Error('image illisible')); i.src = url; });
+    const W = img.naturalWidth || img.width, H = img.naturalHeight || img.height;
+    if (!W || !H) return file;
+    let max = 1600, q = 0.82, best = null;
+    for (let step = 0; step < 8; step++) {
+      const scale = Math.min(1, max / Math.max(W, H));
+      const w = Math.max(1, Math.round(W * scale)), h = Math.max(1, Math.round(H * scale));
+      const c = document.createElement('canvas'); c.width = w; c.height = h;
+      const ctx = c.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h); ctx.drawImage(img, 0, 0, w, h);
+      const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', q));
+      if (blob && (!best || blob.size < best.size)) best = blob;
+      if (blob && blob.size <= targetBytes) break;
+      if (q > 0.5) q -= 0.12; else max = Math.round(max * 0.75);
+    }
+    if (!best || best.size >= file.size) return file;
+    const name = String(file.name || 'photo').replace(/\.[^.]+$/, '') + '.jpg';
+    try { return new File([best], name, { type: 'image/jpeg' }); } catch { best.name = name; return best; }
+  } finally { URL.revokeObjectURL(url); }
+}
+
+// Contrôle avant envoi : compression des photos, puis limite de taille fixée par l'administrateur
+async function prepareAttachment(file) {
+  const limitMb = attachLimitMb();
+  const limit = limitMb * 1048576;
+  let out = file, compressed = false;
+  const isImg = /^image\//i.test(file.type || '') && !/gif|svg/i.test(file.type || '');
+  if (isImg && attachCompressOn() && file.size > 400 * 1024) {
+    try { const c = await compressImage(file, Math.min(limit, 700 * 1024)); if (c && c.size < file.size) { out = c; compressed = true; } } catch {}
+  } else if (isImg && file.size > limit) {
+    try { const c = await compressImage(file, Math.min(limit, 700 * 1024)); if (c && c.size < file.size) { out = c; compressed = true; } } catch {}
+  }
+  if (out.size > limit) {
+    throw new Error(tx('Fichier trop lourd : ' + fmtSize(out.size) + '. Limite fixée par l\'administrateur : ' + fmtMb(limitMb) + '.' + (isImg ? '' : ' Pour un papier, prenez plutôt une photo : elle sera compressée.'),
+      'الملف كبير جدا: ' + fmtSize(out.size) + '. الحد الأقصى: ' + fmtMb(limitMb) + '.'));
+  }
+  return { file: out, compressed, original: file.size };
+}
+
+async function uploadAttachment(entityType, entityId, file, branchIdV) {
+  const safe = String(file.name || 'fichier').replace(/[^\w.\-]+/g, '_');
+  const path = entityType + '/' + entityId + '/' + Date.now() + '_' + safe;
+  const up = await supabase.storage.from('attachments').upload(path, file, { upsert: false, contentType: file.type || undefined });
+  if (up.error) throw new Error(up.error.message);
+  const ins = await supabase.from('attachments').insert({
+    entity_type: entityType, entity_id: String(entityId), file_name: file.name || safe,
+    storage_path: path, mime: file.type, size: file.size,
+    branch_id: branchIdV || currentBranchId() || null,
+    uploaded_by: String(getStoredSession()?.user?.id || '')
+  });
+  if (ins.error) {
+    try { await supabase.storage.from('attachments').remove([path]); } catch {}
+    throw new Error(ins.error.message);
+  }
+  return path;
+}
+async function loadAttachmentCounts(entityType) {
+  const { data, error } = await supabase.from('attachments').select('entity_id').eq('entity_type', entityType);
+  if (error) return {};
+  const m = {}; (data || []).forEach(r => { m[r.entity_id] = (m[r.entity_id] || 0) + 1; });
+  return m;
+}
+
+// pending + onPending : fichiers choisis avant l'enregistrement (envoyés juste après, avec le bon numéro)
+function AttachmentsPanel({ L, entityType, entityId, branchId: bId, pending, onPending, title, onChanged }) {
   const [rows, setRows] = useState([]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
+  const [info, setInfo] = useState('');
   const enabled = hasModuleAccess('attachments');
+  const pendingMode = !entityId && typeof onPending === 'function';
 
   async function load() {
     if (!entityId) { setRows([]); return; }
@@ -12424,23 +12554,22 @@ function AttachmentsPanel({ L, entityType, entityId, branchId: bId }) {
   }
   useEffect(() => { load(); }, [entityType, entityId]);
 
-  async function upload(file) {
-    if (!file) return;
-    setBusy(true); setErr('');
-    try {
-      const safe = file.name.replace(/[^\w.\-]+/g, '_');
-      const path = entityType + '/' + entityId + '/' + Date.now() + '_' + safe;
-      const up = await supabase.storage.from('attachments').upload(path, file, { upsert: false });
-      if (up.error) throw up.error;
-      const ins = await supabase.from('attachments').insert({
-        entity_type: entityType, entity_id: String(entityId), file_name: file.name,
-        storage_path: path, mime: file.type, size: file.size,
-        branch_id: bId || currentBranchId() || null,
-        uploaded_by: String(getStoredSession()?.user?.id || '')
-      });
-      if (ins.error) throw ins.error;
-      await load();
-    } catch (e) { setErr(e.message); }
+  async function upload(files) {
+    const list = [...(files || [])].filter(Boolean);
+    if (!list.length) return;
+    setBusy(true); setErr(''); setInfo('');
+    const done = []; const added = [];
+    for (const f of list) {
+      try {
+        const prep = await prepareAttachment(f);
+        if (pendingMode) added.push(prep.file);
+        else await uploadAttachment(entityType, entityId, prep.file, bId);
+        done.push(prep.compressed ? '📷 ' + (f.name || 'photo') + ' : ' + fmtSize(prep.original) + ' → ' + fmtSize(prep.file.size) : '📎 ' + (f.name || '') + ' (' + fmtSize(prep.file.size) + ')');
+      } catch (e) { setErr(friendlyError(e.message)); }
+    }
+    if (pendingMode && added.length) onPending([...(pending || []), ...added]);
+    if (done.length) setInfo(done.join(' · '));
+    if (!pendingMode) { await load(); onChanged && onChanged(); }
     setBusy(false);
   }
 
@@ -12453,34 +12582,54 @@ function AttachmentsPanel({ L, entityType, entityId, branchId: bId }) {
   }
 
   async function remove(row) {
-    if (!confirm('Supprimer ?')) return;
+    if (!confirm(tx('Supprimer ce fichier ?', 'حذف هذا الملف؟'))) return;
     try {
       await supabase.storage.from('attachments').remove([row.storage_path]);
       const { error } = await supabase.from('attachments').delete().eq('id', row.id);
       if (error) throw error;
-      await load();
+      await load(); onChanged && onChanged();
     } catch (e) { alert(e.message); }
   }
 
   if (!enabled) return null;
-  if (!entityId) return <div className="text-xs text-slate-400 mt-3 border-t pt-2">{L('attach')} — {L('save')}…</div>;
+  if (!entityId && !pendingMode) return <div className="text-xs text-slate-400 mt-3 border-t pt-2">{L('attach')} — {L('save')}…</div>;
+  const icon = r => /^image\//.test(r.mime || '') ? '🖼' : /pdf/.test(r.mime || '') ? '📄' : '📎';
 
   return (
-    <div className="mt-3 border-t pt-3">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-bold text-slate-600">{L('attach')}</span>
-        <label className="btn bg-white border text-xs" style={{ cursor: 'pointer' }}>
-          {busy ? '…' : L('addAttachment')}
-          <input type="file" style={{ display: 'none' }} disabled={busy} onChange={e => { const f = e.target.files && e.target.files[0]; e.target.value = ''; upload(f); }} />
-        </label>
+    <div className="mt-3 border-t pt-3 attach-panel" data-attach-panel={entityType}>
+      <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+        <span className="text-xs font-bold text-slate-600">{title || L('attach')}</span>
+        <span className="flex gap-1">
+          <label className="btn bg-white border text-xs attach-btn" data-attach-file>
+            {busy ? '…' : '📎 ' + tx('Fichier', 'ملف')}
+            <input type="file" multiple style={{ display: 'none' }} disabled={busy} data-attach-input onChange={e => { const f = [...(e.target.files || [])]; e.target.value = ''; upload(f); }} />
+          </label>
+          <label className="btn bg-white border text-xs attach-btn" data-attach-photo title={tx('Prendre une photo (téléphone / tablette)', 'التقاط صورة')}>
+            {busy ? '…' : '📷 ' + tx('Photo', 'صورة')}
+            <input type="file" accept="image/*" capture="environment" style={{ display: 'none' }} disabled={busy} data-attach-camera onChange={e => { const f = [...(e.target.files || [])]; e.target.value = ''; upload(f); }} />
+          </label>
+        </span>
       </div>
-      {err ? <div className="text-xs text-red-600 mb-1">{err}</div> : null}
-      {rows.length ? (
+      <div className="text-[11px] text-slate-400 mb-1" data-attach-limit>{tx('Limite : ' + fmtMb(attachLimitMb()) + ' par fichier', 'الحد: ' + fmtMb(attachLimitMb()))}{attachCompressOn() ? tx(' · photos compressées automatiquement', ' · ضغط الصور تلقائيا') : ''}</div>
+      {err ? <div className="text-xs text-red-600 mb-1" data-attach-error>{err}</div> : null}
+      {info ? <div className="text-xs text-emerald-700 mb-1" data-attach-info>{info}</div> : null}
+      {pendingMode ? (
+        (pending || []).length ? (
+          <ul className="space-y-1">
+            {(pending || []).map((f, i) => (
+              <li key={i} className="flex items-center justify-between text-xs bg-amber-50 rounded px-2 py-1" data-attach-pending>
+                <span className="truncate" style={{ maxWidth: '75%' }}>{/^image\//.test(f.type || '') ? '🖼' : '📎'} {f.name} · {fmtSize(f.size)} <span className="text-slate-400">— {tx('envoyé à l\'enregistrement', 'يُرسل عند الحفظ')}</span></span>
+                <button type="button" onClick={() => onPending((pending || []).filter((_, j) => j !== i))} className="text-red-600">✕</button>
+              </li>
+            ))}
+          </ul>
+        ) : <div className="text-xs text-slate-400">{L('noAttachment')}</div>
+      ) : rows.length ? (
         <ul className="space-y-1">
           {rows.map(r => (
-            <li key={r.id} className="flex items-center justify-between text-xs bg-slate-50 rounded px-2 py-1">
-              <button onClick={() => openFile(r)} className="text-blue-600 underline truncate text-left" style={{ maxWidth: '70%' }}>{r.file_name || r.storage_path}</button>
-              <button onClick={() => remove(r)} className="text-red-600">✕</button>
+            <li key={r.id} className="flex items-center justify-between text-xs bg-slate-50 rounded px-2 py-1" data-attach-row={r.file_name}>
+              <button onClick={() => openFile(r)} className="text-blue-600 underline truncate text-left" style={{ maxWidth: '75%' }}>{icon(r)} {r.file_name || r.storage_path}{r.size ? <span className="text-slate-400 no-underline"> · {fmtSize(r.size)}</span> : null}</button>
+              <button onClick={() => remove(r)} className="text-red-600" aria-label={tx('Supprimer', 'حذف')}>✕</button>
             </li>
           ))}
         </ul>
@@ -12488,6 +12637,7 @@ function AttachmentsPanel({ L, entityType, entityId, branchId: bId }) {
     </div>
   );
 }
+
 
 function ExpensesCenter({ L }) {
   const [tab, setTab] = useState('trips');
@@ -13804,6 +13954,21 @@ function Settings({ L }) {
             </label>
           </div>
           {field('company_rib', L('companyRib'))}
+        </div>
+
+        <div className="card p-5 md:col-span-2" data-attach-settings>
+          <h2 className="font-bold mb-1">📎 {tx('Pièces jointes et photos', 'المرفقات والصور')}</h2>
+          <p className="text-xs text-slate-500 mb-3">{tx('Taille maximale d\'un fichier joint (photo de chèque, bon, facture fournisseur…). Les photos sont réduites avant l\'envoi : une photo de téléphone de 4 Mo devient environ 300 Ko, toujours lisible.', 'الحجم الأقصى للملف المرفق. تُضغط الصور قبل الإرسال.')}</p>
+          <div className="flex flex-wrap gap-4 items-end">
+            <label className="text-xs text-slate-500">{tx('Taille maximale par fichier', 'الحجم الأقصى لكل ملف')}
+              <select className="input mt-1" style={{ width: 160 }} value={String(settings.attach_max_mb || '2')} onChange={e => set('attach_max_mb', e.target.value)} data-attach-max>
+                {['0.5', '1', '2', '3', '5', '10', '20'].map(v => <option key={v} value={v}>{fmtMb(v)}</option>)}
+                {!['0.5', '1', '2', '3', '5', '10', '20'].includes(String(settings.attach_max_mb || '2')) ? <option value={String(settings.attach_max_mb)}>{fmtMb(settings.attach_max_mb)}</option> : null}
+              </select>
+            </label>
+            <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={String(settings.attach_compress ?? '1') !== '0'} onChange={e => set('attach_compress', e.target.checked ? '1' : '0')} data-attach-compress /> {tx('Compresser automatiquement les photos (recommandé)', 'ضغط الصور تلقائيا (موصى به)')}</label>
+          </div>
+          <p className="text-xs text-slate-400 mt-2">{tx('Contrôlé aussi par la base de données : un fichier plus lourd est refusé.', 'تتحقق قاعدة البيانات أيضا من الحجم.')}</p>
         </div>
 
         {isSimpleUi() && !showAdvanced ? (
