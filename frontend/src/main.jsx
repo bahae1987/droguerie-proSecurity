@@ -4,7 +4,7 @@ import { flushSync, createPortal } from 'react-dom';
 import { createClient } from '@supabase/supabase-js';
 import './index.css';
 
-console.log('DROGUERIEPRO V67 OK');
+console.log('DROGUERIEPRO V68 OK');
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -1138,9 +1138,9 @@ async function elementToPdfBlob(el) {
 }
 
 // Rendu d'un composant hors écran puis conversion en PDF (relevé envoyé depuis une relance, etc.)
-async function jsxToPdfBlob(jsx) {
+async function jsxToPdfBlob(jsx, lang) {
   const host = document.createElement('div');
-  if (document.querySelector('.rtl')) host.className = 'rtl';
+  if (lang ? lang === 'ar' : document.querySelector('.rtl')) host.className = 'rtl';
   host.style.cssText = 'position:fixed;left:-12000px;top:0;width:794px;background:#fff';
   document.body.appendChild(host);
   const root = createRoot(host);
@@ -1419,15 +1419,28 @@ function frDate(d) { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(d || ''));
 function canShareFiles() {
   try { return !!(navigator.canShare && navigator.canShare({ files: [new File(['x'], 'x.pdf', { type: 'application/pdf' })] })); } catch { return false; }
 }
-const isMobileDevice = () => /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
+const isMobileDevice = () => /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '') || (/Macintosh/.test(navigator.userAgent || '') && Number(navigator.maxTouchPoints || 0) > 1); // V68 : iPad
 
 /* Fenêtre d'envoi WhatsApp
    kind : doc | statement | reminder | ticket
    party : { id, name, phone, table: 'clients' | 'suppliers' }
    buildVars(lang) : variables du message ; makePdf() : Blob PDF (facultatif) */
 // V66 : pdfChoices = [{ key, label, make, name, folder }] → choix du document joint (caisse : ticket ou facture A4)
+/* V68 : envoi fiabilisé
+   - WhatsApp s'ouvre TOUJOURS sur la conversation du numéro du client, avec le message (wa.me sur téléphone,
+     WhatsApp Web ou l'application sur ordinateur). Plus de feuille de partage du système pour le message :
+     elle ignorait le numéro et WhatsApp supprimait le texte quand un PDF était joint.
+   - PDF : lien dans le message (un seul envoi) ou pièce jointe en 2e étape (partage du fichier seul / téléchargement).
+   - PDF préparé dès l'ouverture : le clic ouvre WhatsApp immédiatement (pas de fenêtre bloquée). */
+function waPcTarget() { try { return localStorage.getItem('droguerie_wa_pc') === 'app' ? 'app' : 'web'; } catch { return 'web'; } }
+function waOpenUrl(num, text, mobile, pc) {
+  const t = encodeURIComponent(text || '');
+  if (mobile || !num) return 'https://wa.me/' + (num || '') + '?text=' + t;
+  return pc === 'app' ? 'whatsapp://send?phone=' + num + '&text=' + t : 'https://web.whatsapp.com/send?phone=' + num + '&text=' + t;
+}
 function WhatsAppModal({ L, kind, party, buildVars, makePdf: makePdf0, pdfFolder: pdfFolder0, pdfName: pdfName0, pdfChoices, defaultPdf, defaultAttach, onPrefs, auditModule, auditObject, close }) {
   const prefs = waPrefs();
+  const mobile = isMobileDevice();
   const [pdfKey, setPdfKey] = useState(() => (pdfChoices && pdfChoices.length ? ((pdfChoices.find(c => c.key === defaultPdf) || pdfChoices[0]).key) : ''));
   const choice = pdfChoices && pdfChoices.length ? (pdfChoices.find(c => c.key === pdfKey) || pdfChoices[0]) : null;
   const makePdf = choice ? choice.make : makePdf0;
@@ -1435,61 +1448,87 @@ function WhatsAppModal({ L, kind, party, buildVars, makePdf: makePdf0, pdfFolder
   const pdfName = choice ? choice.name : pdfName0;
   const [lang, setLang] = useState(prefs.lang);
   const [phone, setPhone] = useState(party?.phone || '');
+  const phoneTouched = useRef(false);
   const [message, setMessage] = useState(() => renderWa(waTemplate(kind, prefs.lang), buildVars(prefs.lang, pdfKey), prefs.lang));
   const [edited, setEdited] = useState(false);
   const [attach, setAttach] = useState(() => (makePdf ? (['link', 'file', 'none'].includes(defaultAttach) ? defaultAttach : 'link') : 'none'));
   const [days, setDays] = useState(prefs.days);
+  const [pc, setPc] = useState(waPcTarget);
   const [saveNum, setSaveNum] = useState(true);
-  const [busy, setBusy] = useState('');
+  const [prep, setPrep] = useState({ state: 'idle' }); // idle | busy | ready | error
+  const [step2, setStep2] = useState(false);
   const [info, setInfo] = useState('');
+  const blobCache = useRef({});
+  const prepSeq = useRef(0);
   useEffect(() => { if (!edited) setMessage(renderWa(waTemplate(kind, lang), buildVars(lang, pdfKey), lang)); }, [lang, pdfKey]);
+  // V68 : numéro à jour depuis la fiche du client / fournisseur
+  useEffect(() => {
+    if (!party?.id || !party?.table) return;
+    supabase.from(party.table).select('phone').eq('id', party.id).maybeSingle().then(({ data }) => {
+      if (data && data.phone && !phoneTouched.current) setPhone(data.phone);
+    }).catch(() => {});
+  }, [party?.id]);
+  // V68 : PDF préparé (et mis en ligne pour le lien) avant le clic
+  useEffect(() => {
+    if (!makePdf || attach === 'none') { setPrep({ state: 'idle' }); return; }
+    const seq = ++prepSeq.current;
+    const key = (pdfKey || 'doc') + '|' + lang;
+    setPrep({ state: 'busy', label: L('waPreparing') });
+    (async () => {
+      try {
+        let blob = blobCache.current[key];
+        if (!blob) { blob = await makePdf(lang); blobCache.current[key] = blob; }
+        if (seq !== prepSeq.current) return;
+        let link = '';
+        if (attach === 'link') {
+          setPrep({ state: 'busy', label: L('waUploading'), blob });
+          link = await uploadSharedPdf(blob, pdfFolder || 'documents', (pdfName || 'document') + (lang === 'ar' ? '_ar' : ''), days);
+        }
+        if (seq === prepSeq.current) setPrep({ state: 'ready', blob, link });
+      } catch (e) {
+        if (seq === prepSeq.current) setPrep({ state: 'error', error: e.message || String(e), blob: blobCache.current[key] });
+      }
+    })();
+  }, [attach, pdfKey, lang, days]);
 
   const num = whatsappNumber(phone);
   const invalid = !!phone.trim() && !num;
   const tableWrite = party?.table === 'suppliers' ? 'suppliers.write' : 'clients.write';
   const canSaveNum = !!(party?.id && party?.table && num && num !== whatsappNumber(party.phone || '') && can(tableWrite));
-  const preview = finalizeWa(message, attach === 'link' ? 'https://…/' + storageSafe(pdfName || 'document') + '.pdf' : '');
+  const fileName = storageSafe(pdfName || 'document') + (lang === 'ar' ? '_ar' : '') + '.pdf';
+  const link = attach === 'link' && prep.state === 'ready' ? prep.link : '';
+  const linkFailed = attach === 'link' && prep.state === 'error';
+  const preview = finalizeWa(message, attach === 'link' ? (link || 'https://…/' + fileName) : '');
+  const waiting = attach !== 'none' && !!makePdf && prep.state === 'busy';
 
-  async function send() {
-    if (invalid) return;
+  function savePrefs() {
     try { localStorage.setItem('droguerie_wa_prefs', JSON.stringify({ lang, days })); } catch {}
+    try { if (!mobile) localStorage.setItem('droguerie_wa_pc', pc); } catch {}
     if (onPrefs) onPrefs({ pdf: pdfKey, attach });
-    const mobile = isMobileDevice();
-    const nativeFile = attach === 'file' && canShareFiles();
-    // Ordinateur : la fenêtre est ouverte tout de suite, sinon le navigateur la bloque après la préparation du PDF
-    const win = !mobile && !nativeFile ? window.open('about:blank', '_blank') : null;
-    setInfo('');
-    try {
-      let link = '', blob = null, note = '';
-      if (attach !== 'none' && makePdf) { setBusy(L('waPreparing')); blob = await makePdf(); }
-      if (attach === 'link' && blob) {
-        setBusy(L('waUploading'));
-        try { link = await uploadSharedPdf(blob, pdfFolder || 'documents', pdfName || 'document', days); }
-        catch (e) { downloadBlobFile(blob, storageSafe(pdfName) + '.pdf'); note = L('waLinkFailed'); }
-      }
-      const text = finalizeWa(message, link);
-      if (attach === 'file' && blob) {
-        const file = new File([blob], storageSafe(pdfName) + '.pdf', { type: 'application/pdf' });
-        if (nativeFile) {
-          await navigator.share({ files: [file], text }).catch(() => {});
-          if (win) win.close();
-          await afterSend('file');
-          setBusy(''); close(); return;
-        }
-        downloadBlobFile(blob, file.name);
-        note = L('waFileDesktop');
-      }
-      const url = 'https://wa.me/' + num + '?text=' + encodeURIComponent(text);
-      if (win) win.location.href = url;
-      else if (mobile) window.location.href = url;
-      else if (!window.open(url, '_blank')) window.location.href = url;
-      await afterSend(attach === 'link' && link ? 'link' : attach);
-      setBusy('');
-      if (note) setInfo(note); else close();
-    } catch (e) {
-      if (win) win.close();
-      setBusy('');
-      alert(e.message);
+  }
+  // Clic : ouverture immédiate de la conversation (dans le geste de l'utilisateur)
+  function send() {
+    if (invalid || waiting) return;
+    savePrefs();
+    const text = finalizeWa(message, link);
+    const url = waOpenUrl(num, text, mobile, pc);
+    if (typeof window.__dpWaOpen === 'function') window.__dpWaOpen(url); // tests automatiques
+    else if (mobile || url.startsWith('whatsapp:')) window.location.href = url;
+    else { const w = window.open(url, 'dp_whatsapp'); if (!w) window.location.href = url; }
+    afterSend(attach === 'link' && link ? 'link' : attach);
+    if (attach === 'file' && prep.blob) { setStep2(true); setInfo(''); }
+    else if (linkFailed && prep.blob) { setStep2(true); setInfo(L('waLinkFailed')); }
+    else close();
+  }
+  // 2e étape : le PDF seul (le message est déjà dans la conversation)
+  async function sendFile() {
+    const blob = prep.blob; if (!blob) return;
+    const file = new File([blob], fileName, { type: 'application/pdf' });
+    if (mobile && canShareFiles()) {
+      try { await navigator.share({ files: [file] }); } catch (e) { if (e && e.name !== 'AbortError') { downloadBlobFile(blob, fileName); setInfo(L('waFileDesktop')); } }
+    } else {
+      downloadBlobFile(blob, fileName);
+      setInfo(L('waFileDesktop'));
     }
   }
   async function afterSend(mode) {
@@ -1499,32 +1538,55 @@ function WhatsAppModal({ L, kind, party, buildVars, makePdf: makePdf0, pdfFolder
     }
     auditLog(auditModule || 'WhatsApp', 'SHARE', auditObject || pdfName || party?.name || '', 'WhatsApp ' + (num ? '+' + num : '') + ' · ' + mode);
   }
+  const attachLabels = {
+    link: tx('Message + lien du PDF (recommandé : un seul envoi)', 'الرسالة + رابط PDF (مُستحسن: إرسال واحد)'),
+    file: tx('Message + PDF en pièce jointe (2 étapes)', 'الرسالة + ملف PDF مرفق (خطوتان)'),
+    none: L('waAttachNone')
+  };
 
   return (
     <Modal title={'🟢 ' + L('waTitle') + (party?.name ? ' — ' + party.name : '')} onClose={close} wide>
+      {step2 ? (
+        <div className="wa-step2" data-wa-step2>
+          <div className="wa-step-done">✔ {tx('Étape 1 : WhatsApp est ouvert sur la conversation', 'الخطوة 1: تم فتح محادثة واتساب')} {num ? <b dir="ltr">{waDisplayNumber(num)}</b> : null} {tx('avec le message.', 'مع الرسالة.')}</div>
+          <div className="wa-step-next">
+            <b>{tx('Étape 2 : envoyer le PDF', 'الخطوة 2: إرسال ملف PDF')}</b>
+            <p>{mobile
+              ? tx('Touchez « Envoyer le PDF », choisissez WhatsApp puis la même conversation (en haut de la liste).', 'المس « إرسال PDF »، اختر واتساب ثم نفس المحادثة (في أعلى القائمة).')
+              : tx('Cliquez sur « Télécharger le PDF », puis glissez le fichier dans la conversation WhatsApp.', 'انقر « تحميل PDF » ثم اسحب الملف إلى محادثة واتساب.')}</p>
+            <button type="button" onClick={sendFile} className="btn wa-send" data-wa-sendfile>📄 {mobile ? tx('Envoyer le PDF', 'إرسال PDF') : tx('Télécharger le PDF', 'تحميل PDF')}</button>
+            <small dir="ltr">{fileName}</small>
+          </div>
+          {info ? <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-xl p-3 mt-3 text-sm">{info}</div> : null}
+          <div className="flex flex-wrap justify-end gap-2 mt-4">
+            <button type="button" onClick={() => setStep2(false)} className="btn bg-white border">← {tx('Retour', 'رجوع')}</button>
+            <button type="button" onClick={close} className="btn bg-slate-900 text-white" data-wa-done>{tx('Terminé', 'تم')}</button>
+          </div>
+        </div>
+      ) : (
+      <>
       <div className="grid md:grid-cols-5 gap-4">
         <div className="md:col-span-3 space-y-3">
           <label className="text-xs text-slate-500 block">{L('waPhone')}
-            <input className={'input mt-1 ' + (invalid ? 'border-red-500' : '')} inputMode="tel" placeholder="06 12 34 56 78" value={phone} onChange={e => setPhone(e.target.value)} />
+            <input className={'input mt-1 ' + (invalid ? 'border-red-500' : '')} inputMode="tel" placeholder="06 12 34 56 78" value={phone} onChange={e => { phoneTouched.current = true; setPhone(e.target.value); }} data-wa-phone />
           </label>
-          <div className="text-xs -mt-2">
+          <div className="text-xs -mt-2" data-wa-number={num || ''}>
             {invalid ? <span className="text-red-600 font-semibold">{L('waPhoneInvalid')} · {L('waPhoneHint')}</span>
-              : num ? <span className="text-emerald-700 font-semibold" dir="ltr">✔ {waDisplayNumber(num)}</span>
-              : <span className="text-amber-700">{L('waNoPhone')}</span>}
+              : num ? <span className="text-emerald-700 font-semibold">✔ {tx('Envoi à', 'الإرسال إلى')} {party?.name ? party.name + ' · ' : ''}<span dir="ltr">{waDisplayNumber(num)}</span></span>
+              : <span className="text-amber-700">{tx('Aucun numéro : tapez le numéro du client, sinon WhatsApp vous demandera de choisir le contact.', 'لا يوجد رقم: اكتب رقم الزبون، وإلا سيطلب منك واتساب اختيار جهة الاتصال.')}</span>}
           </div>
           {canSaveNum ? (
             <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={saveNum} onChange={e => setSaveNum(e.target.checked)} /> {L('waSaveNumber')}</label>
           ) : null}
-          <div className="flex items-center gap-2 text-sm">
+          <div className="flex items-center gap-2 text-sm flex-wrap">
             <span className="text-xs text-slate-500">{L('waLang')}</span>
             {[['fr', 'Français'], ['ar', 'العربية']].map(([k, lbl]) => (
-              <button key={k} type="button" onClick={() => setLang(k)} className={'btn text-sm ' + (lang === k ? 'bg-slate-900 text-white' : 'bg-white border')}>{lbl}</button>
+              <button key={k} type="button" onClick={() => setLang(k)} className={'btn text-sm ' + (lang === k ? 'bg-slate-900 text-white' : 'bg-white border')} data-wa-lang={k}>{lbl}</button>
             ))}
           </div>
           <label className="text-xs text-slate-500 block">{L('waMessage')}
-            <textarea className="input mt-1 font-sans" rows={10} dir={lang === 'ar' ? 'rtl' : 'ltr'} value={message} onChange={e => { setMessage(e.target.value); setEdited(true); }} />
+            <textarea className="input mt-1 font-sans" rows={8} dir={lang === 'ar' ? 'rtl' : 'ltr'} value={message} onChange={e => { setMessage(e.target.value); setEdited(true); }} />
           </label>
-          {makePdf && attach === 'link' ? <p className="text-xs text-slate-400 -mt-2">{L('waLinkHint')}</p> : null}
           {makePdf ? (
             <div className="border rounded-xl p-3 space-y-1 text-sm">
               <div className="text-xs text-slate-500 font-semibold">{L('waAttach')}</div>
@@ -1536,14 +1598,23 @@ function WhatsAppModal({ L, kind, party, buildVars, makePdf: makePdf0, pdfFolder
                   ))}
                 </div>
               ) : null}
-              {[['link', L('waAttachLink')], ['file', L('waAttachFile')], ['none', L('waAttachNone')]].map(([k, lbl]) => (
-                <label key={k} className="flex items-center gap-2"><input type="radio" name="wa-attach" data-wa-attach={k} checked={attach === k} onChange={() => setAttach(k)} /> {lbl}</label>
+              {['link', 'file', 'none'].map(k => (
+                <label key={k} className="flex items-center gap-2"><input type="radio" name="wa-attach" data-wa-attach={k} checked={attach === k} onChange={() => setAttach(k)} /> {attachLabels[k]}</label>
               ))}
               {attach === 'link' ? (
                 <label className="text-xs text-slate-500 flex items-center gap-2 mt-1">{L('waLinkDays')}
                   <input className="input" style={{ width: 80 }} type="number" min="1" max="365" value={days} onChange={e => setDays(e.target.value)} />
                 </label>
               ) : null}
+              {linkFailed ? <div className="text-xs text-red-600" data-wa-linkfailed>{tx('Lien impossible (stockage indisponible) : choisissez « PDF en pièce jointe ».', 'تعذّر إنشاء الرابط: اختر « ملف PDF مرفق ».')} {prep.error}</div> : null}
+            </div>
+          ) : null}
+          {!mobile ? (
+            <div className="flex items-center gap-2 text-sm flex-wrap" data-wa-pc>
+              <span className="text-xs text-slate-500">{tx('Ouvrir avec', 'الفتح بواسطة')}</span>
+              {[['web', 'WhatsApp Web'], ['app', tx('Application WhatsApp', 'تطبيق واتساب')]].map(([k, lbl]) => (
+                <button key={k} type="button" onClick={() => setPc(k)} className={'btn text-sm ' + (pc === k ? 'bg-slate-900 text-white' : 'bg-white border')} data-wa-pc-choice={k}>{lbl}</button>
+              ))}
             </div>
           ) : null}
         </div>
@@ -1551,18 +1622,20 @@ function WhatsAppModal({ L, kind, party, buildVars, makePdf: makePdf0, pdfFolder
           <div className="wa-phone">
             <div className="wa-head">{party?.name || 'WhatsApp'}<small dir="ltr">{num ? waDisplayNumber(num) : ''}</small></div>
             <div className="wa-chat">
-              {attach === 'file' && makePdf ? <div className="wa-file" data-wa-file>📄 {storageSafe(pdfName)}.pdf</div> : null}
               <div className="wa-bubble" dir={lang === 'ar' ? 'rtl' : 'ltr'}>{preview}</div>
+              {attach === 'file' && makePdf ? <div className="wa-file" data-wa-file>📄 {fileName}<small>{tx('2e étape', 'الخطوة 2')}</small></div> : null}
             </div>
           </div>
         </div>
       </div>
       {info ? <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-xl p-3 mt-3 text-sm">{info}</div> : null}
       <div className="flex flex-wrap justify-end items-center gap-2 mt-4">
-        {busy ? <span className="text-sm text-slate-500">{busy}</span> : null}
+        {waiting ? <span className="text-sm text-slate-500" data-wa-busy>{prep.label}</span> : null}
         <button type="button" onClick={close} className="btn bg-white border">{L('closeBtn')}</button>
-        <button type="button" disabled={!!busy || invalid} onClick={send} className="btn wa-send">🟢 {L('waSend')}</button>
+        <button type="button" disabled={waiting || invalid} onClick={send} className="btn wa-send" data-wa-send>🟢 {L('waSend')}{num ? ' · ' : ''}{num ? <span dir="ltr">{waDisplayNumber(num)}</span> : null}</button>
       </div>
+      </>
+      )}
     </Modal>
   );
 }
@@ -10698,65 +10771,80 @@ function escapeHtml(v) {
 
 // Ticket 80 mm imprimé dans une fenêtre dédiée (indépendant de la mise en page de l'app)
 // V66 : contenu du ticket (impression et PDF WhatsApp)
-function ticketBodyHtml(t) {
+// V68 : ticket en français ou en arabe (langue de l'application à l'impression, langue du message pour WhatsApp)
+const TICKET_TXT = {
+  fr: { ticket: 'Ticket', date: 'Date', client: 'Client', cashier: 'Caissier', ht: 'Total HT', vat: 'TVA', ttc: 'TOTAL TTC', pay: 'Paiement', recv: 'Reçu', change: 'Rendu', tel: 'Tél', cur: 'DH', thanks: 'Merci de votre visite' },
+  ar: { ticket: 'تذكرة', date: 'التاريخ', client: 'الزبون', cashier: 'أمين الصندوق', ht: 'المجموع دون احتساب الرسوم', vat: 'الضريبة على القيمة المضافة', ttc: 'المجموع مع احتساب الرسوم', pay: 'طريقة الأداء', recv: 'المبلغ المستلم', change: 'الباقي', tel: 'الهاتف', cur: 'درهم', thanks: 'شكراً لزيارتكم' }
+};
+function ticketBodyHtml(t, lang) {
+  const ar = lang === 'ar';
+  const T = TICKET_TXT[ar ? 'ar' : 'fr'];
   const c = t.company || {};
+  const n = v => `<bdi>${fmt(v)}</bdi>`;
   const rows = (t.lines || []).map(l => {
     const r = lineDiscount(l);
-    return `<tr><td colspan="3" class="n">${escapeHtml(l.nom)}</td></tr>
-      <tr><td>${fmt(l.qte)} ${escapeHtml(l.unite || '')} x ${fmt(l.prixUnit)}${r ? ` <i>-${fmt(r)}%</i>` : ''}</td><td></td><td class="r">${fmt(lineNet(l))}</td></tr>`;
+    const name = ar && l.nomAr ? l.nomAr : l.nom;
+    return `<tr><td colspan="3" class="n">${escapeHtml(name)}</td></tr>
+      <tr><td><bdi>${fmt(l.qte)} ${escapeHtml(l.unite || '')} × ${fmt(l.prixUnit)}${r ? ` -${fmt(r)}%` : ''}</bdi></td><td></td><td class="r">${n(lineNet(l))}</td></tr>`;
   }).join('');
+  const clientName = t.clientName || (ar ? Lx('ar')('walkInClient') : (t.client || Lx('fr')('walkInClient')));
+  const payLabel = Lx(ar ? 'ar' : 'fr')('pm_' + t.payMode) || t.payMode;
+  const thanks = c.ticketMessage && !(ar && !/[؀-ۿ]/.test(c.ticketMessage)) ? c.ticketMessage : T.thanks;
   return `
   ${c.logo && c.ticketLogo !== false ? `<div class="c"><img class="logo" src="${c.logo}" alt=""></div>` : ''}
-  <h1>${escapeHtml(c.name || 'DrogueriePro')}</h1>
-  ${c.slogan ? `<div class="c"><i>${escapeHtml(c.slogan)}</i></div>` : ''}
-  <div class="c">${escapeHtml(c.address || '')}</div>
-  <div class="c">${c.phone ? 'Tél : ' + escapeHtml(c.phone) : ''}</div>
-  <div class="c">${c.ice ? 'ICE : ' + escapeHtml(c.ice) : ''}</div>
-  <hr><div>Ticket : <b>${escapeHtml(t.number)}</b></div>
-  <div>Date : ${escapeHtml(t.date)}</div>
-  <div>Client : ${escapeHtml(t.client || 'Client comptoir')}</div>
-  <div>Caissier : ${escapeHtml(t.cashier || '')}</div><hr>
+  <h1><bdi>${escapeHtml(c.name || 'DrogueriePro')}</bdi></h1>
+  ${c.slogan ? `<div class="c"><i><bdi>${escapeHtml(c.slogan)}</bdi></i></div>` : ''}
+  <div class="c"><bdi>${escapeHtml(c.address || '')}</bdi></div>
+  <div class="c">${c.phone ? T.tel + ' : <bdi>' + escapeHtml(c.phone) + '</bdi>' : ''}</div>
+  <div class="c">${c.ice ? 'ICE : <bdi>' + escapeHtml(c.ice) + '</bdi>' : ''}</div>
+  <hr><div>${T.ticket} : <b><bdi>${escapeHtml(t.number)}</bdi></b></div>
+  <div>${T.date} : <bdi>${escapeHtml(t.date)}</bdi></div>
+  <div>${T.client} : <bdi>${escapeHtml(clientName)}</bdi></div>
+  <div>${T.cashier} : <bdi>${escapeHtml(t.cashier || '')}</bdi></div><hr>
   <table>${rows}</table><hr>
   <table>
-    <tr><td>Total HT</td><td class="r">${fmt(t.totals.totalHT)}</td></tr>
-    <tr><td>TVA</td><td class="r">${fmt(t.totals.vat)}</td></tr>
-    <tr class="tot"><td>TOTAL TTC</td><td class="r">${fmt(t.totals.totalTTC)} DH</td></tr>
-    <tr><td>Paiement</td><td class="r">${escapeHtml(t.payMode)}</td></tr>
-    ${t.payMode === 'Espèces' && Number(t.received) > 0 ? `<tr><td>Reçu</td><td class="r">${fmt(t.received)}</td></tr><tr><td>Rendu</td><td class="r">${fmt(t.change)}</td></tr>` : ''}
+    <tr><td>${T.ht}</td><td class="r">${n(t.totals.totalHT)}</td></tr>
+    <tr><td>${T.vat}</td><td class="r">${n(t.totals.vat)}</td></tr>
+    <tr class="tot"><td>${T.ttc}</td><td class="r"><bdi>${fmt(t.totals.totalTTC)} ${T.cur}</bdi></td></tr>
+    <tr><td>${T.pay}</td><td class="r">${escapeHtml(payLabel)}</td></tr>
+    ${t.payMode === 'Espèces' && Number(t.received) > 0 ? `<tr><td>${T.recv}</td><td class="r">${n(t.received)}</td></tr><tr><td>${T.change}</td><td class="r">${n(t.change)}</td></tr>` : ''}
   </table><hr>
-  <div class="c">${escapeHtml(c.ticketMessage || 'Merci de votre visite')}</div>`;
+  <div class="c">${escapeHtml(thanks)}</div>`;
 }
 const TICKET_CSS = `
     h1 { font-size: 16px; text-align: center; margin: 0 0 2px; }
-    .c { text-align: center; } .r { text-align: right; } .n { font-weight: bold; padding-top: 4px; }
+    .c { text-align: center; } .r { text-align: end; white-space: nowrap; } .n { font-weight: bold; padding-top: 4px; }
     table { width: 100%; border-collapse: collapse; } hr { border: 0; border-top: 1px dashed #000; margin: 6px 0; }
     .tot td { font-size: 14px; font-weight: bold; } i { font-style: normal; }
     img.logo { max-width: 56mm; max-height: 22mm; object-fit: contain; filter: grayscale(1) contrast(1.3); margin-bottom: 2px; }`;
-function printTicket(t) {
-  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(t.number)}</title>
+const TICKET_FONT = { fr: "'Courier New', monospace", ar: "Tahoma, 'Arial', 'Noto Sans Arabic', sans-serif" };
+function printTicket(t, lang) {
+  const lg = (lang || curLang()) === 'ar' ? 'ar' : 'fr';
+  const html = `<!doctype html><html lang="${lg}" dir="${lg === 'ar' ? 'rtl' : 'ltr'}"><head><meta charset="utf-8"><title>${escapeHtml(t.number)}</title>
   <style>
     @page { size: 80mm auto; margin: 0; }
-    body { width: 72mm; margin: 4mm; font-family: 'Courier New', monospace; font-size: 12px; color: #000; }${TICKET_CSS}
-  </style></head><body>${ticketBodyHtml(t)}
+    body { width: 72mm; margin: 4mm; font-family: ${TICKET_FONT[lg]}; font-size: 12px; color: #000; }${TICKET_CSS}
+  </style></head><body>${ticketBodyHtml(t, lg)}
   <script>window.onload = function () { window.print(); setTimeout(function () { window.close(); }, 500); };</script>
   </body></html>`;
   const w = window.open('', '_blank', 'width=380,height=640');
-  if (!w) { alert('Autorisez les fenêtres pop-up pour imprimer le ticket'); return; }
+  if (!w) { alert(lg === 'ar' ? 'اسمح بالنوافذ المنبثقة لطباعة التذكرة' : 'Autorisez les fenêtres pop-up pour imprimer le ticket'); return; }
   w.document.open(); w.document.write(html); w.document.close();
 }
 
 function posWaPrefs() {
   let p = {};
-  try { p = JSON.parse(localStorage.getItem('droguerie_wa_pos') || '{}') || {}; } catch {}
-  return { pdf: p.pdf === 'facture' ? 'facture' : 'ticket', attach: ['link', 'file', 'none'].includes(p.attach) ? p.attach : 'file' };
+  try { p = JSON.parse(localStorage.getItem('droguerie_wa_pos68') || '{}') || {}; } catch {}
+  return { pdf: p.pdf === 'facture' ? 'facture' : 'ticket', attach: ['link', 'file', 'none'].includes(p.attach) ? p.attach : 'link' };
 }
 // V66 : ticket de caisse en PDF (largeur 80 mm, hauteur selon le contenu) pour WhatsApp
-async function ticketToPdfBlob(t) {
+async function ticketToPdfBlob(t, lang) {
+  const lg = lang === 'ar' ? 'ar' : 'fr';
   const [{ default: html2canvas }, { jsPDF }] = await Promise.all([import('html2canvas'), import('jspdf')]);
   const host = document.createElement('div');
   host.style.cssText = 'position:fixed;left:-12000px;top:0;width:302px;background:#fff;pointer-events:none;z-index:-1';
   const css = TICKET_CSS.replace(/(^|\})\s*([^{}]+)\{/g, (m, b, sel) => b + ' ' + sel.split(',').map(x => '.tk-pdf ' + x.trim()).join(', ') + ' {');
-  host.innerHTML = `<style>.tk-pdf { width: 302px; box-sizing: border-box; padding: 15px; font-family: 'Courier New', monospace; font-size: 12px; color: #000; background: #fff; line-height: 1.25; }${css}</style><div class="tk-pdf">${ticketBodyHtml(t)}</div>`;
+  host.innerHTML = `<style>.tk-pdf { width: 302px; box-sizing: border-box; padding: 15px; font-family: ${TICKET_FONT[lg]}; font-size: 12px; color: #000; background: #fff; line-height: 1.3; }${css}</style><div class="tk-pdf" dir="${lg === 'ar' ? 'rtl' : 'ltr'}" lang="${lg}">${ticketBodyHtml(t, lg)}</div>`;
   document.body.appendChild(host);
   try {
     const el = host.querySelector('.tk-pdf');
@@ -10771,12 +10859,13 @@ async function ticketToPdfBlob(t) {
   }
 }
 // V66 : facture A4 d'une vente de la caisse (même rendu que l'aperçu)
-async function saleInvoicePdfBlob(L, docId, company) {
+async function saleInvoicePdfBlob(L, docId, company, lang) {
   const { data, error } = await supabase.from('sales').select('*').eq('id', docId).maybeSingle();
   if (error) throw new Error(error.message);
   if (!data) throw new Error(tx('Facture introuvable', 'الفاتورة غير موجودة'));
   const c = company || await loadCompanySettings().catch(() => ({ name: getBrand().name || 'DrogueriePro' }));
-  return jsxToPdfBlob(<DocSheet L={L} type="sales" doc={mapDoc(data)} company={c} />);
+  const LL = lang ? Lx(lang === 'ar' ? 'ar' : 'fr') : L;
+  return jsxToPdfBlob(<DocSheet L={LL} type="sales" doc={mapDoc(data)} company={c} />, lang);
 }
 
 // Lecture code-barres par la caméra (navigateurs compatibles : Chrome Android, Edge…)
@@ -11152,11 +11241,11 @@ function PosCenter({ L }) {
           })}
           // V66 : ticket ou facture A4 en pièce jointe (choix mémorisé sur le poste)
           pdfChoices={[
-            { key: 'ticket', label: '🧾 ' + tx('Ticket', 'التذكرة'), folder: 'caisse', name: 'Ticket_' + waTicket.number, make: () => ticketToPdfBlob(waTicket) },
-            ...(waTicket.docId ? [{ key: 'facture', label: '📄 ' + tx('Facture A4', 'فاتورة A4'), folder: 'ventes', name: waTicket.number, make: () => saleInvoicePdfBlob(L, waTicket.docId, waTicket.company) }] : [])
+            { key: 'ticket', label: '🧾 ' + tx('Ticket', 'التذكرة'), folder: 'caisse', name: 'Ticket_' + waTicket.number, make: lg => ticketToPdfBlob(waTicket, lg) },
+            ...(waTicket.docId ? [{ key: 'facture', label: '📄 ' + tx('Facture A4', 'فاتورة A4'), folder: 'ventes', name: waTicket.number, make: lg => saleInvoicePdfBlob(L, waTicket.docId, waTicket.company, lg) }] : [])
           ]}
           defaultPdf={posWaPrefs().pdf} defaultAttach={posWaPrefs().attach}
-          onPrefs={p => { try { localStorage.setItem('droguerie_wa_pos', JSON.stringify(p)); } catch {} }}
+          onPrefs={p => { try { localStorage.setItem('droguerie_wa_pos68', JSON.stringify(p)); } catch {} }}
           auditModule="Caisse" auditObject={waTicket.number} />
       ) : null}
       {showHolds ? <PosHoldsModal holds={holds} resume={resumeHold} drop={id => saveHolds(holds.filter(h => h.id !== id))} close={() => setShowHolds(false)} /> : null}
@@ -12311,11 +12400,17 @@ function DocModal({ L, isSales, form, setForm, products, parties, save, close, d
 
 // 06 12 34 56 78 → 212612345678 (format attendu par WhatsApp)
 function whatsappNumber(phone) {
-  let d = String(phone || '').replace(/[^\d+]/g, '');
-  if (d.startsWith('+')) d = d.slice(1);
-  if (d.startsWith('00')) d = d.slice(2);
-  if (/^0[5-7]\d{8}$/.test(d)) d = '212' + d.slice(1);
-  return /^\d{9,15}$/.test(d) ? d : '';
+  // V68 : plusieurs numéros sur la fiche (« 0661… / 0522… ») → le premier valide ; +212 (0)6… ; 00212… ; 2120… ; 6XXXXXXXX
+  const parts = String(phone || '').split(/[\/,;|]| et | ou /i);
+  for (const part of parts) {
+    let d = part.replace(/\(0\)/g, '').replace(/[^\d+]/g, '');
+    if (d.startsWith('+')) d = d.slice(1); else if (d.startsWith('00')) d = d.slice(2);
+    if (/^2120\d{9}$/.test(d)) d = '212' + d.slice(4);
+    if (/^0[5-7]\d{8}$/.test(d)) d = '212' + d.slice(1);
+    else if (/^[5-7]\d{8}$/.test(d)) d = '212' + d;
+    if (/^\d{9,15}$/.test(d) && !/^0/.test(d)) return d;
+  }
+  return '';
 }
 
 function docShareMessage(doc, title, companyName, isSales) {

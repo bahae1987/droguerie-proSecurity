@@ -1158,6 +1158,14 @@ body {
 .wa-bubble { background: #d9fdd3; border-radius: 10px 10px 2px 10px; padding: 8px 10px; font-size: 13px; white-space: pre-wrap; word-break: break-word; box-shadow: 0 1px 1px rgba(0,0,0,.08); margin-inline-start: auto; max-width: 92%; }
 /* V66 : pièce jointe dans l'aperçu WhatsApp */
 .wa-file { background: #d9fdd3; border-radius: 10px; padding: 10px 12px; font-size: 13px; font-weight: 600; color: #0f172a; margin: 0 0 6px; margin-inline-start: auto; max-width: 92%; width: fit-content; box-shadow: 0 1px 1px rgba(0,0,0,.08); }
+.wa-file small { display: block; font-weight: 400; font-size: 11px; color: #64748b; }
+/* V68 : envoi en 2 étapes (message puis PDF) */
+.wa-step2 { display: flex; flex-direction: column; gap: 12px; }
+.wa-step-done { background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; border-radius: 12px; padding: 12px 14px; font-size: 14px; }
+.wa-step-next { border: 2px solid #25d366; border-radius: 14px; padding: 14px; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.wa-step-next p { font-size: 14px; color: #334155; margin: 0; }
+.wa-step-next .btn { font-size: 16px; padding: 10px 18px; }
+.wa-step-next small { color: #64748b; font-size: 12px; }
 
 /* V52 : achats / réceptions */
 .rc-progress { height: 4px; background: #e2e8f0; border-radius: 99px; overflow: hidden; margin-top: 3px; min-width: 70px; }
