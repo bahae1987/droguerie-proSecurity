@@ -4,7 +4,7 @@ import { flushSync } from 'react-dom';
 import { createClient } from '@supabase/supabase-js';
 import './index.css';
 
-console.log('DROGUERIEPRO V59 OK');
+console.log('DROGUERIEPRO V62 OK');
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -200,7 +200,7 @@ Object.assign(TXT.fr, {
   "pm_Carte": "Carte",
   "pm_Chèque": "Chèque",
   "pm_Virement": "Virement",
-  "pm_Crédit": "Crédit"
+  "pm_Crédit": "À crédit"
   });
 Object.assign(TXT.ar, {
   "creditNote": "إشعار دائن للزبون",
@@ -529,6 +529,8 @@ Object.assign(TXT.fr, {
   waKind_statement: 'Relevé de compte',
   waKind_reminder: 'Relance impayés',
   waKind_ticket: 'Ticket de caisse',
+  waKind_payment_in: 'Reçu de paiement (client)',
+  waKind_payment_out: 'Bon de paiement (fournisseur)',
   waRestore: 'Modèle par défaut',
   waReminder: 'Relance',
   waDefaultLang: 'Langue proposée par défaut',
@@ -721,6 +723,8 @@ Object.assign(TXT.ar, {
   waKind_statement: 'كشف الحساب',
   waKind_reminder: 'تذكير بالمستحقات',
   waKind_ticket: 'تذكرة الصندوق',
+  waKind_payment_in: 'وصل الأداء (زبون)',
+  waKind_payment_out: 'سند الأداء (مورد)',
   waRestore: 'النموذج الافتراضي',
   waReminder: 'تذكير',
   waDefaultLang: 'اللغة المقترحة افتراضياً',
@@ -1356,19 +1360,23 @@ function ExportButtons({ L, spec, label }) {
 }
 
 /* ---------- WhatsApp ---------- */
-const WA_KINDS = ['doc', 'statement', 'reminder', 'ticket'];
+const WA_KINDS = ['doc', 'statement', 'reminder', 'ticket', 'payment_in', 'payment_out'];
 const WA_DEFAULTS = {
   fr: {
     doc: 'Bonjour {client},\nVeuillez trouver votre {document} N° {numero} du {date}, d\'un montant de {montant}.\nReste à régler : {reste}\n📄 {lien}\nCordialement,\n{societe}\n{telephone_societe}',
     statement: 'Bonjour {client},\nVoici votre relevé de compte au {date}.\nTotal facturé : {total_facture}\nTotal réglé : {total_regle}\nSolde dû : {montant}\n📄 {lien}\nCordialement,\n{societe}\n{telephone_societe}',
     reminder: 'Bonjour {client},\nSauf erreur de notre part, les factures suivantes restent à régler :\n{factures}\nTotal dû : {montant}\n📄 Relevé : {lien}\nMerci de bien vouloir procéder au règlement.\nCordialement,\n{societe}\n{telephone_societe}',
-    ticket: '{societe}\nTicket {numero} du {date}\n{articles}\nTotal : {montant} ({paiement})\nMerci de votre visite !'
+    ticket: '{societe}\nTicket {numero} du {date}\n{articles}\nTotal : {montant} ({paiement})\nMerci de votre visite !',
+    payment_in: 'Bonjour {client},\nNous confirmons la réception de votre règlement N° {numero} du {date} : {montant} ({paiement}).\nFactures réglées :\n{factures}\n📄 Reçu : {lien}\nMerci pour votre confiance,\n{societe}\n{telephone_societe}',
+    payment_out: 'Bonjour {client},\nVeuillez trouver notre règlement N° {numero} du {date} : {montant} ({paiement}).\nFactures concernées :\n{factures}\n📄 Bon : {lien}\nCordialement,\n{societe}\n{telephone_societe}'
   },
   ar: {
     doc: 'السلام عليكم {client}،\nتجدون {document} رقم {numero} بتاريخ {date}، بمبلغ {montant}.\nالمبلغ المتبقي: {reste}\n📄 {lien}\nمع التحية،\n{societe}\n{telephone_societe}',
     statement: 'السلام عليكم {client}،\nإليكم كشف حسابكم بتاريخ {date}.\nمجموع الفواتير: {total_facture}\nمجموع المؤدى: {total_regle}\nالرصيد المستحق: {montant}\n📄 {lien}\nمع التحية،\n{societe}\n{telephone_societe}',
     reminder: 'السلام عليكم {client}،\nنذكّركم بأن الفواتير التالية لم تُؤدَّ بعد:\n{factures}\nالمجموع المستحق: {montant}\n📄 كشف الحساب: {lien}\nنرجو منكم التفضل بالأداء.\nمع التحية،\n{societe}\n{telephone_societe}',
-    ticket: '{societe}\nتذكرة {numero} بتاريخ {date}\n{articles}\nالمجموع: {montant} ({paiement})\nشكراً لزيارتكم!'
+    ticket: '{societe}\nتذكرة {numero} بتاريخ {date}\n{articles}\nالمجموع: {montant} ({paiement})\nشكراً لزيارتكم!',
+    payment_in: 'السلام عليكم {client}،\nنؤكد توصلنا بأدائكم رقم {numero} بتاريخ {date}: {montant} ({paiement}).\nالفواتير المؤداة:\n{factures}\n📄 الوصل: {lien}\nشكراً على ثقتكم،\n{societe}\n{telephone_societe}',
+    payment_out: 'السلام عليكم {client}،\nتجدون أداءنا رقم {numero} بتاريخ {date}: {montant} ({paiement}).\nالفواتير المعنية:\n{factures}\n📄 السند: {lien}\nمع التحية،\n{societe}\n{telephone_societe}'
   }
 };
 let waSettingsCache = {};
@@ -1633,6 +1641,7 @@ const PERM_MODULES = [
   { key: 'cash', fr: 'Paiements et clôture de caisse', ar: 'المدفوعات وإغلاق الصندوق', icon: '💵', perms: [
     PD('payments.read', 'Consulter les paiements', 'الاطلاع على المدفوعات', 'Liste des encaissements et décaissements.', 'لائحة المقبوضات والمدفوعات.'),
     PD('payments.cancel', 'Annuler un paiement', 'إلغاء أداء', 'Annulation d\'un règlement avec motif (tracé).', 'إلغاء أداء مع ذكر السبب (مسجّل).'),
+    PD('payments.edit_own', 'Corriger ses propres règlements', 'تصحيح أداءاته الخاصة', 'Annuler ou modifier ses règlements dans le délai fixé par l\'administrateur (Paramètres). Après : demande au gérant.', 'إلغاء أو تعديل أداءاته داخل الأجل المحدد من طرف المدير.'),
     PD('cash.close', 'Clôturer la caisse du jour', 'إغلاق صندوق اليوم', 'Comptage des espèces et validation de la journée.', 'عدّ النقد وتأكيد اليوم.', 'cashClosure'),
     PD('cash.reopen', 'Modifier une journée déjà clôturée', 'تعديل يوم مغلق', 'Corriger une clôture déjà validée.', 'تصحيح إغلاق تم تأكيده.', 'cashClosure')
   ]},
@@ -1691,7 +1700,7 @@ const PERM_DEPS = {
   'sales.return': ['sales.write'], 'sales.credit_override': ['sales.write'], 'sales.delete': ['sales.write'],
   'purchases.all': ['purchases.read'], 'purchases.write': ['purchases.read', 'suppliers.read', 'products.read'],
   'purchases.pay': ['purchases.read'], 'purchases.return': ['purchases.write'], 'purchases.delete': ['purchases.write'],
-  'payments.cancel': ['payments.read'], 'cash.reopen': ['cash.close'],
+  'payments.cancel': ['payments.read'], 'payments.edit_own': ['payments.read'], 'cash.reopen': ['cash.close'],
   'products.write': ['products.read'], 'products.delete': ['products.write'], 'products.import': ['products.write'],
   'stock.read': ['products.read'], 'stock.adjust': ['stock.read'], 'stock.transfer': ['stock.read'],
   'stock.inventory': ['stock.read'], 'stock.reorder': ['stock.read', 'purchases.write'],
@@ -1726,8 +1735,8 @@ function permWithoutDependents(codes, code) {
 
 // Modèles de profils (les dépendances sont ajoutées automatiquement)
 const ROLE_TEMPLATES = [
-  { key: 'cashier', label: 'permTplCashier', codes: ['dashboard.read', 'pos.use', 'sales.pay', 'payments.read', 'cash.close', 'stock.read'] },
-  { key: 'seller', label: 'permTplSeller', codes: ['dashboard.read', 'reporting.read', 'pos.use', 'pos.discount', 'pos.credit', 'sales.write', 'sales.discount', 'sales.pay', 'clients.write', 'stock.read', 'payments.read', 'cash.close', 'expenses.write'] },
+  { key: 'cashier', label: 'permTplCashier', codes: ['dashboard.read', 'pos.use', 'sales.pay', 'payments.read', 'payments.edit_own', 'cash.close', 'stock.read'] },
+  { key: 'seller', label: 'permTplSeller', codes: ['dashboard.read', 'reporting.read', 'pos.use', 'pos.discount', 'pos.credit', 'sales.write', 'sales.discount', 'sales.pay', 'clients.write', 'stock.read', 'payments.read', 'payments.edit_own', 'cash.close', 'expenses.write'] },
   { key: 'store', label: 'permTplStore', codes: ['dashboard.read', 'products.write', 'products.import', 'stock.adjust', 'stock.transfer', 'stock.inventory', 'stock.reorder', 'suppliers.write', 'purchases.write', 'purchases.return', 'expenses.read'] },
   { key: 'manager', label: 'permTplManager', codes: PERM_MODULES.filter(m => !['admin', 'saas'].includes(m.key)).flatMap(m => m.perms.map(p => p.code)).concat(['users.read', 'audit.read']) },
   { key: 'readonly', label: 'permTplReadOnly', codes: ['dashboard.read', 'reporting.read', 'profit.read', 'tools.read', 'sales.read', 'sales.all', 'purchases.read', 'purchases.all', 'payments.read', 'products.read', 'stock.read', 'clients.read', 'suppliers.read', 'expenses.read'] }
@@ -1755,6 +1764,8 @@ const FEATURES = [
   { key: 'alerts', saas: 'alerts', icon: '🔔', fr: 'Centre d\'alertes', ar: 'مركز التنبيهات', dfr: 'Cloche de notifications : stock, péremption, échéances, caisse.', dar: 'جرس التنبيهات: المخزون، الصلاحية، الآجال، الصندوق.' },
   { key: 'alertsControl', saas: 'alertsControl', icon: '🛡', fr: 'Alertes de contrôle', ar: 'تنبيهات المراقبة', dfr: 'Ventes sous le prix d\'achat, remises, suppressions, annulations.', dar: 'البيع بأقل من ثمن الشراء، التخفيضات، الحذف، الإلغاء.' },
   { key: 'labels', saas: 'labels', icon: '🏷', fr: 'Étiquettes code-barres', ar: 'ملصقات الكود بار', dfr: 'Planches d\'étiquettes prix et code-barres.', dar: 'صفحات ملصقات الأثمنة والكود بار.' },
+  { key: 'groupPayments', saas: 'groupPayments', icon: '🧾', fr: 'Règlements groupés', ar: 'الأداءات الجماعية', dfr: 'Un chèque ou virement qui règle plusieurs factures.', dar: 'شيك أو تحويل يؤدي عدة فواتير.' },
+  { key: 'chequePortfolio', saas: 'chequePortfolio', icon: '🏦', fr: 'Portefeuille chèques & effets', ar: 'محفظة الشيكات والكمبيالات', dfr: 'Suivi des chèques et effets : en portefeuille, déposé, encaissé, rejeté.', dar: 'تتبع الشيكات: في المحفظة، مودع، محصل، مرفوض.' },
   { key: 'bulkPrice', saas: 'bulkPrice', icon: '💲', fr: 'Prix en masse', ar: 'الأثمنة دفعة واحدة', dfr: 'Modifier les prix de vente par lot.', dar: 'تعديل أثمنة البيع دفعة واحدة.' }
 ];
 
@@ -2567,6 +2578,7 @@ function App() {
   const [lang, setLang] = useState(localStorage.getItem('lang') || 'fr');
   const [session, setSession] = useState(getStoredSession());
   const L = key => TXT[lang]?.[key] || key;
+  useEffect(() => { installFriendlyAlert(); }, []);
 
   // V48 : au démarrage puis toutes les 10 minutes, on vérifie que la session est toujours valide
   useEffect(() => {
@@ -3271,6 +3283,7 @@ async function loadSettings() {
   (data || []).forEach(x => { out[x.key] = x.value; });
   cacheAlertSettings(out);
   cacheWaSettings(out);
+  cacheUiSettings(out);
   setBrandCache(brandFromSettings(out));
   return out;
 }
@@ -3281,6 +3294,7 @@ async function saveSettings(settings) {
   if (error) throw new Error(error.message);
   cacheAlertSettings(settings);
   cacheWaSettings(settings);
+  cacheUiSettings(settings);
   setBrandCache(brandFromSettings(settings));
 }
 
@@ -4409,6 +4423,7 @@ async function payDoc(type, id, body) {
   const info = paymentInfo(doc);
   const montant = Number(body.montant || info.rest || 0);
   if (montant <= 0) throw new Error('Montant de règlement invalide');
+  if (body.mode === 'Crédit') throw new Error('Le mode « Crédit » n\'est plus un règlement (aucune somme reçue) : utilisez « Promesse de paiement » sur la facture');
   const payer = getStoredSession();
   payments.push({
     id: String(Date.now()), canceled: false, canceledAt: '', canceledBy: '', cancelReason: '', date: body.date || today(), mode: body.mode || 'Espèces', montant,
@@ -4423,6 +4438,12 @@ async function payDoc(type, id, body) {
 
 
 async function cancelPayment(type, docId, paymentId, reason = '') {
+  // V61 : contrôle par la base (délai de correction, droits) ; repli sur l'ancienne méthode si la base n'est pas à jour
+  {
+    const { error: rpcErr } = await supabase.rpc('app_cancel_payment', { p_table: type, p_doc: Number(docId), p_payment: String(paymentId), p_reason: reason || '' });
+    if (!rpcErr) return;
+    if (!/app_cancel_payment|function|schema cache/i.test(rpcErr.message || '')) throw new Error(rpcErr.message);
+  }
   const { data: doc, error } = await supabase.from(type).select('*').eq('id', docId).single();
   if (error) throw new Error(error.message);
 
@@ -4431,6 +4452,7 @@ async function cancelPayment(type, docId, paymentId, reason = '') {
   if (idx < 0) throw new Error('Règlement introuvable');
   if (payments[idx].canceled) throw new Error('Règlement déjà annulé');
   if (payments[idx].mode === 'Avoir') throw new Error('Cette imputation provient de l\'avoir ' + (payments[idx].avoirNumber || '') + ' : supprimez l\'avoir pour l\'annuler');
+  if (payments[idx].batchId) throw new Error('Ce règlement fait partie du règlement groupé ' + (payments[idx].batchNo || '') + ' : modifiez-le ou annulez-le depuis Paiements → Règlements groupés');
 
   const session = getStoredSession();
   payments[idx] = {
@@ -4545,9 +4567,11 @@ async function loadPayments() {
     if (label) return { createdByLabel: label, createdById: p.createdBy || null, authorFromDoc: false };
     return { createdByLabel: labels[d.created_by] || d.created_by_label || '', createdById: d.created_by || null, authorFromDoc: true };
   };
-  const map = (d, type, table) => jsonValue(d.payments_json, []).map(p => ({
+  const map = (d, type, table) => jsonValue(d.payments_json, []).map((p, i) => ({
     type, sourceTable: table, docType: table === 'sales' ? 'vente' : 'achat', docStage: d.stage, docId: d.id, docNumber: docNo(d),
     tiers: table === 'sales' ? d.client_name : d.supplier_name, partyId: table === 'sales' ? d.client_id : d.supplier_id, branchId: d.branch_id,
+    // V60 : informations pour le bon de paiement
+    docDate: d.date, docTotal: Number(d.total_ttc || 0), docRest: paymentInfo(d).rest, payIndex: i + 1,
     ...p, ...author(p, d)
   }));
   const enc = (sales || []).flatMap(d => map(d, 'encaissement', 'sales'));
@@ -4780,7 +4804,15 @@ function Layout({ L, lang, toggleLang, session, setSession }) {
   const [palette, setPalette] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
   const [pageKey, setPageKey] = useState(0);
+  const [, setUiTick] = useState(0);
   const brand = useBrand();
+  // V62 : mode simplifié (réglage de la droguerie ou choix personnel)
+  useEffect(() => {
+    const h = () => { setUiTick(t => t + 1); setPageKey(k => k + 1); };
+    window.addEventListener('droguerie_ui_mode', h);
+    return () => window.removeEventListener('droguerie_ui_mode', h);
+  }, []);
+  const simple = isSimpleUi();
   useEffect(() => { loadSettings().catch(() => null); }, []);
 
   function setPage(p) {
@@ -4845,7 +4877,10 @@ function Layout({ L, lang, toggleLang, session, setSession }) {
 
   const visibleItems = items.filter(item => visibleMenuItem(item, session, disabledModules));
   const byKey = Object.fromEntries(visibleItems.map(x => [x[0], x]));
-  const groups = MENU_GROUPS.map(g => ({ ...g, items: g.items.map(k => byKey[k]).filter(Boolean) })).filter(g => g.items.length);
+  const menuGroups = simple
+    ? [...MENU_GROUPS.filter(g => g.key !== 'admin').map(g => ({ ...g, items: g.items.filter(k => !SIMPLE_MORE_PAGES.includes(k)) })), { key: 'more', items: SIMPLE_MORE_PAGES }, ...MENU_GROUPS.filter(g => g.key === 'admin')]
+    : MENU_GROUPS;
+  const groups = menuGroups.map(g => ({ ...g, items: g.items.map(k => byKey[k]).filter(Boolean) })).filter(g => g.items.length);
   const grouped = new Set(MENU_GROUPS.flatMap(g => g.items));
   const others = visibleItems.filter(x => !grouped.has(x[0]));
   if (others.length) groups.push({ key: 'admin', items: others });
@@ -4878,7 +4913,7 @@ function Layout({ L, lang, toggleLang, session, setSession }) {
   }, []);
 
   const q = normSearch(menuQ).trim();
-  const toggleGroup = key => { const c = { ...collapsed, [key]: !collapsed[key] }; setCollapsed(c); try { localStorage.setItem('droguerie_menu_collapsed', JSON.stringify(c)); } catch {} };
+  const toggleGroup = (key, isOpen) => { const c = { ...collapsed, [key]: !!isOpen }; setCollapsed(c); try { localStorage.setItem('droguerie_menu_collapsed', JSON.stringify(c)); } catch {} };
   const bottom = ['dashboard', 'pos', 'sales', 'clients'].map(k => byKey[k]).filter(Boolean).slice(0, 4);
 
   return (
@@ -4914,12 +4949,13 @@ function Layout({ L, lang, toggleLang, session, setSession }) {
             {groups.map(g => {
               const list = g.items.filter(it => !q || normSearch(it[1]).includes(q));
               if (!list.length) return null;
-              const open = q || !collapsed[g.key] || list.some(it => it[0] === page);
+              const isCollapsed = collapsed[g.key] === undefined ? g.key === 'more' : !!collapsed[g.key];
+              const open = q || !isCollapsed || list.some(it => it[0] === page);
               return (
                 <div key={g.key} className="menu-group">
                   {g.key !== 'home' ? (
-                    <button type="button" className="menu-group-title" aria-expanded={!!open} onClick={() => toggleGroup(g.key)}>
-                      <span>{L('uxGroup_' + g.key)}</span><span aria-hidden="true">{open ? '▾' : '▸'}</span>
+                    <button type="button" className="menu-group-title" aria-expanded={!!open} onClick={() => toggleGroup(g.key, open)} data-menu-group={g.key}>
+                      <span>{g.key === 'more' ? tx('Plus d\'écrans', 'شاشات أخرى') : L('uxGroup_' + g.key)}</span><span aria-hidden="true">{open ? '▾' : '▸'}</span>
                     </button>
                   ) : null}
                   {open ? list.map(item => (
@@ -4938,7 +4974,10 @@ function Layout({ L, lang, toggleLang, session, setSession }) {
           </nav>
           <div className="p-4 border-t border-slate-800 space-y-2">
             <button className="btn bg-white text-slate-900 w-full" onClick={toggleLang}>{L('lang')}</button>
-            <button className="btn bg-slate-800 text-white w-full" onClick={async () => { await refreshCurrentSession(setSession); alert('Droits actualisés'); }}>Rafraîchir droits</button>
+            {!isSuperAdmin(session) ? <button className={'btn w-full ui-toggle ' + (simple ? 'on' : '')} data-ui-toggle onClick={() => setUiPref(simple ? 'full' : 'simple')} title={tx('Affichage simple : seulement l\'essentiel. Rien n\'est supprimé.', 'العرض المبسط: الأساسيات فقط.')}>
+              {simple ? '👁 ' + tx('Tout afficher', 'إظهار الكل') : '🧭 ' + tx('Affichage simple', 'عرض مبسط')}
+            </button> : null}
+            {!simple ? <button className="btn bg-slate-800 text-white w-full" onClick={async () => { await refreshCurrentSession(setSession); alert('Droits actualisés'); }}>Rafraîchir droits</button> : null}
             <button className="btn bg-slate-800 text-white w-full" onClick={() => setPwdOpen(true)}>{L('myPassword')}</button>
             <button className="btn bg-red-600 text-white w-full" onClick={async () => { await logoutSession(); setSession(null); }}>{L('logout')}</button>
           </div>
@@ -4948,7 +4987,8 @@ function Layout({ L, lang, toggleLang, session, setSession }) {
             <BranchFilter L={L} value={globalBranchFilter} onChange={v => { setSelectedBranchFilter(v); setGlobalBranchFilter(v); }} />
             <div className="app-topline-actions">
               {!isSuperAdmin(session) && featureOn('alerts') ? <NotificationBell session={session} /> : null}
-              <button type="button" className="btn bg-white border palette-btn" onClick={() => setPalette(true)} title={L('uxShortcuts')}>🔎 {L('uxPalette')}</button>
+              <HelpButton key={page} page={page} />
+              {!simple ? <button type="button" className="btn bg-white border palette-btn" onClick={() => setPalette(true)} title={L('uxShortcuts')}>🔎 {L('uxPalette')}</button> : null}
               {newActions.length ? (
                 <span className="row-menu">
                   <button type="button" className="btn bg-amber-500 new-btn" aria-expanded={newOpen} onClick={() => setNewOpen(!newOpen)} title="Alt+N">＋ {L('uxNew')}</button>
@@ -5220,16 +5260,21 @@ function RowMenu({ L, items }) {
     document.addEventListener('mousedown', h); document.addEventListener('keydown', k);
     return () => { document.removeEventListener('mousedown', h); document.removeEventListener('keydown', k); };
   }, [open]);
+  const [more, setMore] = useState(false);
   const list = (items || []).filter(x => x && !x.hidden);
   if (!list.length) return null;
+  // V62 : en mode simplifié, les actions avancées sont repliées sous « Plus d'actions »
+  const simple = isSimpleUi();
+  const basic = simple ? list.filter(x => !x.adv) : list;
+  const adv = simple ? list.filter(x => x.adv) : [];
+  const item = (x, i) => <button key={i} type="button" role="menuitem" className={'row-menu-item ' + (x.tone === 'danger' ? 'danger' : '') + (x.adv && simple ? ' adv' : '')} onClick={e => { e.stopPropagation(); setOpen(false); setMore(false); x.onClick(); }}>{x.icon ? x.icon + ' ' : ''}{x.label}</button>;
   return (
     <span className="row-menu" ref={ref}>
       <button type="button" className="btn bg-white border row-menu-btn" aria-label={L('uxMore')} aria-expanded={open} onClick={e => { e.stopPropagation(); setOpen(!open); }}>⋯</button>
       {open ? (
         <span className="row-menu-pop" role="menu">
-          {list.map((x, i) => (
-            <button key={i} type="button" role="menuitem" className={'row-menu-item ' + (x.tone === 'danger' ? 'danger' : '')} onClick={e => { e.stopPropagation(); setOpen(false); x.onClick(); }}>{x.icon ? x.icon + ' ' : ''}{x.label}</button>
-          ))}
+          {basic.map(item)}
+          {adv.length ? (more ? adv.map((x, i) => item(x, 'a' + i)) : <button type="button" className="row-menu-item row-menu-more" data-row-more onClick={e => { e.stopPropagation(); setMore(true); }}>▾ {tx('Plus d\'actions', 'إجراءات أخرى')} ({adv.length})</button>) : null}
         </span>
       ) : null}
     </span>
@@ -5248,7 +5293,7 @@ function Badge({ children, tone }) {
 }
 
 function ErrorBox({ msg }) {
-  return <div className="bg-red-50 text-red-700 border border-red-200 p-4 rounded-xl"><b>Erreur :</b> {msg}</div>;
+  return <div className="bg-red-50 text-red-700 border border-red-200 p-4 rounded-xl" style={{ whiteSpace: 'pre-line' }}><b>{tx('Erreur', 'خطأ')} :</b> {friendlyError(msg)}</div>;
 }
 
 
@@ -6321,7 +6366,8 @@ const SAAS_MODULE_META = {
   attachments: { category: 'platform' }, mobileApp: { category: 'platform' }, branches: { category: 'platform' }, users: { category: 'platform' },
   alerts: { category: 'option' }, alertsControl: { category: 'option', requires: ['alerts'] }, labels: { category: 'option', requires: ['products'] },
   bulkPrice: { category: 'option', requires: ['products'] }, cashClosure: { category: 'option', requires: ['sales'] }, inventory: { category: 'option', requires: ['products'] },
-  reorder: { category: 'option', requires: ['purchases'] }, import: { category: 'option' }, returns: { category: 'option', requires: ['sales'] }, share: { category: 'option' }
+  reorder: { category: 'option', requires: ['purchases'] }, import: { category: 'option' }, returns: { category: 'option', requires: ['sales'] }, share: { category: 'option' },
+  groupPayments: { category: 'option', requires: ['payments'] }, chequePortfolio: { category: 'option', requires: ['payments'] }
 };
 const SAAS_CATEGORIES = [
   { key: 'core', fr: 'Socle (toujours actif)', ar: 'الأساس (مفعّل دائما)' },
@@ -7275,7 +7321,28 @@ function TodayPanel({ data }) {
   const supplierLate = supplierDue.filter(d => String(d.due_date) < t);
   const low = products.filter(p => isLowStockAlert(p));
   const exp = products.filter(p => isExpiryAlert(p));
+  // V61 : promesses de paiement et demandes de correction
+  const [v61, setV61] = useState({ due: [], broken: [], corr: 0 });
+  useEffect(() => {
+    let stop = false;
+    (async () => {
+      try {
+        const approver = isAdmin(getStoredSession()) || can('payments.cancel');
+        const [{ data: pr }, cr] = await Promise.all([
+          can('sales.read') ? supabase.from('payment_promises').select('id, client_name, amount, promise_date, status').in('status', ['open', 'broken']) : Promise.resolve({ data: [] }),
+          approver ? supabase.from('payment_corrections').select('id', { count: 'exact', head: true }).eq('status', 'pending') : Promise.resolve({ count: 0 })
+        ]);
+        if (stop) return;
+        const list = pr || [];
+        setV61({ due: list.filter(x => x.status === 'open' && String(x.promise_date) <= t), broken: list.filter(x => x.status === 'broken'), corr: cr?.count || 0 });
+      } catch {}
+    })();
+    return () => { stop = true; };
+  }, []);
   const items = [
+    v61.corr && { key: 'corrections', icon: '✋', tone: 'amber', title: tx('Demandes de correction de règlement', 'طلبات تصحيح الأداءات'), sub: tx('à approuver ou refuser', 'للموافقة أو الرفض'), n: v61.corr, go: () => goToPage('payments', { view: 'corrections' }) },
+    v61.due.length && { key: 'promiseDue', icon: '🤝', tone: 'blue', title: tx('Promesses de paiement attendues', 'وعود بالأداء منتظرة'), sub: dh(sum(v61.due, x => x.amount)) + ' · ' + v61.due.slice(0, 3).map(x => x.client_name).join(', '), n: v61.due.length, go: () => goToPage('payments', { view: 'promises' }) },
+    v61.broken.length && { key: 'promiseBroken', icon: '💔', tone: 'red', title: tx('Promesses non tenues', 'وعود غير محترمة'), sub: dh(sum(v61.broken, x => x.amount)) + ' · ' + v61.broken.slice(0, 3).map(x => x.client_name).join(', '), n: v61.broken.length, go: () => goToPage('payments', { view: 'promises' }) },
     can('sales.read') && overdue.length && { key: 'overdue', icon: '⏰', tone: 'red', title: tx('Factures clients en retard', 'فواتير زبناء متأخرة'), sub: dh(sum(overdue, d => d.reste)) + ' ' + tx('à encaisser', 'للتحصيل'), n: overdue.length, go: () => goToPage('sales', { tab: 'facture', payF: 'unpaid' }) },
     can('purchases.read') && supplierDue.length && { key: 'supplierDue', icon: '💸', tone: supplierLate.length ? 'red' : 'amber', title: tx('Factures fournisseurs à payer (7 jours)', 'فواتير موردين للأداء (7 أيام)'), sub: dh(sum(supplierDue, d => d.reste)) + (supplierLate.length ? ' · ' + supplierLate.length + ' ' + tx('en retard', 'متأخرة') : ''), n: supplierDue.length, go: () => goToPage('purchases', { tab: 'facture', payF: 'unpaid' }) },
     can('purchases.read') && toReceive.length && { key: 'receive', icon: '📦', tone: 'blue', title: tx('Commandes fournisseurs à réceptionner', 'طلبيات موردين للاستلام'), sub: toReceive.slice(0, 3).map(d => d.supplier_name).filter(Boolean).join(', '), n: toReceive.length, go: () => goToPage('purchases', { tab: 'commande' }) },
@@ -7630,7 +7697,9 @@ const ALERT_KIND_AR = {
   invoice_overdue: 'فاتورة زبون متأخرة', credit_override: 'تجاوز سقف الكريدي', supplier_due_soon: 'فاتورة مورد قريبة الأداء',
   supplier_due_today: 'فاتورة مورد للأداء اليوم', po_late: 'طلبية مورد غير مستلمة', sale_below_cost: 'بيع بأقل من ثمن الشراء',
   big_discount: 'تخفيض كبير', payment_canceled: 'إلغاء أداء', doc_deleted: 'حذف وثيقة', bulk_price: 'تعديل الأثمنة دفعة واحدة',
-  cash_gap: 'فرق في الصندوق', cash_not_closed: 'صندوق غير مغلق', big_sale: 'عملية بيع كبيرة', new_client: 'زبون جديد'
+  cash_gap: 'فرق في الصندوق', cash_not_closed: 'صندوق غير مغلق', big_sale: 'عملية بيع كبيرة', new_client: 'زبون جديد',
+  payment_correction: 'طلب تصحيح أداء', correction_decided: 'قرار بشأن طلب تصحيح', promise_due: 'وعد بالأداء اليوم',
+  promise_broken: 'وعد بالأداء غير محترم', cheque_due: 'شيك / كمبيالة للإيداع', cheque_rejected: 'شيك / كمبيالة مرفوض'
 };
 const alertGroup = g => ALERT_GROUPS.find(x => x.key === g) || { icon: '🔔', fr: g, ar: g };
 function timeAgo(ts) {
@@ -7882,9 +7951,942 @@ function AlertRulesSettings({ L }) {
   );
 }
 
+/* ===================== V60 : bon de paiement + règlements groupés ===================== */
+// Montant en lettres (français) : « mille deux cent cinquante dirhams et cinquante centimes »
+function numberToWordsFr(n) {
+  const units = ['zéro', 'un', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf', 'dix', 'onze', 'douze', 'treize', 'quatorze', 'quinze', 'seize', 'dix-sept', 'dix-huit', 'dix-neuf'];
+  const tens = ['', '', 'vingt', 'trente', 'quarante', 'cinquante', 'soixante'];
+  function below100(x) {
+    if (x < 20) return units[x];
+    if (x < 70) { const t = Math.floor(x / 10), u = x % 10; return tens[t] + (u === 0 ? '' : u === 1 ? ' et un' : '-' + units[u]); }
+    if (x < 80) return 'soixante' + (x === 71 ? ' et onze' : '-' + units[x - 60]);
+    const u = x - 80; return 'quatre-vingt' + (u === 0 ? 's' : '-' + units[u]);
+  }
+  function below1000(x, plural) {
+    const h = Math.floor(x / 100), r = x % 100;
+    let s = h === 0 ? '' : h === 1 ? 'cent' : units[h] + ' cent' + (r === 0 && plural ? 's' : '');
+    if (r) s += (s ? ' ' : '') + below100(r);
+    return s;
+  }
+  function words(x) {
+    if (x === 0) return 'zéro';
+    const parts = [];
+    const billions = Math.floor(x / 1e9), millions = Math.floor((x % 1e9) / 1e6), thousands = Math.floor((x % 1e6) / 1000), rest = x % 1000;
+    if (billions) parts.push(below1000(billions, true) + ' milliard' + (billions > 1 ? 's' : ''));
+    if (millions) parts.push(below1000(millions, true) + ' million' + (millions > 1 ? 's' : ''));
+    if (thousands) parts.push(thousands === 1 ? 'mille' : below1000(thousands, false) + ' mille');
+    if (rest) parts.push(below1000(rest, true));
+    return parts.join(' ').replace(/quatre-vingts (mille|million)/, 'quatre-vingt $1');
+  }
+  const v = Math.round(Math.abs(Number(n || 0)) * 100);
+  const dhs = Math.floor(v / 100), cts = v % 100;
+  let s = words(dhs) + ' dirham' + (dhs > 1 ? 's' : '');
+  if (cts) s += ' et ' + words(cts) + ' centime' + (cts > 1 ? 's' : '');
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+const PAY_MODES = ['Espèces', 'Chèque', 'Virement', 'Carte', 'Effet', 'Autre'];
+const PAY_DETAIL_KEYS = ['cashRegister', 'receiptNo', 'chequeNo', 'bank', 'dueDate', 'paymentStatus', 'transferRef', 'valueDate', 'terminal', 'transactionNo', 'billNo'];
+function payDetailsText(L, d) {
+  const x = d || {};
+  const f = (k, v) => (v ? L(k) + ' : ' + v : '');
+  return [
+    f('chequeNo', x.chequeNo), f('billNo', x.billNo), f('bank', x.bank), f('transferRef', x.transferRef), f('terminal', x.terminal), f('transactionNo', x.transactionNo),
+    f('dueDate', x.dueDate && frDate(x.dueDate)), f('valueDate', x.valueDate && frDate(x.valueDate)), f('receiptNo', x.receiptNo), f('cashRegister', x.cashRegister)
+  ].filter(Boolean).join(' · ');
+}
+
+// Bon de paiement à partir d'une ligne de la liste des paiements, ou d'un règlement groupé
+function receiptFromPayment(p) {
+  return {
+    kind: p.type, number: p.batchNo || ('RC-' + (p.docNumber || '') + '/' + (p.payIndex || 1)), batch: !!p.batchNo, date: p.date,
+    partyName: p.tiers || '', partyId: p.partyId, partyTable: p.sourceTable === 'sales' ? 'clients' : 'suppliers',
+    mode: p.mode, details: Object.fromEntries(PAY_DETAIL_KEYS.map(k => [k, p[k] || ''])), note: p.note || '',
+    amount: Number(p.montant || 0), createdByLabel: p.createdByLabel || '', canceled: !!p.canceled, cancelReason: p.cancelReason || '',
+    allocations: [{ docNumber: p.docNumber, docDate: p.docDate, docTotal: Number(p.docTotal || 0), amount: Number(p.montant || 0), restAfter: Number(p.docRest ?? 0) }]
+  };
+}
+function receiptFromBatch(b, restByDoc = {}) {
+  return {
+    kind: b.kind, number: b.number, batch: true, id: b.id, date: b.date, partyName: b.party_name, partyId: b.party_id, partyTable: b.party_table,
+    mode: b.mode, details: b.details || {}, note: b.note || '', amount: Number(b.amount || 0), createdByLabel: b.created_by_label || '',
+    canceled: b.status === 'canceled', cancelReason: b.cancel_reason || '',
+    allocations: (b.allocations || []).map(a => ({ docNumber: a.docNumber, docDate: a.docDate, docTotal: Number(a.docTotal || 0), amount: Number(a.amount || 0), restAfter: restByDoc[a.docId] })),
+    advance: batchAdvance(b), instrumentStatus: b.instrument_status || ''
+  };
+}
+
+function PaymentReceiptDocument({ L, company, r, docRef }) {
+  const isIn = r.kind === 'encaissement';
+  const title = isIn ? tx('Reçu d\'encaissement', 'وصل استلام') : tx('Bon de décaissement', 'سند أداء');
+  const details = payDetailsText(L, r.details);
+  return (
+    <div className="print-area simple-document pay-receipt" style={docStyle(company)} ref={docRef}>
+      <DocBrandHeader L={L} company={company} title={title} number={r.number} date={frDate(r.date)} />
+      {r.canceled ? <div className="pay-receipt-canceled pdf-block">{tx('ANNULÉ', 'ملغى')}{r.cancelReason ? ' — ' + r.cancelReason : ''}</div> : null}
+      <div className="simple-doc-meta three">
+        <div><span>{isIn ? tx('Reçu de', 'توصلنا من') : tx('Payé à', 'أُدّي إلى')}</span><b>{r.partyName || '-'}</b></div>
+        <div><span>{tx('Mode de paiement', 'طريقة الأداء')}</span><b>{r.mode}</b>{details ? <div className="text-xs text-slate-500 mt-1">{details}</div> : null}</div>
+        <div><span>{tx('Montant', 'المبلغ')}</span><b className="pay-receipt-amount">{dh(r.amount)}</b></div>
+      </div>
+      <div className="pay-receipt-words pdf-block">
+        {isIn ? tx('Arrêté le présent reçu à la somme de', 'حُدد هذا الوصل في مبلغ') : tx('Arrêté le présent bon à la somme de', 'حُدد هذا السند في مبلغ')} : <b>{numberToWordsFr(r.amount)}</b>
+      </div>
+      <table className="simple-lines">
+        <thead>
+          <tr><th>{tx('Facture', 'الفاتورة')}</th><th>{L('date')}</th><th>{tx('Montant facture', 'مبلغ الفاتورة')}</th><th>{tx('Montant réglé', 'المبلغ المؤدى')}</th><th>{tx('Reste à payer', 'الباقي')}</th></tr>
+        </thead>
+        <tbody>
+          {r.allocations.map((a, i) => (
+            <tr key={i}>
+              <td className="font-mono">{a.docNumber}</td><td>{frDate(a.docDate)}</td><td>{dh(a.docTotal)}</td><td className="simple-bold">{dh(a.amount)}</td>
+              <td>{a.restAfter === undefined || a.restAfter === null ? '—' : a.restAfter <= 0.009 ? tx('Soldée', 'مؤداة') : dh(a.restAfter)}</td>
+            </tr>
+          ))}
+          <tr className="pay-receipt-total"><td colSpan="3">{tx('Total réglé sur factures', 'مجموع المؤدى على الفواتير')}</td><td className="simple-bold">{dh(r.allocations.reduce((t, a) => t + Number(a.amount || 0), 0))}</td><td></td></tr>
+          {Number(r.advance || 0) > 0.009 ? <tr className="pay-receipt-total"><td colSpan="3">{tx('Avance (non imputée, à valoir sur les prochaines factures)', 'تسبيق (غير مخصص)')}</td><td className="simple-bold">{dh(r.advance)}</td><td></td></tr> : null}
+        </tbody>
+      </table>
+      {r.note ? <div className="simple-note mt-3 pdf-block">{L('note')} : {r.note}</div> : null}
+      <div className="simple-footer">
+        <div className="simple-muted">{tx('Établi par', 'أعده')} {r.createdByLabel || '-'}<br />{tx('Imprimé le', 'طُبع في')} {new Date().toLocaleString('fr-FR')}</div>
+        <div className="flex gap-3">
+          <div className="simple-signature">{isIn ? tx('Signature du client', 'توقيع الزبون') : tx('Signature du fournisseur', 'توقيع المورد')}</div>
+          <div className="simple-signature">{tx('Cachet et signature', 'الختم والتوقيع')}</div>
+        </div>
+      </div>
+      <DocFooterText company={company} />
+    </div>
+  );
+}
+
+function PaymentReceiptModal({ L, receipt, close }) {
+  const ref = useRef(null);
+  const [company, setCompany] = useState(null);
+  const [phone, setPhone] = useState('');
+  const [wa, setWa] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const r = receipt;
+  useEffect(() => {
+    loadCompanySettings().then(setCompany).catch(() => setCompany({ name: getBrand().name || 'DrogueriePro' }));
+    if (r.partyId) supabase.from(r.partyTable).select('phone').eq('id', r.partyId).maybeSingle().then(({ data }) => setPhone(data?.phone || ''));
+  }, []);
+  const c = company || { name: getBrand().name || 'DrogueriePro', logo: getBrand().logo };
+  const fileName = storageSafe((r.kind === 'encaissement' ? 'Recu_' : 'Bon_decaissement_') + r.number);
+  async function pdf() {
+    setBusy(true);
+    try { downloadBlobFile(await elementToPdfBlob(ref.current), fileName + '.pdf'); auditLog(r.kind === 'encaissement' ? 'Paiements ventes' : 'Paiements achats', 'EXPORT', r.number, 'Bon de paiement PDF'); }
+    catch (e) { alert(e.message); }
+    setBusy(false);
+  }
+  return (
+    <Modal title={(r.kind === 'encaissement' ? tx('Reçu d\'encaissement', 'وصل استلام') : tx('Bon de décaissement', 'سند أداء')) + ' — ' + r.number} onClose={close} wide>
+      <PaymentReceiptDocument L={L} company={c} r={r} docRef={ref} />
+      <div className="flex flex-wrap justify-end gap-2 mt-4 no-print">
+        {featureOn('share') ? <button onClick={() => setWa(true)} className="btn wa-send" data-receipt-wa>🟢 WhatsApp</button> : null}
+        <button disabled={busy} onClick={pdf} className="btn bg-white border" data-receipt-pdf>{busy ? L('pdfBuilding') : '📄 PDF'}</button>
+        <button onClick={() => window.print()} className="btn bg-slate-900 text-white" data-receipt-print>🖨 {L('print')}</button>
+        <button onClick={close} className="btn bg-white border">{L('closeBtn')}</button>
+      </div>
+      {wa ? (
+        <WhatsAppModal L={L} kind={r.kind === 'encaissement' ? 'payment_in' : 'payment_out'} close={() => setWa(false)}
+          party={{ id: r.partyId, name: r.partyName, phone, table: r.partyTable }}
+          buildVars={() => ({
+            client: r.partyName, numero: r.number, date: frDate(r.date), montant: dh(r.amount), paiement: r.mode + (payDetailsText(L, r.details) ? ' · ' + payDetailsText(L, r.details) : ''),
+            factures: [...r.allocations.map(a => '• ' + a.docNumber + ' : ' + dh(a.amount)), ...(Number(r.advance || 0) > 0.009 ? ['• ' + tx('Avance (à valoir)', 'تسبيق') + ' : ' + dh(r.advance)] : [])].join('\n'), societe: c.name || '', telephone_societe: c.phone || ''
+          })}
+          makePdf={() => elementToPdfBlob(ref.current)} pdfFolder="paiements" pdfName={fileName}
+          auditModule={r.kind === 'encaissement' ? 'Paiements ventes' : 'Paiements achats'} auditObject={r.number} />
+      ) : null}
+    </Modal>
+  );
+}
+
+// Factures ouvertes d'un client / fournisseur (+ celles du règlement modifié)
+async function loadOpenInvoices(kind, partyId, batch) {
+  const table = kind === 'encaissement' ? 'sales' : 'purchases';
+  const col = kind === 'encaissement' ? 'client_id' : 'supplier_id';
+  const { data, error } = await supabase.from(table).select('*').eq('stage', 'facture').eq(col, partyId).order('date');
+  if (error) throw new Error(error.message);
+  const mine = Object.fromEntries((batch?.allocations || []).map(a => [String(a.docId), Number(a.amount || 0)]));
+  return (data || []).map(d => {
+    const pays = jsonValue(d.payments_json, []).filter(p => !p.canceled && !(batch && String(p.batchId || '') === String(batch.id)));
+    const paid = pays.reduce((s, p) => s + Number(p.montant || 0), 0);
+    const rest = Math.max(0, Number(d.total_ttc || 0) - paid);
+    return { id: d.id, number: docNo({ ...d, stage: 'facture' }), date: d.date, dueDate: d.due_date, total: Number(d.total_ttc || 0), rest, branchId: d.branch_id, prev: mine[String(d.id)] || 0 };
+  }).filter(d => d.rest > 0.009);
+}
+
+function GroupPaymentModal({ L, batch, preset, advanceOnly, onUseAdvance, close, done }) {
+  const editing = !!batch;
+  const [advances, setAdvances] = useState([]);
+  const canIn = can('sales.pay'), canOut = can('purchases.pay');
+  const [kind, setKind] = useState(batch?.kind || preset?.kind || (canIn ? 'encaissement' : 'decaissement'));
+  const [parties, setParties] = useState([]);
+  const [balances, setBalances] = useState({});
+  const [partyId, setPartyId] = useState(batch ? String(batch.party_id) : preset?.partyId ? String(preset.partyId) : '');
+  const [invoices, setInvoices] = useState(null);
+  const [sel, setSel] = useState({});
+  const [form, setForm] = useState(() => ({ date: batch?.date || today(), mode: batch?.mode || 'Chèque', note: batch?.note || '', received: batch ? String(batch.amount) : '', ...(batch?.details || {}) }));
+  const [busy, setBusy] = useState(false);
+  const partyTable = kind === 'encaissement' ? 'clients' : 'suppliers';
+  useEffect(() => {
+    if (editing) return;
+    Promise.all([loadParties(partyTable), loadPartyBalances(partyTable).catch(() => null)]).then(([ps, bal]) => {
+      setParties(ps || []); setBalances(bal || {});
+    }).catch(e => alert(e.message));
+  }, [kind]);
+  useEffect(() => {
+    if (!partyId || editing) { setAdvances([]); return; }
+    loadPartyAdvances(partyTable, partyId).then(setAdvances).catch(() => setAdvances([]));
+  }, [partyId, kind]);
+  useEffect(() => {
+    if (!partyId) { setInvoices(null); return; }
+    setInvoices(null);
+    loadOpenInvoices(kind, partyId, batch).then(list => {
+      setInvoices(list);
+      if (batch) setSel(Object.fromEntries(list.filter(d => d.prev > 0).map(d => [d.id, String(d.prev)])));
+      else setSel({});
+    }).catch(e => alert(e.message));
+  }, [partyId, kind]);
+  const set = (k, v) => setForm({ ...form, [k]: v });
+  const field = (label, k, type = 'text') => <label className="text-xs text-slate-500">{label}<input type={type} className="input mt-1" value={form[k] || ''} onChange={e => set(k, e.target.value)} data-pay-field={k} /></label>;
+  const total = Object.values(sel).reduce((s, v) => s + Number(v || 0), 0);
+  const received = form.received === '' ? null : Number(form.received);
+  const toggle = d => { const n = { ...sel }; if (n[d.id] !== undefined) delete n[d.id]; else n[d.id] = String(Math.round(d.rest * 100) / 100); setSel(n); };
+  function spread() {
+    // Répartition du montant reçu : factures les plus anciennes d'abord
+    let left = Number(form.received || 0); const n = {};
+    for (const d of invoices || []) { if (left <= 0.009) break; const v = Math.min(d.rest, left); n[d.id] = String(Math.round(v * 100) / 100); left -= v; }
+    setSel(n);
+  }
+  async function save() {
+    const allocations = Object.entries(sel).map(([docId, amount]) => ({ docId: Number(docId), amount: Number(amount || 0) })).filter(a => a.amount > 0);
+    if (!partyId) return alert(kind === 'encaissement' ? tx('Choisissez le client', 'اختر الزبون') : tx('Choisissez le fournisseur', 'اختر المورد'));
+    if (!allocations.length && !(received > 0)) return alert(tx('Sélectionnez au moins une facture, ou indiquez le montant reçu pour une avance', 'اختر فاتورة أو أدخل مبلغ التسبيق'));
+    const over = allocations.find(a => { const d = invoices.find(x => x.id === a.docId); return d && a.amount > d.rest + 0.01; });
+    if (over) return alert(tx('Le montant imputé dépasse le reste à payer de la facture ', 'المبلغ يتجاوز الباقي في الفاتورة ') + invoices.find(x => x.id === over.docId).number);
+    if (advanceOnly) {
+      const lower = (invoices || []).find(d => d.prev > 0 && Number(sel[d.id] || 0) + 0.009 < d.prev);
+      if (lower) return alert(tx('Imputation d\'avance : la facture ' + lower.number + ' ne peut pas être diminuée', 'لا يمكن تخفيض الفاتورة'));
+    }
+    if (received !== null && total > received + 0.009) return alert(tx('Le total imputé (' + dh(total) + ') dépasse le montant reçu (' + dh(received) + ')', 'المجموع يتجاوز المبلغ المتوصل به'));
+    if (received !== null && received - total > 0.009 && !confirm(tx(dh(received - total) + ' resteront en avance ' + (kind === 'encaissement' ? 'du client' : 'chez le fournisseur') + ' (à imputer plus tard). Continuer ?', 'سيبقى المبلغ كتسبيق. متابعة؟'))) return;
+    setBusy(true);
+    try {
+      const details = Object.fromEntries(PAY_DETAIL_KEYS.map(k => [k, form[k] || '']));
+      const { data, error } = await supabase.rpc('app_save_payment_batch', { p: { id: batch?.id || null, kind, partyId: Number(partyId), date: form.date, mode: form.mode, details, note: form.note, allocations, received, advanceOnly: !!advanceOnly } });
+      if (error) throw new Error(error.message);
+      showToast((editing ? tx('Règlement modifié : ', 'تم تعديل الأداء: ') : tx('Règlement enregistré : ', 'تم تسجيل الأداء: ')) + data.number + ' · ' + dh(data.amount) + (Number(data.advance) > 0 ? ' · ' + tx('avance', 'تسبيق') + ' ' + dh(data.advance) : ''));
+      done && done(data);
+    } catch (e) { alert(e.message); }
+    setBusy(false);
+  }
+  const party = parties.find(p => String(p.id) === String(partyId));
+  const withDebt = parties.filter(p => Number(balances[p.id]?.outstanding || 0) > 0.009);
+  return (
+    <Modal title={(advanceOnly ? tx('Imputer l\'avance du règlement ', 'تخصيص تسبيق الأداء ') + batch.number : editing ? tx('Modifier le règlement ', 'تعديل الأداء ') + batch.number : tx('Nouveau règlement groupé', 'أداء جماعي جديد'))} onClose={close} wide>
+      {advanceOnly ? <div className="dup-banner mb-3" data-advance-mode>💰 {tx('Avance disponible', 'التسبيق المتوفر')} : <b>{dh(batchAdvance(batch))}</b> · {tx('cochez les factures à régler avec cette avance (date et mode du règlement inchangés)', 'اختر الفواتير لتخصيص التسبيق')}</div> : null}
+      {!editing && advances.length ? (
+        <div className="dup-banner mb-3" data-party-advances>
+          <span>💰 {tx('Ce tiers a une avance disponible', 'لهذا الطرف تسبيق متوفر')} : <b>{dh(advances.reduce((t, b) => t + batchAdvance(b), 0))}</b> ({advances.map(b => b.number).join(', ')})</span>
+          {onUseAdvance ? <button type="button" className="btn bg-white border text-sm" data-use-advance onClick={() => onUseAdvance(advances[0])}>{tx('Imputer l\'avance', 'تخصيص التسبيق')} {advances[0].number}</button> : null}
+        </div>
+      ) : null}
+      <div className="grid md:grid-cols-3 gap-3 mb-3">
+        <div>
+          <div className="text-xs text-slate-500 mb-1">{tx('Type', 'النوع')}</div>
+          <div className="flex gap-1">
+            {canIn ? <button type="button" disabled={editing} data-pay-kind="encaissement" onClick={() => { setKind('encaissement'); setPartyId(''); }} className={'btn text-sm ' + (kind === 'encaissement' ? 'bg-emerald-600 text-white' : 'bg-white border')}>⬇ {L('cashIn')}</button> : null}
+            {canOut ? <button type="button" disabled={editing} data-pay-kind="decaissement" onClick={() => { setKind('decaissement'); setPartyId(''); }} className={'btn text-sm ' + (kind === 'decaissement' ? 'bg-red-600 text-white' : 'bg-white border')}>⬆ {L('cashOut')}</button> : null}
+          </div>
+        </div>
+        <label className="text-xs text-slate-500 md:col-span-2">{kind === 'encaissement' ? L('customer') : L('supplier')}
+          {editing ? <div className="input mt-1 bg-slate-50">{batch.party_name}</div> : (
+            <select className="input mt-1" value={partyId} onChange={e => setPartyId(e.target.value)} data-pay-party>
+              <option value="">— {tx('Choisir', 'اختيار')} —</option>
+              {withDebt.length ? <optgroup label={tx('Avec un encours', 'بمبلغ مستحق')}>{withDebt.map(p => <option key={p.id} value={p.id}>{p.name} — {dh(balances[p.id].outstanding)}</option>)}</optgroup> : null}
+              <optgroup label={tx('Tous', 'الكل')}>{parties.filter(p => !withDebt.includes(p)).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</optgroup>
+            </select>
+          )}
+        </label>
+      </div>
+
+      <div className="grid md:grid-cols-4 gap-3 mb-3 items-end">
+        {advanceOnly ? <div className="text-sm md:col-span-4 text-slate-600">{frDate(batch.date)} · {batch.mode} · {payDetailsText(L, batch.details)}</div> : <>
+        {field(L('date'), 'date', 'date')}
+        <label className="text-xs text-slate-500">{L('uxMode')}
+          <select className="input mt-1" value={form.mode} onChange={e => set('mode', e.target.value)} data-pay-mode>{PAY_MODES.map(m => <option key={m}>{m}</option>)}</select>
+        </label>
+        {form.mode === 'Chèque' ? <>{field(L('chequeNo'), 'chequeNo')}{field(L('bank'), 'bank')}{field(L('dueDate'), 'dueDate', 'date')}</> : null}
+        {form.mode === 'Effet' ? <>{field(L('billNo'), 'billNo')}{field(L('bank'), 'bank')}{field(L('dueDate'), 'dueDate', 'date')}</> : null}
+        {form.mode === 'Virement' ? <>{field(L('bank'), 'bank')}{field(L('transferRef'), 'transferRef')}{field(L('valueDate'), 'valueDate', 'date')}</> : null}
+        {form.mode === 'Carte' ? <>{field(L('terminal'), 'terminal')}{field(L('transactionNo'), 'transactionNo')}</> : null}
+        {form.mode === 'Espèces' ? <>{field(L('cashRegister'), 'cashRegister')}{field(L('receiptNo'), 'receiptNo')}</> : null}
+        {form.mode === 'Autre' ? field(tx('Référence', 'المرجع'), 'transferRef') : null}
+        </>}
+      </div>
+
+      {partyId ? (
+        <>
+          <div className="flex flex-wrap items-end gap-2 mb-2">
+            <label className="text-xs text-slate-500">{kind === 'encaissement' ? tx('Montant reçu', 'المبلغ المتوصل به') : tx('Montant payé', 'المبلغ المؤدى')} <span className="text-slate-400">({tx('vide = total imputé', 'فارغ = المجموع')})</span>
+              <input className="input mt-1" style={{ width: 160 }} type="number" min="0" step="0.01" disabled={advanceOnly} value={form.received} onChange={e => set('received', e.target.value)} data-pay-received />
+            </label>
+            <button type="button" className="btn bg-white border" disabled={!Number(form.received) || !invoices?.length} onClick={spread} data-pay-spread>⇣ {tx('Répartir (plus anciennes d\'abord)', 'توزيع (الأقدم أولا)')}</button>
+            <button type="button" className="btn bg-white border" disabled={!invoices?.length} onClick={() => setSel(Object.fromEntries((invoices || []).map(d => [d.id, String(Math.round(d.rest * 100) / 100)])))}>{tx('Tout régler', 'أداء الكل')}</button>
+            <button type="button" className="btn bg-white border" onClick={() => setSel({})}>{tx('Rien', 'لا شيء')}</button>
+          </div>
+          <div className="card overflow-auto mb-3" style={{ maxHeight: 340 }}>
+            <table className="table w-full">
+              <thead><tr><th></th><th>{tx('Facture', 'الفاتورة')}</th><th>{L('date')}</th><th>{L('dueDate')}</th><th>{L('totalTTC')}</th><th>{tx('Reste à payer', 'الباقي')}</th><th>{tx('Montant à imputer', 'المبلغ المخصص')}</th></tr></thead>
+              <tbody>
+                {invoices === null ? <tr><td colSpan="7">…</td></tr> : invoices.length ? invoices.map(d => {
+                  const on = sel[d.id] !== undefined;
+                  const late = d.dueDate && d.dueDate < today();
+                  return (
+                    <tr key={d.id} className={on ? 'pay-row-on' : ''} data-inv={d.number}>
+                      <td><input type="checkbox" checked={on} onChange={() => toggle(d)} data-inv-check={d.number} /></td>
+                      <td className="font-mono text-xs">{d.number}{d.prev ? <div className="text-[11px] text-sky-700">{tx('déjà dans ce règlement', 'ضمن هذا الأداء')} : {fmt(d.prev)}</div> : null}</td>
+                      <td className="whitespace-nowrap">{frDate(d.date)}</td>
+                      <td className={'whitespace-nowrap ' + (late ? 'text-red-600 font-semibold' : '')}>{d.dueDate ? frDate(d.dueDate) : '—'}</td>
+                      <td className="whitespace-nowrap">{dh(d.total)}</td>
+                      <td className="whitespace-nowrap font-semibold">{dh(d.rest)}</td>
+                      <td>
+                        <input className="input" style={{ width: 130 }} type="number" min="0" step="0.01" max={d.rest} disabled={!on} value={on ? sel[d.id] : ''} data-inv-amount={d.number}
+                          onChange={e => setSel({ ...sel, [d.id]: e.target.value })} />
+                        {on && Number(sel[d.id]) + 0.009 < d.rest ? <div className="text-[11px] text-amber-700">{tx('partiel · reste', 'جزئي · الباقي')} {fmt(d.rest - Number(sel[d.id] || 0))}</div> : null}
+                        {on && Number(sel[d.id]) > d.rest + 0.01 ? <div className="text-[11px] text-red-600">{tx('supérieur au reste', 'أكبر من الباقي')}</div> : null}
+                      </td>
+                    </tr>
+                  );
+                }) : <tr><td colSpan="7" className="text-center text-slate-500 py-4">{tx('Aucune facture à régler pour ce tiers.', 'لا توجد فواتير للأداء.')}</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </>
+      ) : <p className="text-sm text-slate-500 mb-3">{kind === 'encaissement' ? tx('Choisissez le client : ses factures non réglées s\'afficheront.', 'اختر الزبون لعرض فواتيره.') : tx('Choisissez le fournisseur : ses factures non réglées s\'afficheront.', 'اختر المورد لعرض فواتيره.')}</p>}
+
+      <label className="text-xs text-slate-500 block mb-3">{L('note')}<input className="input mt-1" value={form.note} onChange={e => set('note', e.target.value)} /></label>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="text-sm">
+          {tx('Total imputé', 'المجموع المخصص')} : <b className="text-lg" data-pay-total>{dh(total)}</b> · {Object.keys(sel).length} {tx('facture(s)', 'فاتورة')}
+          {received !== null && received - total > 0.009 ? <span className="text-sky-700" data-pay-advance> · 💰 {tx('avance', 'تسبيق')} : {dh(received - total)}</span> : null}
+          {received !== null && total - received > 0.009 ? <span className="text-red-600"> · {tx('dépasse le montant reçu de', 'يتجاوز المبلغ ب')} {dh(total - received)}</span> : null}
+          {party ? <span className="text-slate-400"> · {party.name}</span> : null}
+        </div>
+        <button disabled={busy || (total <= 0 && !(received > 0))} onClick={save} className={'btn text-white ' + (kind === 'encaissement' ? 'bg-emerald-600' : 'bg-red-600')} data-pay-save>✔ {editing ? tx('Enregistrer la modification', 'حفظ التعديل') : tx('Enregistrer le règlement', 'تسجيل الأداء')}</button>
+      </div>
+    </Modal>
+  );
+}
+
+// Liste des règlements groupés (onglet de l'écran Paiements)
+function PaymentBatchesView({ L, search, from, to, onChanged, openReceipt, openEdit, canCorrect = () => false, onRequest }) {
+  const [rows, setRows] = useState(null);
+  const [status, setStatus] = useState('active');
+  const [removing, setRemoving] = useState(null);
+  const me = getStoredSession()?.user?.id;
+  async function removeAlloc(b, a, keepAdvance) {
+    const allocations = (b.allocations || []).filter(x => String(x.docId) !== String(a.docId)).map(x => ({ docId: x.docId, amount: x.amount }));
+    const received = keepAdvance ? Number(b.amount) : Math.round((Number(b.amount) - Number(a.amount)) * 100) / 100;
+    if (!allocations.length && received <= 0) return alert(tx('C\'est la seule facture : annulez plutôt le règlement.', 'هذه هي الفاتورة الوحيدة: ألغ الأداء.'));
+    const { error } = await supabase.rpc('app_save_payment_batch', { p: { id: b.id, kind: b.kind, partyId: b.party_id, date: b.date, mode: b.mode, details: b.details || {}, note: b.note || '', received, allocations } });
+    if (error) return alert(error.message);
+    showToast(tx('Facture ' + a.docNumber + ' retirée du règlement' + (keepAdvance ? ' · ' + dh(a.amount) + ' gardés en avance' : ''), 'تم سحب الفاتورة'));
+    setRemoving(null);
+    await load(); onChanged && onChanged();
+  }
+  async function load() {
+    const { data, error } = await supabase.from('payment_batches').select('*').order('date', { ascending: false }).order('id', { ascending: false });
+    if (error) { setRows([]); return; }
+    setRows(data || []);
+  }
+  useEffect(() => { load(); }, []);
+  async function cancel(b) {
+    const reason = prompt(tx('Motif d\'annulation ?', 'سبب الإلغاء؟'), tx('Annulation règlement', 'إلغاء الأداء'));
+    if (reason === null) return;
+    const { error } = await supabase.rpc('app_cancel_payment_batch', { p_id: b.id, p_reason: reason });
+    if (error) return alert(error.message);
+    showToast(tx('Règlement annulé : ', 'تم إلغاء الأداء: ') + b.number);
+    await load(); onChanged && onChanged();
+  }
+  if (rows === null) return <p>…</p>;
+  const list = rows.filter(b => (status === 'all' || b.status === status) && inPeriod(b.date, from, to)
+    && matchSearch(search, [b.number, b.party_name, b.mode, b.note, b.created_by_label, ...(b.allocations || []).map(a => a.docNumber), String(b.amount), ...Object.values(b.details || {})]));
+  return (
+    <>
+      <div className="flex gap-1 mb-2">
+        {[['active', 'Actifs'], ['canceled', L('canceled')], ['all', L('all')]].map(([k, t]) => <button key={k} type="button" className={'chip ' + (status === k ? 'chip-on' : '')} onClick={() => setStatus(k)}>{t}</button>)}
+      </div>
+      <Table>
+        <thead><tr><th>N°</th><th>{L('date')}</th><th>Type</th><th>{L('customer')} / {L('supplier')}</th><th>{L('uxMode')}</th><th>{tx('Factures réglées', 'الفواتير المؤداة')}</th><th>{L('totalTTC')}</th><th>{L('createdBy')}</th><th>{L('actions')}</th></tr></thead>
+        <tbody>
+          {list.map(b => (
+            <tr key={b.id} className={b.status === 'canceled' ? 'payment-canceled' : ''} data-batch={b.number}>
+              <td className="font-mono text-xs whitespace-nowrap">{b.number}{b.status === 'canceled' ? <div><Badge tone="red">{L('canceled')}</Badge></div> : null}</td>
+              <td className="whitespace-nowrap">{frDate(b.date)}</td>
+              <td><Badge tone={b.kind === 'encaissement' ? 'green' : 'amber'}>{b.kind === 'encaissement' ? L('cashIn') : L('cashOut')}</Badge></td>
+              <td>{b.party_name}</td>
+              <td><div>{b.mode}</div><div className="text-xs text-slate-500">{payDetailsText(L, b.details)}</div></td>
+              <td className="text-xs">
+                {(b.allocations || []).map(a => (
+                  <div key={a.docId} className="whitespace-nowrap"><span className="font-mono">{a.docNumber}</span> · {fmt(a.amount)}
+                    {b.status === 'active' && canCorrect(b.created_by, b.created_at, b.branch_id, 'batch:' + b.id) ? <button type="button" className="alloc-x" title={tx('Retirer cette facture', 'سحب هذه الفاتورة')} data-alloc-remove={a.docNumber} onClick={() => setRemoving({ b, a })}>✕</button> : null}
+                  </div>
+                ))}
+                {batchAdvance(b) > 0.009 ? <div className="text-sky-700 font-semibold" data-batch-advance>💰 {tx('Avance', 'تسبيق')} : {fmt(batchAdvance(b))}</div> : null}
+                {['Chèque', 'Effet'].includes(b.mode) && b.instrument_status ? <div><Badge tone={(INSTR_STATUS[b.instrument_status] || {}).tone || 'slate'}>{b.instrument_status}</Badge></div> : null}
+              </td>
+              <td className={'font-bold whitespace-nowrap ' + (b.kind === 'encaissement' ? 'text-emerald-700' : 'text-red-700')}>{dh(b.amount)}</td>
+              <td className="text-xs">{b.created_by_label}{b.updated_by_label ? <div className="text-slate-400">{tx('modifié par', 'عدّله')} {b.updated_by_label}</div> : null}</td>
+              <td>
+                <div className="flex gap-1 items-center">
+                  <button className="btn bg-white border" title={tx('Bon de paiement', 'سند الأداء')} data-batch-receipt={b.number} onClick={() => openReceipt(b)}>🧾</button>
+                  {(() => {
+                    const mine = b.status === 'active' && canCorrect(b.created_by, b.created_at, b.branch_id, 'batch:' + b.id);
+                    const pay = can(b.kind === 'encaissement' ? 'sales.pay' : 'purchases.pay');
+                    return <RowMenu L={L} items={[
+                      b.status === 'active' && batchAdvance(b) > 0.009 && pay && { icon: '💰', label: tx('Imputer l\'avance', 'تخصيص التسبيق'), onClick: () => openEdit(b, true) },
+                      mine && { icon: '✏️', label: L('edit'), onClick: () => openEdit(b) },
+                      mine && { icon: '⛔', label: L('cancelPayment'), onClick: () => cancel(b), tone: 'danger' },
+                      b.status === 'active' && !mine && (String(b.created_by) === String(me) || pay) && onRequest && { icon: '✋', label: tx('Demander une correction', 'طلب تصحيح'), onClick: () => onRequest({ label: b.number + ' · ' + dh(b.amount), canModify: true, payload: { target: 'batch', batchId: b.id } }) }
+                    ].filter(Boolean)} />;
+                  })()}
+                </div>
+              </td>
+            </tr>
+          ))}
+          {!list.length ? <tr><td colSpan="9" className="text-center text-slate-500 py-6">{L('noData')}</td></tr> : null}
+        </tbody>
+      </Table>
+      {removing ? (
+        <Modal title={tx('Retirer la facture ', 'سحب الفاتورة ') + removing.a.docNumber + ' — ' + removing.b.number} onClose={() => setRemoving(null)}>
+          <p className="text-sm text-slate-600 mb-3">{dh(removing.a.amount)} {tx('étaient imputés sur cette facture, qui redeviendra due. Que devient ce montant ?', 'كانت مخصصة لهذه الفاتورة. ماذا يصبح هذا المبلغ؟')}</p>
+          <div className="grid gap-2">
+            <button className="btn bg-white border remove-choice" data-remove-reduce onClick={() => removeAlloc(removing.b, removing.a, false)}><b>➖ {tx('Réduire le règlement de', 'تخفيض الأداء ب')} {dh(removing.a.amount)}</b><small>{tx('Erreur de saisie : cette somme n\'a pas été reçue. Nouveau montant : ', 'خطأ في الإدخال: المبلغ الجديد ') + dh(Number(removing.b.amount) - Number(removing.a.amount))}</small></button>
+            <button className="btn bg-white border remove-choice" data-remove-advance onClick={() => removeAlloc(removing.b, removing.a, true)}><b>💰 {tx('Garder en avance', 'الإبقاء كتسبيق')}</b><small>{tx('La somme est bien reçue : elle reste en avance et servira pour une autre facture.', 'المبلغ متوصل به ويبقى كتسبيق لفاتورة أخرى.')}</small></button>
+          </div>
+        </Modal>
+      ) : null}
+    </>
+  );
+}
+
+/* ===================== V61 : corrections, avances, promesses, chèques & effets ===================== */
+// Droit de correction (miroir de la règle de la base, pour afficher les bons boutons)
+function makeCorrectionRights(ctx) {
+  const s = getStoredSession();
+  const me = s?.user?.id;
+  const full = isAdmin(s) || can('payments.cancel');
+  const hours = Number(ctx?.hours ?? 2);
+  const untilClosure = String(ctx?.untilClosure ?? '1') !== '0';
+  const approved = new Set(ctx?.approved || []);
+  const closures = ctx?.closures || [];
+  return function canCorrect(createdBy, createdAt, branchIdV, key) {
+    if (full) return true;
+    if (key && approved.has(key)) return true;
+    if (!can('payments.edit_own') || String(createdBy || '') !== String(me || '') || !createdAt || hours <= 0) return false;
+    const t = new Date(createdAt).getTime();
+    if (!t || Date.now() - t > hours * 3600000) return false;
+    if (untilClosure) {
+      const day = new Date(t).toISOString().slice(0, 10);
+      if (closures.some(c => c.closure_date >= day && String(c.branch_id || 0) === String(branchIdV || 0))) return false;
+    }
+    return true;
+  };
+}
+async function loadCorrectionContext() {
+  const s = getStoredSession();
+  const [settings, appr, clo] = await Promise.all([
+    loadSettings().catch(() => ({})),
+    supabase.from('payment_corrections').select('target_key, decided_at').eq('status', 'approved').eq('requested_by', s?.user?.id || 0),
+    supabase.from('cash_closures').select('closure_date, branch_id').gte('closure_date', new Date(Date.now() - 3 * 86400000).toISOString().slice(0, 10))
+  ]);
+  return {
+    hours: settings?.pay_edit_hours ?? 2, untilClosure: settings?.pay_edit_until_closure ?? '1',
+    approved: (appr.data || []).filter(c => Date.now() - new Date(c.decided_at).getTime() < 24 * 3600000).map(c => c.target_key),
+    closures: clo.data || []
+  };
+}
+function batchAllocated(b) { return (b?.allocations || []).reduce((t, a) => t + Number(a.amount || 0), 0); }
+function batchAdvance(b) { return Math.max(0, Math.round((Number(b?.amount || 0) - batchAllocated(b)) * 100) / 100); }
+async function loadPartyAdvances(partyTable, partyId) {
+  let q = supabase.from('payment_batches').select('*').eq('status', 'active').eq('party_table', partyTable);
+  if (partyId) q = q.eq('party_id', partyId);
+  const { data, error } = await q;
+  if (error) return [];
+  return (data || []).filter(b => batchAdvance(b) > 0.009);
+}
+
+// Demande de correction (vendeur hors délai)
+function CorrectionRequestModal({ target, close, done }) {
+  const [request, setRequest] = useState('cancel');
+  const [reason, setReason] = useState('');
+  const [busy, setBusy] = useState(false);
+  async function send() {
+    if (!reason.trim()) return alert(tx('Indiquez le motif', 'اذكر السبب'));
+    setBusy(true);
+    const { error } = await supabase.rpc('app_request_payment_correction', { p: { ...target.payload, request, reason } });
+    setBusy(false);
+    if (error) return alert(error.message);
+    showToast(tx('Demande envoyée au gérant', 'تم إرسال الطلب إلى المسير'));
+    done && done();
+  }
+  return (
+    <Modal title={'✋ ' + tx('Demander une correction', 'طلب تصحيح') + ' — ' + target.label} onClose={close}>
+      <p className="text-sm text-slate-600 mb-3">{tx('Le délai de correction est dépassé. Le gérant recevra votre demande dans ses alertes et pourra l\'accepter ou la refuser.', 'انتهت مدة التصحيح. سيتوصل المسير بطلبكم.')}</p>
+      <div className="flex gap-2 mb-3">
+        <label className="flex items-center gap-2 text-sm"><input type="radio" checked={request === 'cancel'} onChange={() => setRequest('cancel')} data-req="cancel" /> {tx('Annuler ce règlement', 'إلغاء هذا الأداء')}</label>
+        {target.canModify ? <label className="flex items-center gap-2 text-sm"><input type="radio" checked={request === 'modify'} onChange={() => setRequest('modify')} data-req="modify" /> {tx('Pouvoir le modifier (24 h)', 'إمكانية التعديل (24 س)')}</label> : null}
+      </div>
+      <label className="text-xs text-slate-500 block">{tx('Motif', 'السبب')}
+        <textarea className="input mt-1" rows="3" value={reason} onChange={e => setReason(e.target.value)} data-req-reason placeholder={tx('Ex. : erreur de montant, mauvais client…', 'مثال: خطأ في المبلغ…')} />
+      </label>
+      <button disabled={busy} onClick={send} className="btn bg-amber-500 mt-3" data-req-send>{tx('Envoyer la demande', 'إرسال الطلب')}</button>
+    </Modal>
+  );
+}
+
+function CorrectionsView({ L, onChanged }) {
+  const [rows, setRows] = useState(null);
+  const [status, setStatus] = useState('pending');
+  const approver = isAdmin(getStoredSession()) || can('payments.cancel');
+  const me = getStoredSession()?.user?.id;
+  async function load() { const { data } = await supabase.from('payment_corrections').select('*').order('requested_at', { ascending: false }).limit(300); setRows(data || []); }
+  useEffect(() => { load(); }, []);
+  async function decide(c, approve) {
+    const note = prompt(approve ? tx('Commentaire (facultatif)', 'تعليق (اختياري)') : tx('Motif du refus', 'سبب الرفض'), '');
+    if (note === null) return;
+    const { error } = await supabase.rpc('app_decide_payment_correction', { p_id: c.id, p_approve: approve, p_note: note });
+    if (error) return alert(error.message);
+    showToast(approve ? (c.request === 'cancel' ? tx('Règlement annulé', 'تم الإلغاء') : tx('Correction autorisée pendant 24 h', 'تم الترخيص 24 ساعة')) : tx('Demande refusée', 'تم الرفض'));
+    await load(); onChanged && onChanged();
+  }
+  if (rows === null) return <p>…</p>;
+  const list = rows.filter(c => status === 'all' || (status === 'pending' ? c.status === 'pending' : c.status !== 'pending'));
+  const label = { pending: tx('En attente', 'في الانتظار'), approved: tx('Autorisée', 'مرخصة'), used: tx('Corrigée', 'تم التصحيح'), done: tx('Annulé', 'تم الإلغاء'), rejected: tx('Refusée', 'مرفوضة') };
+  const tone = { pending: 'amber', approved: 'blue', used: 'green', done: 'green', rejected: 'red' };
+  return (
+    <>
+      <div className="flex gap-1 mb-2">{[['pending', tx('En attente', 'في الانتظار')], ['closed', tx('Traitées', 'معالجة')], ['all', L('all')]].map(([k, t]) => <button key={k} type="button" className={'chip ' + (status === k ? 'chip-on' : '')} onClick={() => setStatus(k)}>{t}</button>)}</div>
+      <Table>
+        <thead><tr><th>{L('date')}</th><th>{tx('Règlement', 'الأداء')}</th><th>{tx('Demande', 'الطلب')}</th><th>{tx('Motif', 'السبب')}</th><th>{tx('Demandé par', 'طلبه')}</th><th>{L('statusLbl')}</th><th></th></tr></thead>
+        <tbody>
+          {list.map(c => (
+            <tr key={c.id} data-correction={c.target_label}>
+              <td className="text-xs whitespace-nowrap">{new Date(c.requested_at).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}</td>
+              <td><div className="font-mono text-xs">{c.target_label}</div><div className="text-xs text-slate-500">{c.party_name} · {dh(c.amount)}</div></td>
+              <td>{c.request === 'cancel' ? tx('Annulation', 'إلغاء') : tx('Modification', 'تعديل')}</td>
+              <td className="text-sm">{c.reason}</td>
+              <td className="text-sm">{c.requested_by_label}</td>
+              <td><Badge tone={tone[c.status]}>{label[c.status] || c.status}</Badge>{c.decided_by_label ? <div className="text-xs text-slate-500 mt-1">{c.decided_by_label}{c.decision_note ? ' · ' + c.decision_note : ''}</div> : null}</td>
+              <td className="whitespace-nowrap">
+                {c.status === 'pending' && approver && String(c.requested_by) !== String(me) ? <>
+                  <button className="btn bg-emerald-600 text-white text-sm" data-approve={c.target_label} onClick={() => decide(c, true)}>✔ {tx('Accepter', 'قبول')}</button>{' '}
+                  <button className="btn bg-white border text-red-600 text-sm" onClick={() => decide(c, false)}>✕ {tx('Refuser', 'رفض')}</button>
+                </> : null}
+              </td>
+            </tr>
+          ))}
+          {!list.length ? <tr><td colSpan="7" className="text-center text-slate-500 py-6">{L('noData')}</td></tr> : null}
+        </tbody>
+      </Table>
+    </>
+  );
+}
+
+// Anciens règlements « Crédit » (aucune somme reçue) : garder ou annuler
+function LegacyCreditModal({ L, rows, close, done }) {
+  const [busy, setBusy] = useState('');
+  async function act(p, keep) {
+    if (!keep && !confirm(tx('Annuler ce règlement « Crédit » ? La facture redeviendra due de ', 'إلغاء هذا الأداء؟') + dh(p.montant) + '.')) return;
+    setBusy(p.id);
+    const { error } = await supabase.rpc('app_review_credit_payment', { p_table: p.sourceTable, p_doc: p.docId, p_payment: String(p.id), p_keep: keep });
+    setBusy('');
+    if (error) return alert(error.message);
+    done && done();
+  }
+  return (
+    <Modal title={'⚠ ' + tx('Anciens règlements « Crédit »', 'أداءات « كريدي » القديمة')} onClose={close} wide>
+      <p className="text-sm text-slate-600 mb-3">{tx('Ces règlements ont été saisis en mode « Crédit » : ils diminuent le reste à payer alors qu\'aucune somme n\'a été reçue. Pour chacun : « Garder » (vous confirmez qu\'il est correct) ou « Annuler » (la facture redevient due). Le mode « Crédit » est remplacé par la promesse de paiement.', 'هذه الأداءات سُجلت بطريقة « كريدي » بدون أي مبلغ متوصل به.')}</p>
+      <Table>
+        <thead><tr><th>{L('date')}</th><th>{L('document')}</th><th>{L('customer')} / {L('supplier')}</th><th>{L('amount')}</th><th>{L('createdBy')}</th><th></th></tr></thead>
+        <tbody>
+          {rows.map(p => (
+            <tr key={p.sourceTable + p.docId + p.id} data-legacy-credit={p.docNumber}>
+              <td>{frDate(p.date)}</td><td className="font-mono text-xs">{p.docNumber}</td><td>{p.tiers}</td><td className="font-bold">{dh(p.montant)}</td><td className="text-xs">{p.createdByLabel}</td>
+              <td className="whitespace-nowrap">
+                <button disabled={!!busy} className="btn bg-white border text-sm" onClick={() => act(p, true)} data-credit-keep>✔ {tx('Garder', 'الإبقاء')}</button>{' '}
+                <button disabled={!!busy} className="btn bg-red-600 text-white text-sm" onClick={() => act(p, false)} data-credit-cancel>{tx('Annuler', 'إلغاء')}</button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </Table>
+    </Modal>
+  );
+}
+
+// Promesse de paiement sur une facture client
+function PromiseModal({ L, doc, close, done }) {
+  const [amount, setAmount] = useState(String(Math.round(Number(doc.reste || 0) * 100) / 100));
+  const [date, setDate] = useState(new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10));
+  const [note, setNote] = useState('');
+  const [busy, setBusy] = useState(false);
+  async function save() {
+    setBusy(true);
+    const { error } = await supabase.rpc('app_save_promise', { p_doc: doc.id, p_amount: Number(amount), p_date: date, p_note: note });
+    setBusy(false);
+    if (error) return alert(error.message);
+    showToast(tx('Promesse enregistrée : alerte le ', 'تم تسجيل الوعد: تنبيه يوم ') + frDate(date));
+    done && done();
+  }
+  return (
+    <Modal title={'🤝 ' + tx('Promesse de paiement', 'وعد بالأداء') + ' — ' + docNo(doc)} onClose={close}>
+      <p className="text-sm text-slate-600 mb-3">{doc.client_name} · {tx('reste à payer', 'الباقي')} <b>{dh(doc.reste)}</b>. {tx('La promesse ne change pas le reste à payer : une alerte est envoyée le jour promis, puis si elle n\'est pas tenue.', 'الوعد لا يغير الباقي؛ يرسل تنبيه في اليوم الموعود.')}</p>
+      <div className="grid grid-cols-2 gap-3">
+        <label className="text-xs text-slate-500">{tx('Montant promis', 'المبلغ الموعود')}<input className="input mt-1" type="number" min="0" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} data-promise-amount /></label>
+        <label className="text-xs text-slate-500">{tx('Date promise', 'التاريخ الموعود')}<input className="input mt-1" type="date" value={date} min={today()} onChange={e => setDate(e.target.value)} data-promise-date /></label>
+      </div>
+      <label className="text-xs text-slate-500 block mt-2">{L('note')}<input className="input mt-1" value={note} onChange={e => setNote(e.target.value)} placeholder={tx('Ex. : passera samedi avec un chèque', 'مثال: سيمر يوم السبت')} /></label>
+      <button disabled={busy} onClick={save} className="btn bg-amber-500 mt-3" data-promise-save>🤝 {tx('Enregistrer la promesse', 'تسجيل الوعد')}</button>
+    </Modal>
+  );
+}
+
+function PromisesView({ L, search }) {
+  const [rows, setRows] = useState(null);
+  const [status, setStatus] = useState('open');
+  async function load() { const { data } = await supabase.from('payment_promises').select('*').order('promise_date'); setRows(data || []); }
+  useEffect(() => { supabase.rpc('app_alerts_run', { p_force: false }).then(load, load); }, []);
+  async function cancel(pr) {
+    if (!confirm(tx('Annuler cette promesse ?', 'إلغاء هذا الوعد؟'))) return;
+    const { error } = await supabase.rpc('app_cancel_promise', { p_id: pr.id });
+    if (error) return alert(error.message);
+    load();
+  }
+  if (rows === null) return <p>…</p>;
+  const t = today();
+  const list = rows.filter(pr => (status === 'all' || pr.status === status) && matchSearch(search, [pr.client_name, pr.doc_number, pr.note, pr.created_by_label]));
+  const label = { open: tx('En cours', 'جارية'), kept: tx('Tenue', 'تم الوفاء'), broken: tx('Non tenue', 'لم يتم الوفاء'), canceled: L('canceled') };
+  const tone = { open: 'blue', kept: 'green', broken: 'red', canceled: 'slate' };
+  return (
+    <>
+      <div className="flex gap-1 mb-2">{['open', 'broken', 'kept', 'all'].map(k => <button key={k} type="button" className={'chip ' + (status === k ? 'chip-on' : '')} data-promise-filter={k} onClick={() => setStatus(k)}>{k === 'all' ? L('all') : label[k]} ({rows.filter(r => k === 'all' || r.status === k).length})</button>)}</div>
+      <Table>
+        <thead><tr><th>{tx('Date promise', 'التاريخ الموعود')}</th><th>{L('customer')}</th><th>{tx('Facture', 'الفاتورة')}</th><th>{L('amount')}</th><th>{L('note')}</th><th>{L('createdBy')}</th><th>{L('statusLbl')}</th><th></th></tr></thead>
+        <tbody>
+          {list.map(pr => (
+            <tr key={pr.id} data-promise={pr.doc_number}>
+              <td className={'whitespace-nowrap ' + (pr.status === 'open' && pr.promise_date <= t ? 'text-red-600 font-bold' : '')}>{frDate(pr.promise_date)}</td>
+              <td>{pr.client_name}</td><td className="font-mono text-xs">{pr.doc_number}</td><td className="font-bold">{dh(pr.amount)}</td>
+              <td className="text-xs">{pr.note}</td><td className="text-xs">{pr.created_by_label}</td>
+              <td><Badge tone={tone[pr.status]}>{label[pr.status]}</Badge></td>
+              <td>{pr.status === 'open' ? <button className="btn bg-white border text-sm" onClick={() => cancel(pr)}>{tx('Annuler', 'إلغاء')}</button> : null}</td>
+            </tr>
+          ))}
+          {!list.length ? <tr><td colSpan="8" className="text-center text-slate-500 py-6">{L('noData')}</td></tr> : null}
+        </tbody>
+      </Table>
+    </>
+  );
+}
+
+// Portefeuille chèques & effets
+const INSTR_STATUS = {
+  'En portefeuille': { tone: 'blue', fr: 'En portefeuille', ar: 'في المحفظة' },
+  'Déposé': { tone: 'amber', fr: 'Déposé', ar: 'مودع' },
+  'Encaissé': { tone: 'green', fr: 'Encaissé', ar: 'محصل' },
+  'Rejeté': { tone: 'red', fr: 'Rejeté', ar: 'مرفوض' }
+};
+function ChequePortfolioView({ L, payments, search, onChanged }) {
+  const [batches, setBatches] = useState(null);
+  const [status, setStatus] = useState('todo');
+  const [dir, setDir] = useState('all');
+  const [reject, setReject] = useState(null);
+  async function load() { const { data } = await supabase.from('payment_batches').select('*').in('mode', ['Chèque', 'Effet']); setBatches(data || []); }
+  useEffect(() => { load(); }, []);
+  if (batches === null) return <p>…</p>;
+  const items = [
+    ...payments.filter(p => ['Chèque', 'Effet'].includes(p.mode) && !p.batchId && (!p.canceled || p.paymentStatus === 'Rejeté')).map(p => ({
+      key: 'P' + p.sourceTable + p.docId + p.id, target: { target: 'payment', table: p.sourceTable, docId: p.docId, paymentId: String(p.id) },
+      mode: p.mode, no: p.chequeNo || p.billNo || '', bank: p.bank || '', due: p.dueDate || p.date, amount: Number(p.montant || 0),
+      party: p.tiers, dir: p.type === 'encaissement' ? 'in' : 'out', status: p.paymentStatus || 'En portefeuille', ref: p.docNumber, fees: p.rejectFees, history: p.statusHistory || []
+    })),
+    ...batches.filter(b => b.status === 'active' || b.instrument_status === 'Rejeté').map(b => ({
+      key: 'B' + b.id, target: { target: 'batch', batchId: b.id }, mode: b.mode, no: b.details?.chequeNo || b.details?.billNo || '', bank: b.details?.bank || '',
+      due: b.details?.dueDate || b.date, amount: Number(b.amount || 0), party: b.party_name, dir: b.kind === 'encaissement' ? 'in' : 'out',
+      status: b.instrument_status || 'En portefeuille', ref: b.number, fees: b.reject_fees, history: b.status_history || []
+    }))
+  ].sort((a, b) => String(a.due).localeCompare(String(b.due)));
+  const t = today(); const in7 = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
+  const list = items.filter(i => (dir === 'all' || i.dir === dir)
+    && (status === 'all' || (status === 'todo' ? ['En portefeuille', 'Déposé'].includes(i.status) : i.status === status))
+    && matchSearch(search, [i.no, i.bank, i.party, i.ref, i.mode, String(i.amount)]));
+  const sum = f => items.filter(f).reduce((s, i) => s + i.amount, 0);
+  async function setSt(i, st, extra = {}) {
+    const { error } = await supabase.rpc('app_set_instrument_status', { p: { ...i.target, status: st, ...extra } });
+    if (error) return alert(error.message);
+    showToast(tx(i.mode + ' ' + st.toLowerCase(), 'تم التحديث'));
+    setReject(null);
+    await load(); onChanged && onChanged();
+  }
+  const canReject = isAdmin(getStoredSession()) || can('payments.cancel');
+  return (
+    <>
+      <div className="pro-kpi-grid mb-3">
+        <div className="pro-kpi-card"><span>{tx('Reçus en portefeuille', 'المتوصل بها في المحفظة')}</span><b>{dh(sum(i => i.dir === 'in' && i.status === 'En portefeuille'))}</b><small>{items.filter(i => i.dir === 'in' && i.status === 'En portefeuille').length} {tx('à déposer', 'للإيداع')}</small></div>
+        <div className="pro-kpi-card"><span>{tx('Échus non déposés', 'مستحقة غير مودعة')}</span><b className="text-red-700">{dh(sum(i => i.dir === 'in' && i.status === 'En portefeuille' && i.due <= t))}</b><small>{items.filter(i => i.dir === 'in' && i.status === 'En portefeuille' && i.due <= t).length} {tx('chèque(s) / effet(s)', 'شيك / كمبيالة')}</small></div>
+        <div className="pro-kpi-card"><span>{tx('Déposés', 'مودعة')}</span><b>{dh(sum(i => i.status === 'Déposé'))}</b><small>{tx('en attente d\'encaissement', 'في انتظار التحصيل')}</small></div>
+        <div className="pro-kpi-card"><span>{tx('Émis (fournisseurs)', 'الصادرة (موردون)')}</span><b>{dh(sum(i => i.dir === 'out' && ['En portefeuille', 'Déposé'].includes(i.status)))}</b><small>{tx('non encore débités', 'لم تخصم بعد')}</small></div>
+        <div className="pro-kpi-card"><span>{tx('Rejetés', 'مرفوضة')}</span><b className="text-red-700">{dh(sum(i => i.status === 'Rejeté'))}</b><small>{items.filter(i => i.status === 'Rejeté').length}</small></div>
+      </div>
+      <div className="flex flex-wrap gap-1 mb-2 items-center">
+        {[['todo', tx('À traiter', 'للمعالجة')], ['Encaissé', tx('Encaissés', 'محصلة')], ['Rejeté', tx('Rejetés', 'مرفوضة')], ['all', L('all')]].map(([k, tt]) => <button key={k} type="button" className={'chip ' + (status === k ? 'chip-on' : '')} data-cheque-filter={k} onClick={() => setStatus(k)}>{tt}</button>)}
+        <select className="input list-select" value={dir} onChange={e => setDir(e.target.value)}>
+          <option value="all">{tx('Reçus + émis', 'المتوصل بها + الصادرة')}</option><option value="in">{tx('Reçus (clients)', 'المتوصل بها (زبناء)')}</option><option value="out">{tx('Émis (fournisseurs)', 'الصادرة (موردون)')}</option>
+        </select>
+      </div>
+      <Table>
+        <thead><tr><th>{L('dueDate')}</th><th>Type</th><th>N°</th><th>{L('bank')}</th><th>{L('customer')} / {L('supplier')}</th><th>{L('amount')}</th><th>{tx('Règlement', 'الأداء')}</th><th>{L('statusLbl')}</th><th>{L('actions')}</th></tr></thead>
+        <tbody>
+          {list.map(i => {
+            const late = ['En portefeuille'].includes(i.status) && i.due <= t; const soon = !late && i.status === 'En portefeuille' && i.due <= in7;
+            const st = INSTR_STATUS[i.status] || INSTR_STATUS['En portefeuille'];
+            return (
+              <tr key={i.key} data-instrument={i.no || i.ref}>
+                <td className={'whitespace-nowrap ' + (late ? 'text-red-600 font-bold' : soon ? 'text-amber-700 font-semibold' : '')}>{frDate(i.due)}{late ? <div className="text-[11px]">{tx('échu', 'مستحق')}</div> : null}</td>
+                <td>{i.mode}<div className="text-[11px] text-slate-500">{i.dir === 'in' ? tx('reçu', 'متوصل به') : tx('émis', 'صادر')}</div></td>
+                <td className="font-mono text-xs">{i.no || '—'}</td><td className="text-sm">{i.bank || '—'}</td><td>{i.party}</td>
+                <td className="font-bold whitespace-nowrap">{dh(i.amount)}</td><td className="font-mono text-xs">{i.ref}</td>
+                <td><Badge tone={st.tone}>{tx(st.fr, st.ar)}</Badge>{i.status === 'Rejeté' && Number(i.fees) > 0 ? <div className="text-[11px] text-red-600">{tx('frais', 'مصاريف')} {fmt(i.fees)}</div> : null}{i.history.length ? <div className="text-[11px] text-slate-400">{i.history[i.history.length - 1].by} · {new Date(i.history[i.history.length - 1].at).toLocaleDateString('fr-FR')}</div> : null}</td>
+                <td className="whitespace-nowrap">
+                  {i.status === 'En portefeuille' && i.dir === 'in' ? <button className="btn bg-white border text-sm" data-deposit={i.no || i.ref} onClick={() => setSt(i, 'Déposé')}>🏦 {tx('Déposer', 'إيداع')}</button> : null}
+                  {['En portefeuille', 'Déposé'].includes(i.status) ? <> <button className="btn bg-emerald-600 text-white text-sm" data-cash={i.no || i.ref} onClick={() => setSt(i, 'Encaissé')}>✔ {i.dir === 'in' ? tx('Encaissé', 'محصل') : tx('Débité', 'مخصوم')}</button></> : null}
+                  {['En portefeuille', 'Déposé'].includes(i.status) && canReject ? <> <button className="btn bg-white border text-red-600 text-sm" data-reject={i.no || i.ref} onClick={() => setReject({ item: i, fees: '', note: '' })}>⛔ {tx('Rejeté', 'مرفوض')}</button></> : null}
+                </td>
+              </tr>
+            );
+          })}
+          {!list.length ? <tr><td colSpan="9" className="text-center text-slate-500 py-6">{L('noData')}</td></tr> : null}
+        </tbody>
+      </Table>
+      {reject ? (
+        <Modal title={'⛔ ' + tx('Chèque / effet rejeté', 'شيك / كمبيالة مرفوضة') + ' — ' + (reject.item.no || reject.item.ref)} onClose={() => setReject(null)}>
+          <p className="text-sm text-slate-600 mb-3">{tx('Le règlement sera annulé : la ou les facture(s) redeviennent dues. Le gérant et l\'auteur du règlement reçoivent une alerte.', 'سيتم إلغاء الأداء وتصبح الفواتير مستحقة من جديد.')} <b>{dh(reject.item.amount)}</b> · {reject.item.party}</p>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="text-xs text-slate-500">{tx('Frais de rejet (DH, à refacturer)', 'مصاريف الرفض')}<input className="input mt-1" type="number" min="0" step="0.01" value={reject.fees} onChange={e => setReject({ ...reject, fees: e.target.value })} data-reject-fees /></label>
+            <label className="text-xs text-slate-500">{tx('Motif', 'السبب')}<input className="input mt-1" value={reject.note} onChange={e => setReject({ ...reject, note: e.target.value })} placeholder={tx('Ex. : sans provision', 'مثال: بدون رصيد')} data-reject-note /></label>
+          </div>
+          <button className="btn bg-red-600 text-white mt-3" data-reject-confirm onClick={() => setSt(reject.item, 'Rejeté', { fees: Number(reject.fees || 0), note: reject.note })}>⛔ {tx('Confirmer le rejet', 'تأكيد الرفض')}</button>
+        </Modal>
+      ) : null}
+    </>
+  );
+}
+
+// ===================== V62 : mode simplifié, aide, démarrage guidé, messages clairs =====================
+// Mode d'affichage : réglage de la droguerie (Paramètres) + choix personnel de chaque utilisateur (ce poste)
+function cacheUiSettings(s) {
+  const v = String(s?.ui_simple ?? '0') === '1' ? '1' : '0';
+  let prev = null;
+  try { prev = localStorage.getItem('droguerie_ui_simple'); localStorage.setItem('droguerie_ui_simple', v); } catch {}
+  if (prev !== v) { try { window.dispatchEvent(new CustomEvent('droguerie_ui_mode')); } catch {} }
+}
+function uiUserPref() { return readLocal(userStoreKey('ui_mode'), ''); }
+function isSimpleUi() {
+  const p = uiUserPref();
+  if (p === 'simple') return true;
+  if (p === 'full') return false;
+  try { return localStorage.getItem('droguerie_ui_simple') === '1'; } catch { return false; }
+}
+function setUiPref(mode) {
+  writeLocal(userStoreKey('ui_mode'), mode || null);
+  try { window.dispatchEvent(new CustomEvent('droguerie_ui_mode')); } catch {}
+}
+// Écrans rangés dans « Plus d'écrans » en mode simplifié
+const SIMPLE_MORE_PAGES = ['stockMoves', 'expenses', 'reporting', 'profit', 'tools'];
+
+// Messages d'erreur compréhensibles (le message technique reste visible entre crochets pour le support)
+function permLabel(code) {
+  for (const m of PERM_MODULES) for (const p of m.perms) if (p.code === code) return tx(p.fr, p.ar);
+  return code;
+}
+function friendlyError(raw) {
+  const m = String(raw ?? '').trim();
+  if (!m) return m;
+  let r = m.match(/Autorisation insuffisante\s*:\s*([a-z_]+\.[a-z_]+)/i);
+  if (r) return tx('Votre profil n\'a pas le droit « ' + permLabel(r[1]) + ' ». Demandez à l\'administrateur de vous l\'accorder (menu Autorisations).', 'ليس لديكم صلاحية « ' + permLabel(r[1]) + ' ». اطلبوها من المدير.');
+  const rules = [
+    [/Failed to fetch|NetworkError|Load failed|ERR_INTERNET|ERR_CONNECTION|fetch failed/i, 'Connexion internet perdue ou serveur injoignable. Vérifiez la connexion, puis contrôlez si l\'opération a été enregistrée avant de recommencer.', 'انقطع الاتصال بالإنترنت. تحققوا من الاتصال ثم من تسجيل العملية قبل إعادتها.'],
+    [/JWT expired|jwt|Session expirée|not authenticated|28000/i, 'Votre session a expiré : déconnectez-vous puis reconnectez-vous.', 'انتهت الجلسة: أعيدوا تسجيل الدخول.'],
+    [/row-level security|permission denied|42501|insufficient_privilege/i, 'Action non autorisée pour votre profil. Demandez à l\'administrateur.', 'عملية غير مسموح بها لحسابكم. اتصلوا بالمدير.'],
+    [/duplicate key|23505|already exists/i, 'Cet élément existe déjà (même nom, même référence ou même numéro).', 'هذا العنصر موجود مسبقا.'],
+    [/foreign key|23503|still referenced/i, 'Impossible : cet élément est utilisé ailleurs (documents, mouvements de stock…).', 'غير ممكن: هذا العنصر مستعمل في وثائق أخرى.'],
+    [/schema cache|Could not find the function|Could not find the table|does not exist|42P01|42883|PGRST202/i, 'La base de données n\'est pas à jour : l\'administrateur doit exécuter le dernier script de mise à jour (MAJ).', 'قاعدة البيانات غير محينة: يجب تنفيذ آخر تحديث.'],
+    [/invalid input syntax|22P02|22007|22008/i, 'Valeur invalide : vérifiez les nombres et les dates saisis.', 'قيمة غير صحيحة: تحققوا من الأرقام والتواريخ.'],
+    [/value too long|22001/i, 'Texte trop long : raccourcissez la saisie.', 'النص طويل جدا.'],
+    [/timeout|57014/i, 'Le serveur met trop de temps à répondre : réessayez dans un instant.', 'الخادم بطيء: أعيدوا المحاولة.']
+  ];
+  for (const [re, fr, ar] of rules) if (re.test(m)) return tx(fr, ar) + (/[a-z]{3,}_[a-z]|\d{5}|JWT|fetch|PGRST/i.test(m) ? '\n[' + m.slice(0, 160) + ']' : '');
+  return m;
+}
+function installFriendlyAlert() {
+  if (typeof window === 'undefined' || !window.alert || window.__dpFriendlyAlert) return;
+  // window.alert affiche déjà une notification (V55) : on traduit le message technique, présenté comme une erreur
+  const prevAlert = window.alert.bind(window);
+  window.__dpFriendlyAlert = true;
+  window.alert = msg => { const f = friendlyError(msg); if (f !== String(msg ?? '').trim()) showToast(f, 'error'); else prevAlert(msg); };
+}
+
+// Aide de l'écran courant : « comment faire » en 3 à 5 étapes
+const HELP_PAGES = {
+  dashboard: { fr: ['« À faire aujourd\'hui » liste ce qui attend une action : cliquez sur une ligne pour aller directement à la bonne liste.', 'Les gros boutons en haut ouvrent les actions de tous les jours : caisse, facture, encaissement.', 'La cloche 🔔 en haut à droite affiche vos alertes.', 'Le bouton « ＋ Nouveau » crée une vente, un client, un produit… depuis n\'importe quel écran.'],
+    ar: ['« مهام اليوم » تعرض ما ينتظر إجراء: اضغطوا على السطر للذهاب مباشرة.', 'الأزرار الكبيرة تفتح العمليات اليومية: الصندوق، الفاتورة، التحصيل.', 'الجرس 🔔 يعرض تنبيهاتكم.', 'زر « ＋ جديد » ينشئ بيعا أو زبونا أو منتجا من أي شاشة.'] },
+  pos: { fr: ['Tapez le nom, la référence ou scannez le code-barres : le produit s\'ajoute au panier.', 'Choisissez le client (par défaut : client comptoir).', 'Choisissez le mode : Espèces (tapez le montant reçu, la monnaie s\'affiche), Carte, Chèque… ou « À crédit » pour un client qui paiera plus tard.', 'Cliquez sur « Valider la vente » (ou F9) : la facture est créée et le ticket s\'imprime.', 'Un client attend ? « Mettre en attente » (F8) garde le panier pour plus tard.'],
+    ar: ['اكتبوا اسم المنتج أو امسحوا الرمز الشريطي.', 'اختاروا الزبون (افتراضيا: زبون الكونطوار).', 'اختاروا طريقة الأداء، أو « بالدين » لزبون سيؤدي لاحقا.', 'اضغطوا « تأكيد البيع » (F9): تُنشأ الفاتورة ويُطبع الوصل.', 'زبون ينتظر؟ « تعليق » (F8) يحفظ السلة.'] },
+  sales: { fr: ['« ⚡ Facture » crée directement une facture. « ＋ Devis » prépare une offre de prix à transformer plus tard.', 'Bouton vert « 💳 Régler » : enregistrer un paiement du client sur une facture.', 'Le menu ⋯ de chaque ligne contient les autres actions : aperçu, modifier, avoir, promesse de paiement…', 'Filtre « Paiement : non réglées » pour voir ce qui reste à encaisser.'],
+    ar: ['« ⚡ فاتورة » تنشئ فاتورة مباشرة. « ＋ عرض سعر » يحضّر عرضا يُحوَّل لاحقا.', 'الزر الأخضر « 💳 أداء » لتسجيل أداء الزبون.', 'القائمة ⋯ تحتوي باقي العمليات.', 'فلتر « غير مؤداة » لرؤية ما تبقى للتحصيل.'] },
+  purchases: { fr: ['« 📥 Réception » enregistre directement la marchandise reçue : le stock augmente.', '« ＋ Commande » prépare une commande fournisseur, à réceptionner ensuite.', 'Saisissez ensuite la facture du fournisseur et son échéance, puis réglez-la avec « 💳 Régler ».'],
+    ar: ['« 📥 استلام » يسجل السلع المستلمة ويزيد المخزون.', '« ＋ طلبية » تحضّر طلبية لدى المورد.', 'ثم أدخلوا فاتورة المورد وأجل الأداء وأدّوها.'] },
+  clients: { fr: ['« ＋ Nouveau » → Client : nom et téléphone suffisent pour commencer.', 'La colonne « Encours » montre ce que le client doit.', '« 💳 Régler » enregistre un paiement qui solde une ou plusieurs factures.'],
+    ar: ['« ＋ جديد » ← زبون: الاسم والهاتف كافيان.', 'عمود « المستحق » يبين ما على الزبون.', '« 💳 أداء » يسجل أداء لفاتورة أو أكثر.'] },
+  suppliers: { fr: ['« ＋ Nouveau » → Fournisseur : nom et téléphone suffisent pour commencer.', 'La colonne « Encours » montre ce que vous lui devez.', '« 💳 Régler » enregistre votre paiement au fournisseur.'],
+    ar: ['« ＋ جديد » ← مورد: الاسم والهاتف كافيان.', 'عمود « المستحق » يبين ما عليكم.', '« 💳 أداء » يسجل أداءكم للمورد.'] },
+  products: { fr: ['« ＋ Nouveau » → Produit : nom, prix de vente et unité. Le stock se remplit avec les réceptions (Achats).', 'Beaucoup de produits ? Utilisez l\'import Excel : téléchargez le modèle, remplissez-le, importez-le.', 'Les filtres « Sous le stock minimum » et « Péremption proche » montrent ce qu\'il faut commander ou vendre vite.'],
+    ar: ['« ＋ جديد » ← منتج: الاسم وثمن البيع والوحدة. المخزون يمتلئ بالاستلامات.', 'منتجات كثيرة؟ استعملوا الاستيراد من Excel.', 'فلاتر « تحت الحد الأدنى » و« صلاحية قريبة » تبين ما يجب طلبه.'] },
+  payments: { fr: ['Cette page liste tous les paiements reçus (clients) et payés (fournisseurs).', 'Le bouton 🧾 imprime ou partage le reçu d\'un paiement.', 'Une erreur sur votre paiement ? Vous pouvez l\'annuler vous-même pendant le délai fixé par l\'administrateur, sinon « ✋ Demander » au gérant.'],
+    ar: ['هذه الصفحة تعرض كل الأداءات المتوصل بها والمؤداة.', 'الزر 🧾 يطبع وصل الأداء أو يرسله.', 'خطأ في أدائكم؟ يمكنكم إلغاؤه خلال الأجل، وإلا « ✋ طلب » من المسير.'] },
+  stockMoves: { fr: ['Chaque entrée et sortie de stock est enregistrée ici automatiquement (ventes, réceptions, ajustements).', 'Utilisez la recherche pour retrouver l\'historique d\'un produit.'], ar: ['كل دخول وخروج للمخزون يسجل هنا تلقائيا.', 'استعملوا البحث لتتبع منتج.'] },
+  expenses: { fr: ['Enregistrez ici les charges (loyer, carburant, salaires…) pour connaître la marge nette.', 'Un déplacement regroupe les charges et les ventes d\'une tournée.'], ar: ['سجلوا هنا المصاريف لمعرفة الهامش الصافي.', 'التنقل يجمع مصاريف ومبيعات جولة.'] },
+  settings: { fr: ['Remplissez d\'abord le nom, le téléphone, l\'adresse et l\'ICE : ils apparaissent sur vos factures.', '« Mode d\'affichage » : l\'affichage simplifié masque les écrans et options avancés pour les utilisateurs débutants.', 'N\'oubliez pas « Enregistrer » en haut à droite.'],
+    ar: ['املؤوا أولا الاسم والهاتف والعنوان والتعريف الموحد: تظهر في الفواتير.', '« طريقة العرض »: العرض المبسط يخفي الخيارات المتقدمة.', 'لا تنسوا « حفظ ».'] },
+  users: { fr: ['Créez un compte par personne : chacun a son identifiant et son mot de passe.', 'Choisissez le profil (Vendeur, Caissier, Gérant…) : il décide de ce que la personne peut faire.'], ar: ['أنشئوا حسابا لكل شخص.', 'اختاروا الدور (بائع، صندوق، مسير…).'] }
+};
+function HelpButton({ page }) {
+  const [open, setOpen] = useState(false);
+  const h = HELP_PAGES[page];
+  if (!h) return null;
+  const steps = curLang() === 'ar' ? h.ar : h.fr;
+  return (
+    <>
+      <button type="button" className="btn bg-white border help-btn" onClick={() => setOpen(true)} data-help-btn title={tx('Aide de cet écran', 'مساعدة هذه الشاشة')}>❓ {tx('Aide', 'مساعدة')}</button>
+      {open ? (
+        <Modal title={'❓ ' + tx('Comment faire ?', 'كيف أفعل؟')} onClose={() => setOpen(false)}>
+          <ol className="help-steps" data-help-steps>
+            {steps.map((s, i) => <li key={i}><span>{i + 1}</span><p>{s}</p></li>)}
+          </ol>
+          <p className="text-xs text-slate-500 mt-3">{tx('Besoin d\'aide ? Contactez votre fournisseur DrogueriePro.', 'تحتاجون مساعدة؟ اتصلوا بمزود DrogueriePro.')}</p>
+        </Modal>
+      ) : null}
+    </>
+  );
+}
+
+// Démarrage guidé (administrateur) : les 5 étapes pour être opérationnel
+function StartChecklist() {
+  const [st, setSt] = useState(null);
+  async function load() {
+    try {
+      const s = await loadSettings();
+      if (s.onboarding_hidden === '1') { setSt({ hidden: true }); return; }
+      const head = (t, f) => { let q = supabase.from(t).select('id', { count: 'exact', head: true }); if (f) q = f(q); return q.then(r => r.count || 0, () => 0); };
+      const [products, clients, users, sales] = await Promise.all([
+        head('products'), head('clients', q => q.eq('is_walk_in', false)), head('users'), head('sales')
+      ]);
+      setSt({
+        company: !!(s.company_name && s.company_name !== 'DrogueriePro' && s.company_phone && s.company_ice),
+        products: products > 0, clients: clients > 0, users: users > 2, sales: sales > 0
+      });
+    } catch { setSt({ hidden: true }); }
+  }
+  useEffect(() => { load(); }, []);
+  if (!st || st.hidden) return null;
+  const steps = [
+    { k: 'company', icon: '🏪', t: tx('Renseigner la droguerie (nom, téléphone, ICE)', 'معلومات المحل (الاسم، الهاتف، ICE)'), s: tx('Ils apparaissent sur vos factures et tickets', 'تظهر في الفواتير'), go: () => goToPage('settings') },
+    { k: 'products', icon: '🏷️', t: tx('Ajouter vos produits', 'إضافة منتجاتكم'), s: tx('Un par un, ou tous d\'un coup avec l\'import Excel', 'واحدا واحدا أو بالاستيراد من Excel'), go: () => goToPage('products') },
+    { k: 'clients', icon: '👥', t: tx('Ajouter vos clients habituels', 'إضافة زبنائكم'), s: tx('Nom et téléphone suffisent', 'الاسم والهاتف كافيان'), go: () => goToPage('clients') },
+    { k: 'users', icon: '👤', t: tx('Créer un compte pour chaque vendeur', 'إنشاء حساب لكل بائع'), s: tx('Chacun son identifiant : on sait qui a fait quoi', 'لكل واحد حسابه'), go: () => goToPage('users') },
+    { k: 'sales', icon: '🛒', t: tx('Faire votre première vente', 'أول عملية بيع'), s: tx('Avec la Caisse rapide', 'بالصندوق السريع'), go: () => goToPage('pos') }
+  ];
+  const done = steps.filter(x => st[x.k]).length;
+  if (done === steps.length) return null;
+  async function hide() {
+    try { await supabase.from('app_settings').upsert([{ key: 'onboarding_hidden', value: '1' }], { onConflict: 'key' }); } catch {}
+    setSt({ hidden: true });
+  }
+  return (
+    <div className="card p-5 mb-6 start-card" data-start-checklist>
+      <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+        <div>
+          <h2 className="text-lg font-black">🚀 {tx('Démarrage : ' + done + ' / ' + steps.length + ' étapes faites', 'البداية: ' + done + ' / ' + steps.length)}</h2>
+          <div className="start-bar"><span style={{ width: (done / steps.length * 100) + '%' }} /></div>
+        </div>
+        <button type="button" className="text-xs text-slate-400 underline" onClick={hide} data-start-hide>{tx('Masquer', 'إخفاء')}</button>
+      </div>
+      <div className="start-grid">
+        {steps.map(x => (
+          <button key={x.k} type="button" className={'start-step ' + (st[x.k] ? 'done' : '')} onClick={x.go} data-start-step={x.k}>
+            <span className="start-check">{st[x.k] ? '✓' : x.icon}</span>
+            <span><b>{x.t}</b><small>{x.s}</small></span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Accueil simplifié : gros boutons, 4 chiffres, « À faire aujourd'hui »
+function SimpleHome({ L, data, onFull }) {
+  const t = today();
+  const sales = data.sales || [];
+  const payDate = p => String(p.date || p.createdAt || '').slice(0, 10);
+  const cashToday = sales.reduce((s, d) => s + jsonValue(d.payments_json, d.payments || []).filter(p => !p.canceled && p.mode !== 'Avoir' && payDate(p) === t).reduce((x, p) => x + Number(p.montant || 0), 0), 0);
+  const toCollect = sales.filter(d => d.stage === 'facture' && !isReturnDoc(d)).reduce((s, d) => s + Math.max(0, Number(d.reste || 0)), 0);
+  const low = (data.products || []).filter(p => isLowStockAlert(p)).length;
+  const session = getStoredSession();
+  const actions = [
+    featureOn('pos') && can('pos.use') && { k: 'pos', icon: '🛒', t: tx('Caisse', 'الصندوق'), s: tx('Vendre au comptoir', 'البيع في الكونطوار'), run: () => goToPage('pos'), main: true },
+    can('sales.write') && { k: 'invoice', icon: '🧾', t: tx('Nouvelle facture', 'فاتورة جديدة'), s: tx('Pour un client', 'لزبون'), run: () => { queueQuickAction('sales', 'facture'); goToPage('sales'); } },
+    can('sales.pay') && { k: 'collect', icon: '💳', t: tx('Encaisser un client', 'تحصيل من زبون'), s: tx('Factures non réglées', 'فواتير غير مؤداة'), run: () => goToPage('sales', { tab: 'facture', payF: 'unpaid' }) },
+    can('purchases.write') && { k: 'receive', icon: '📥', t: tx('Réception fournisseur', 'استلام من مورد'), s: tx('Marchandise reçue', 'سلع متوصل بها'), run: () => { queueQuickAction('purchases', 'reception'); goToPage('purchases'); } },
+    can('clients.write') && { k: 'client', icon: '👥', t: tx('Nouveau client', 'زبون جديد'), s: tx('Nom et téléphone', 'الاسم والهاتف'), run: () => { queueQuickAction('clients', 'new'); goToPage('clients'); } },
+    can('products.read') && { k: 'stock', icon: '🏷️', t: tx('Produits et stock', 'المنتجات والمخزون'), s: tx('Prix, quantités', 'الأثمنة والكميات'), run: () => goToPage('products') }
+  ].filter(Boolean).slice(0, 6);
+  const name = session?.user?.full_name || session?.user?.username || '';
+  return (
+    <>
+      <div className="simple-hello mb-5" data-simple-home>
+        <div>
+          <h1>{tx('Bonjour', 'مرحبا')} {name} 👋</h1>
+          <p>{frDate(t)} · {tx('Que voulez-vous faire ?', 'ماذا تريدون أن تفعلوا؟')}</p>
+        </div>
+        <button type="button" className="btn bg-white border text-sm" onClick={onFull} data-full-dashboard>📊 {tx('Tableau de bord complet', 'لوحة القيادة الكاملة')}</button>
+      </div>
+      <div className="simple-actions mb-6">
+        {actions.map(a => (
+          <button key={a.k} type="button" className={'simple-action ' + (a.main ? 'main' : '')} onClick={a.run} data-simple-action={a.k}>
+            <span className="simple-action-icon">{a.icon}</span><b>{a.t}</b><small>{a.s}</small>
+          </button>
+        ))}
+      </div>
+      {isAdmin(session) ? <StartChecklist /> : null}
+      <TodayPanel data={data} />
+      <div className="simple-kpis">
+        <div className="simple-kpi"><span>{tx('Ventes du jour', 'مبيعات اليوم')}</span><b>{dh(data.kpis.todaySales || 0)}</b></div>
+        <div className="simple-kpi green"><span>{tx('Encaissé aujourd\'hui', 'المحصل اليوم')}</span><b>{dh(cashToday)}</b></div>
+        <div className={'simple-kpi ' + (toCollect > 0.009 ? 'red' : '')}><span>{tx('Reste à encaisser', 'الباقي للتحصيل')}</span><b>{dh(toCollect)}</b></div>
+        <div className={'simple-kpi ' + (low ? 'amber' : '')}><span>{tx('Produits à commander', 'منتجات للطلب')}</span><b>{low}</b></div>
+      </div>
+    </>
+  );
+}
+
 function Dashboard({ L }) {
   const [data, setData] = useState(null);
   const [err, setErr] = useState('');
+  const [full, setFull] = useState(false);
 
   async function load() {
     try {
@@ -7900,6 +8902,7 @@ function Dashboard({ L }) {
   if (err) return <ErrorBox msg={err} />;
   if (!data) return <p>Chargement...</p>;
 
+  if (isSimpleUi() && !full) return <SimpleHome L={L} data={data} onFull={() => setFull(true)} />;
   const k = data.kpis;
   const recent = data.movements.slice(0, 6);
   const lowProducts = data.products.filter(p => isLowStockAlert(p)).slice(0, 6);
@@ -7913,6 +8916,7 @@ function Dashboard({ L }) {
   return (
     <>
       <Header title={L('dashboard')}>
+        {isSimpleUi() ? <button onClick={() => setFull(false)} className="btn bg-white border" data-simple-dashboard>🧭 {tx('Accueil simple', 'الواجهة المبسطة')}</button> : null}
         <button onClick={load} className="btn bg-white border">↻</button>
         <ExportButtons L={L} spec={() => productsExportSpec(L, data.products)} />
       </Header>
@@ -7929,6 +8933,7 @@ function Dashboard({ L }) {
         </div>
       </div>
 
+      {isAdmin(getStoredSession()) ? <StartChecklist /> : null}
       <TodayPanel data={data} />
 
       <div className="pro-kpi-grid pro-kpi-grid-v38 mb-6">
@@ -8256,6 +9261,8 @@ function ProductModal({ L, form, setForm, save, close, branches = [], lists = { 
   const catNames = withCurrent(lists.categories || [], form.categorie);
   const unitNames = withCurrent(lists.units || [], form.unite);
   const lockedStyle = { background: '#f1f5f9', color: '#64748b', cursor: 'not-allowed' };
+  // V62 : en mode simplifié, seuls les champs essentiels sont affichés ; le reste sous « Plus d'options »
+  const [more, setMore] = useState(() => !isSimpleUi() || !!(form.prixGros || form.barcode || form.datePeremption || form.fournisseurId));
   return (
     <Modal title={L('products')} onClose={close}>
       <div className="grid grid-cols-2 gap-3">
@@ -8277,15 +9284,21 @@ function ProductModal({ L, form, setForm, save, close, branches = [], lists = { 
             {unitNames.map(n => <option key={n} value={n}>{n}</option>)}
           </select>
         </label>
-        <label className="text-xs text-slate-500">
+        {more ? <label className="text-xs text-slate-500">
           {L('purchasePrice')} (PMP)
           <input className="input mt-1" style={lockedStyle} value={fmt(form.prixAchat || 0)} disabled readOnly />
           <span className="text-xs text-slate-400">{L('pmpHint')}</span>
-        </label>
+        </label> : null}
         <label className="text-xs text-slate-500">
           {L('salePrice')} ({L('retail')})
           <input className="input mt-1" type="number" min="0" step="0.01" value={form.prixVente ?? ''} onChange={e => setForm({ ...form, prixVente: Number(e.target.value) })} />
         </label>
+        {!more ? <label className="text-xs text-slate-500">
+          {L('threshold')}
+          <input className="input mt-1" type="number" min="0" value={form.stockMin ?? ''} onChange={e => setForm({ ...form, stockMin: Number(e.target.value) })} />
+          <span className="text-xs text-slate-400">{tx('Alerte quand le stock descend en dessous', 'تنبيه عند نزول المخزون تحته')}</span>
+        </label> : null}
+        {!more ? <button type="button" className="more-fields-btn col-span-2" onClick={() => setMore(true)} data-more-fields>▸ {tx('Plus d\'options (prix de gros, code-barres, péremption, fournisseur…)', 'خيارات إضافية')}</button> : <>
         <label className="text-xs text-slate-500">
           {L('salePrice')} ({L('wholesale')})
           <input className="input mt-1" type="number" min="0" step="0.01" value={form.prixGros ?? ''} onChange={e => setForm({ ...form, prixGros: Number(e.target.value) })} />
@@ -8324,6 +9337,7 @@ function ProductModal({ L, form, setForm, save, close, branches = [], lists = { 
             </select>
           </label>
         ) : null}
+        </>}
       </div>
       {form.id ? <AttachmentsPanel L={L} entityType="product" entityId={form.id} branchId={form.branchId || form.branch_id} /> : null}
       <button onClick={save} className="btn bg-amber-500 mt-4">{L('save')}</button>
@@ -9547,6 +10561,7 @@ function PosCenter({ L }) {
   const [clientId, setClientId] = useState('');
   const [search, setSearch] = useState('');
   const [payMode, setPayMode] = useState('Espèces');
+  const [promiseDate, setPromiseDate] = useState('');
   const [received, setReceived] = useState('');
   const [globalDiscount, setGlobalDiscount] = useState('');
   const [busy, setBusy] = useState(false);
@@ -9676,6 +10691,12 @@ function PosCenter({ L }) {
         forceCredit: !!opts.forceCredit
       });
       if (payMode !== 'Crédit') await payDoc('sales', res.id, { date: today(), mode: payMode, montant: Number(res.totals.totalTTC.toFixed(2)), note: 'Caisse rapide' });
+      // V62 : vente à crédit avec date de paiement promise (facultative) → promesse de paiement + alerte ce jour-là
+      if (payMode === 'Crédit' && promiseDate) {
+        const { error: pe } = await supabase.rpc('app_save_promise', { p_doc: res.id, p_amount: Number(res.totals.totalTTC.toFixed(2)), p_date: promiseDate, p_note: tx('Caisse rapide', 'الصندوق السريع') });
+        if (!pe) showToast(tx('Promesse enregistrée : alerte le ', 'تم تسجيل الوعد: ') + frDate(promiseDate));
+      }
+      setPromiseDate('');
       const ticket = {
         company, number: res.number, date: new Date().toLocaleString('fr-FR'), client: client?.name || L('walkInClient'),
         clientId: client && !client.is_walk_in ? client.id : null, clientPhone: client && !client.is_walk_in ? (client.phone || '') : '', clientName: client && !client.is_walk_in ? client.name : '',
@@ -9812,6 +10833,15 @@ function PosCenter({ L }) {
               ))}
             </div>
 
+            {payMode === 'Crédit' ? (
+              <div className="pos-credit-box mb-3" data-pos-credit>
+                <p className="text-xs text-slate-600 mb-1">{tx('Rien n\'est encaissé : la facture reste à payer sur le compte du client.', 'لا شيء يُحصَّل: تبقى الفاتورة في حساب الزبون.')}</p>
+                <label className="text-xs text-slate-500">{tx('Le client paiera le (facultatif) — une alerte vous le rappellera', 'سيؤدي الزبون يوم (اختياري)')}
+                  <input className="input mt-1" type="date" min={today()} value={promiseDate} onChange={e => setPromiseDate(e.target.value)} data-pos-promise />
+                </label>
+              </div>
+            ) : null}
+
             {payMode === 'Espèces' ? (
               <div className="grid grid-cols-2 gap-2 mb-3 items-end">
                 <label className="text-xs text-slate-500">{L('cashReceived')}
@@ -9879,6 +10909,18 @@ function Docs({ L, type }) {
   const [payF, setPayF] = useState('all');
   const [err, setErr] = useState('');
   const [userFilter, setUserFilter] = useState(getSelectedUserFilter(type));
+  const simpleList = isSimpleUi();
+  // V61 : promesses de paiement ouvertes (factures clients)
+  const [promises, setPromises] = useState({});
+  const [promiseDoc, setPromiseDoc] = useState(null);
+  async function loadPromises() {
+    if (!isSales) return;
+    const { data, error } = await supabase.from('payment_promises').select('id, doc_id, amount, promise_date, status').in('status', ['open', 'broken']);
+    if (error) return;
+    const m = {}; (data || []).forEach(x => { if (!m[x.doc_id] || x.status === 'open') m[x.doc_id] = x; });
+    setPromises(m);
+  }
+  useEffect(() => { loadPromises(); }, []);
   // V58 : filtre posé depuis « À faire aujourd'hui »
   useEffect(() => { const it = takeListIntent(type); if (it) { if (it.tab) setTab(it.tab); if (it.payF) setPayF(it.payF); if (it.search) setSearch(it.search); } }, []);
   // V58 : brouillon automatique des nouveaux documents (récupérable après fermeture ou rechargement)
@@ -10074,8 +11116,8 @@ function Docs({ L, type }) {
   return (
     <>
       <Header title={isSales ? L('sales') : L('purchases')}>
-        <button onClick={() => create(isSales ? 'devis' : 'commande')} className="btn bg-white border">{L('create')}</button>
-        <button onClick={() => create(isSales ? 'facture' : 'reception')} className="btn bg-amber-500">{L('direct')}</button>
+        <button onClick={() => create(isSales ? 'devis' : 'commande')} className="btn bg-white border" data-create-first title={isSales ? tx('Devis à transformer ensuite en commande, livraison puis facture', 'عرض سعر يحوَّل لاحقا') : tx('Commande à réceptionner ensuite', 'طلبية تستلم لاحقا')}>＋ {isSales ? tx('Devis', 'عرض سعر') : tx('Commande', 'طلبية')}</button>
+        <button onClick={() => create(isSales ? 'facture' : 'reception')} className="btn bg-amber-500" data-create-direct title={isSales ? tx('Facture directe', 'فاتورة مباشرة') : tx('Réception directe : le stock augmente', 'استلام مباشر')}>{isSales ? '⚡ ' + tx('Facture', 'فاتورة') : '📥 ' + tx('Réception', 'استلام')}</button>
         <ExportButtons L={L} spec={() => {
           const party = d => d.client_name || d.supplier_name || d.clientNom || d.fournisseurNom || '';
           const tabLabel = (tabs.find(t => t[0] === tab) || [])[1] || '';
@@ -10119,7 +11161,7 @@ function Docs({ L, type }) {
       ) : null}
 
       <div className="flex gap-1 mb-4 flex-wrap items-center">
-        {tabs.map(t => <button key={t[0]} onClick={() => setTab(t[0])} className={'px-3 py-1.5 rounded-lg text-sm ' + (tab === t[0] ? 'bg-slate-800 text-white' : 'bg-white border text-slate-500')}>{t[1]}</button>)}
+        {tabs.filter(t => !simpleList || ['all', 'facture', 'reception'].includes(t[0]) || tab === t[0] || rows.some(x => x.stage === t[0])).map(t => <button key={t[0]} onClick={() => setTab(t[0])} data-doc-tab={t[0]} className={'px-3 py-1.5 rounded-lg text-sm ' + (tab === t[0] ? 'bg-slate-800 text-white' : 'bg-white border text-slate-500')}>{t[1]}</button>)}
         {tab === 'commande' ? (
           <label className="text-xs text-slate-500 flex items-center gap-1 ms-3"><input type="checkbox" checked={showClosed} onChange={e => setShowClosed(e.target.checked)} /> {L('showClosedDocs')}</label>
         ) : null}
@@ -10151,12 +11193,12 @@ function Docs({ L, type }) {
           <tr>
             <th>{L('docType')}</th>
             <th>N°</th>
-            <th>{L('baseDocNo')}</th>
-            <th>{L('createdBy')}</th>
+            {!simpleList ? <th>{L('baseDocNo')}</th> : null}
+            {!simpleList || isAdmin(getStoredSession()) ? <th>{L('createdBy')}</th> : null}
             <th>{L('date')}</th>
             <th>{isSales ? L('customer') : L('supplier')}</th>
             <th>{L('status')}</th>
-            <th>{L('quantity')}</th>
+            {!simpleList ? <th>{L('quantity')}</th> : null}
             <th>{L('totalTTC')}</th>
             {tab === 'facture' ? <th>{L('payment')}</th> : null}
             <th>{L('actions')}</th>
@@ -10170,18 +11212,19 @@ function Docs({ L, type }) {
               <tr key={d.id}>
                 <td><Badge tone="blue">{docTypeLabel(d, type, L)}</Badge></td>
                 <td className="font-mono text-xs font-bold"><button type="button" className="doc-link" onClick={() => setPreview(d)} title={L('preview')}>{docNo(d)}</button></td>
-                <td>{d.baseDocId ? <Badge tone="slate">{d.baseDocNumber || ('#' + d.baseDocId)}</Badge> : '-'}</td>
-                <td>
+                {!simpleList ? <td>{d.baseDocId ? <Badge tone="slate">{d.baseDocNumber || ('#' + d.baseDocId)}</Badge> : '-'}</td> : null}
+                {!simpleList || isAdmin(getStoredSession()) ? <td>
                   <div className="font-semibold">{d.createdByLabel || '-'}</div>
                   <div className="text-xs text-slate-400">{L('createdBy')}</div>
-                </td>
+                </td> : null}
                 <td className="whitespace-nowrap">{frDate(d.date)}</td>
                 <td>
                   <div className="font-semibold">{d.client_name || d.supplier_name || d.clientNom || d.fournisseurNom}</div>
                   <div className="text-xs text-slate-400">{isSales ? L('customer') : L('supplier')}</div>
+                  {isSales && promises[d.id] && Number(d.reste || 0) > 0.009 ? <div className={'promise-badge ' + (promises[d.id].status === 'broken' ? 'broken' : String(promises[d.id].promise_date) <= today() ? 'due' : '')} data-promise-badge>🤝 {promises[d.id].status === 'broken' ? tx('promesse non tenue', 'وعد غير محترم') : tx('promis le', 'موعود في')} {frDate(promises[d.id].promise_date)} · {dh(promises[d.id].amount)}</div> : null}
                 </td>
                 <td>{(() => { const st = docStatusView(d, type, L); return <Badge tone={st.tone}>{st.label}</Badge>; })()}</td>
-                <td className="text-xs">
+                {!simpleList ? <td className="text-xs">
                   <div>{L('quantity')}: <b>{docQty(d.lignes)}</b></div>
                   <div>{L('remainingQty')}: <b>{docRemainingQty(d)}</b></div>
                   {(d.stage === 'livraison' || d.stage === 'reception') ? <div className={docInvoiceRemainingQty(d) > 0 ? 'text-amber-600' : 'text-emerald-600'}>{L('invoicedQty')}: <b>{fmt(docInvoicedQty(d))} / {fmt(docQty(d.lignes))}</b></div> : null}
@@ -10196,8 +11239,8 @@ function Docs({ L, type }) {
                   {isReturnDoc(d) ? <div className="text-emerald-700">{L('imputed')}: <b>{dh(d.imputed_amount || 0)}</b></div> : null}
                   {isReturnDoc(d) && Number(d.totalTTC || 0) - Number(d.imputed_amount || 0) > 0.01 ? <div className="text-red-600">{isSales ? L('toRefund') : L('toReceive')}: <b>{dh(Number(d.totalTTC || 0) - Number(d.imputed_amount || 0))}</b></div> : null}
                   {isReturnDoc(d) && d.restocked === false ? <div className="text-slate-400">{L('noRestock')}</div> : null}
-                </td>
-                <td className="font-mono font-bold">{dh(d.totalTTC)}</td>
+                </td> : null}
+                <td className="font-mono font-bold">{dh(d.totalTTC)}{simpleList && d.stage === 'facture' && Number(d.reste || 0) > 0.009 && tab !== 'facture' ? <div className="text-xs text-red-600 font-sans">{L('remaining')} {dh(d.reste)}</div> : null}</td>
                 {tab === 'facture' ? <td><Badge tone={tone}>{status}{d.reste > 0 ? ' · ' + L('remaining') + ' ' + dh(d.reste) : ''}</Badge></td> : null}
                 <td>
                   {(() => {
@@ -10208,12 +11251,13 @@ function Docs({ L, type }) {
                       canWriteDoc && !isSales && d.stage === 'reception' && docInvoiceRemainingQty(d) > 0 && { icon: '🧾', label: L('invoiceAction'), onClick: () => openInvoice(d), main: true },
                       canWriteDoc && isSales && !isReturnDoc(d) && d.stage !== 'facture' && { icon: '➜', label: L('advance'), onClick: () => advance(d.id), main: true },
                       canPayDoc && paymentButtonVisible(d) && { icon: '💳', label: L('pay'), onClick: payIt, main: true, pay: true },
+                      canPayDoc && isSales && d.stage === 'facture' && !isReturnDoc(d) && Number(d.reste || 0) > 0.009 && { icon: '🤝', label: tx('Promesse de paiement', 'وعد بالأداء'), onClick: () => setPromiseDoc(d) },
                       { icon: '👁', label: L('preview'), onClick: () => setPreview(d) },
-                      canWriteDoc && isSales && d.stage !== 'facture' && !isReturnDoc(d) && docRemainingQty(d) > 0 && { icon: '🚚', label: L('partialDelivery'), onClick: () => setPartial({ doc: d, date: today(), lignes: docRemainingLines(d).map(l => ({ ...l, qteToProcess: Number(l.remainingQty || 0), excluded: false })) }) },
-                      canWriteDoc && isSales && canPartialInvoice(d, type) && { icon: '🧾', label: L('partialInvoice'), onClick: () => setPartial({ mode: 'invoice', doc: d, date: today(), lignes: docInvoiceRemainingLines(d).filter(l => Number(l.remainingQty || 0) > 0).map(l => ({ ...l, qteToProcess: Number(l.remainingQty || 0), excluded: false })) }) },
+                      canWriteDoc && isSales && d.stage !== 'facture' && !isReturnDoc(d) && docRemainingQty(d) > 0 && { adv: true, icon: '🚚', label: L('partialDelivery'), onClick: () => setPartial({ doc: d, date: today(), lignes: docRemainingLines(d).map(l => ({ ...l, qteToProcess: Number(l.remainingQty || 0), excluded: false })) }) },
+                      canWriteDoc && isSales && canPartialInvoice(d, type) && { adv: true, icon: '🧾', label: L('partialInvoice'), onClick: () => setPartial({ mode: 'invoice', doc: d, date: today(), lignes: docInvoiceRemainingLines(d).filter(l => Number(l.remainingQty || 0) > 0).map(l => ({ ...l, qteToProcess: Number(l.remainingQty || 0), excluded: false })) }) },
                       canWriteDoc && canUse(isSales ? 'sales.return' : 'purchases.return') && canReturnDoc(d) && { icon: '↩', label: isSales ? L('creditNote') : L('supplierReturn'), onClick: () => setPartial({ mode: 'return', restock: true, doc: d, date: today(), lignes: docReturnRemainingLines(d).filter(l => Number(l.remainingQty || 0) > 0).map(l => ({ ...l, qteToProcess: 0, excluded: false })) }) },
                       canWriteDoc && !isReturnDoc(d) && { icon: '✏️', label: L('edit'), onClick: () => setForm({ id: d.id, start: d.stage, date: d.date, partyId: isSales ? d.client_id : d.supplier_id, supplierRef: d.supplier_ref || '', dueDate: d.due_date || '', lignes: (d.lignes || []).map(l => ({ produitId: l.produitId, qte: l.qte, prixUnit: l.prixUnit, remise: l.remise || 0 })) }) },
-                      canWriteDoc && !isReturnDoc(d) && { icon: '⧉', label: tx('Dupliquer', 'نسخ'), onClick: () => duplicate(d) },
+                      canWriteDoc && !isReturnDoc(d) && { adv: true, icon: '⧉', label: tx('Dupliquer', 'نسخ'), onClick: () => duplicate(d) },
                       canDeleteDoc && { icon: '🗑', label: L('del'), onClick: () => remove(d.id), tone: 'danger' }
                     ].filter(Boolean);
                     const main = acts.find(x => x.main) || acts[0];
@@ -10236,6 +11280,7 @@ function Docs({ L, type }) {
 
       {form ? <DocModal L={L} isSales={isSales} form={form} setForm={setForm} products={products} parties={parties} save={save} close={() => setForm(null)} discardDraft={discardDraft} /> : null}
       {pay ? <PaymentModal L={L} isSales={isSales} pay={pay} setPay={setPay} save={settle} close={() => setPay(null)} /> : null}
+      {promiseDoc ? <PromiseModal L={L} doc={promiseDoc} close={() => setPromiseDoc(null)} done={() => { setPromiseDoc(null); loadPromises(); }} /> : null}
       {partial ? <PartialModal L={L} isSales={isSales} partial={partial} setPartial={setPartial} save={doPartial} close={() => setPartial(null)} /> : null}
       {preview ? <DocumentPreview L={L} isSales={isSales} doc={preview} close={() => setPreview(null)} /> : null}
     </>
@@ -10794,7 +11839,60 @@ function Payments({ L }) {
   const [[from, to], setRange] = useState(periodRange('month'));
   const [attach, setAttach] = useState(null);
   const [closure, setClosure] = useState(false);
-  useEffect(() => { const it = takeListIntent('payments'); if (it?.search) { setSearch(it.search); setRange(['', '']); setFilter('all'); } }, []);
+  // V60 : bons de paiement, règlements groupés
+  const [view, setView] = useState('list');
+  const [receipt, setReceipt] = useState(null);
+  const [group, setGroup] = useState(null);
+  const [batchKey, setBatchKey] = useState(0);
+  const groupOn = featureOn('groupPayments') && (can('sales.pay') || can('purchases.pay'));
+  // V61 : droits de correction, demandes, anciens « Crédit »
+  const [corrCtx, setCorrCtx] = useState(null);
+  const [reqTarget, setReqTarget] = useState(null);
+  const [legacy, setLegacy] = useState(false);
+  const [pendingN, setPendingN] = useState(0);
+  const [promN, setPromN] = useState(0);
+  const me = getStoredSession()?.user?.id;
+  const canCorrect = makeCorrectionRights(corrCtx);
+  const approver = isAdmin(getStoredSession()) || can('payments.cancel');
+  async function loadV61() {
+    loadCorrectionContext().then(setCorrCtx).catch(() => setCorrCtx({}));
+    const [{ count }, pc] = await Promise.all([
+      supabase.from('payment_corrections').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+      supabase.from('payment_promises').select('id', { count: 'exact', head: true }).in('status', ['open', 'broken'])
+    ]);
+    setPendingN(count || 0); setPromN(pc?.count || 0);
+  }
+  useEffect(() => {
+    loadV61();
+    const it = takeListIntent('payments');
+    if (it?.search) { setSearch(it.search); setRange(['', '']); setFilter('all'); }
+    if (it?.newBatch && groupOn) setGroup({ preset: it.newBatch });
+    if (it?.view) { setView(it.view); setRange(['', '']); }
+  }, []);
+  const payKey = p => 'pay:' + p.sourceTable + ':' + p.docId + ':' + p.id;
+  const legacyCredit = rows.filter(p => p.mode === 'Crédit' && !p.canceled && !p.creditReviewed);
+  // V62 : en mode simplifié, les onglets vides (promesses, corrections) sont masqués
+  const simpleUi = isSimpleUi();
+  const payViews = [
+    ['list', '💳 ' + tx('Tous les règlements', 'كل الأداءات'), true],
+    ['batches', '🧾 ' + tx('Règlements groupés', 'الأداءات الجماعية'), featureOn('groupPayments')],
+    ['cheques', '🏦 ' + tx('Chèques & effets', 'الشيكات والكمبيالات'), featureOn('chequePortfolio')],
+    ['promises', '🤝 ' + tx('Promesses', 'الوعود'), (can('sales.read') || can('payments.read')) && (!simpleUi || promN > 0 || view === 'promises')],
+    ['corrections', '✋ ' + tx('Corrections', 'التصحيحات') + (pendingN ? ' (' + pendingN + ')' : ''), !simpleUi || pendingN > 0 || view === 'corrections']
+  ].filter(x => x[2]);
+  async function openBatchReceipt(b) {
+    const table = b.kind === 'encaissement' ? 'sales' : 'purchases';
+    const ids = (b.allocations || []).map(a => a.docId);
+    const { data } = ids.length ? await supabase.from(table).select('id, total_ttc, payments_json').in('id', ids) : { data: [] };
+    setReceipt(receiptFromBatch(b, Object.fromEntries((data || []).map(d => [d.id, paymentInfo(d).rest]))));
+  }
+  async function openReceiptFor(p) {
+    if (p.batchId) {
+      const { data } = await supabase.from('payment_batches').select('*').eq('id', p.batchId).maybeSingle();
+      if (data) return openBatchReceipt(data);
+    }
+    setReceipt(receiptFromPayment(p));
+  }
   const attachEnabled = hasModuleAccess('attachments');
 
   async function load() {
@@ -10825,7 +11923,6 @@ function Payments({ L }) {
   const [shown, more] = useShowMore(filtered, 100);
 
   async function cancel(p) {
-    if (!can('payments.cancel')) return alert('Autorisation insuffisante : payments.cancel');
     const reason = prompt('Motif annulation ?', 'Annulation règlement');
     if (reason === null) return;
     try {
@@ -10845,6 +11942,7 @@ function Payments({ L }) {
     <>
       <Header title={L('payments')}>
         <button onClick={load} className="btn bg-white border" aria-label="↻">↻</button>
+        {groupOn ? <button onClick={() => setGroup({})} className="btn bg-emerald-600 text-white" data-new-batch>＋ {tx('Règlement groupé', 'أداء جماعي')}</button> : null}
         {canUse('cash.close') ? <button onClick={() => setClosure(true)} className="btn bg-amber-500">🧾 {L('cashClosure')}</button> : null}
         <ExportButtons L={L} spec={() => ({
           fileName: 'Paiements', title: L('payments'), period: from || to ? (frDate(from) || '…') + ' → ' + (frDate(to) || '…') : L('uxAll'),
@@ -10865,6 +11963,31 @@ function Payments({ L }) {
 
       {err ? <ErrorBox msg={err} /> : null}
 
+      {legacyCredit.length && approver ? (
+        <div className="draft-banner" data-legacy-banner>
+          <span>⚠ {legacyCredit.length} {tx('ancien(s) règlement(s) en mode « Crédit » diminuent le reste à payer sans somme reçue', 'أداءات « كريدي » قديمة')}</span>
+          <button className="btn bg-amber-500 text-sm" onClick={() => setLegacy(true)} data-legacy-open>{tx('Revoir', 'مراجعة')}</button>
+        </div>
+      ) : null}
+
+      {payViews.length > 1 ? (
+        <div className="flex gap-1 mb-3 flex-wrap" data-pay-views>
+          {payViews.map(([k, t]) => (
+            <button key={k} type="button" data-pay-view={k} onClick={() => setView(k)} className={'btn text-sm ' + (view === k ? 'bg-slate-900 text-white' : 'bg-white border') + (k === 'corrections' && pendingN && approver ? ' pay-view-alert' : '')}>{t}</button>
+          ))}
+        </div>
+      ) : null}
+
+      {view !== 'list' ? (
+        <>
+          <ListToolbar L={L} search={search} setSearch={setSearch} from={from} to={to} setPeriod={view === 'batches' ? (f, t) => setRange([f, t]) : undefined} onReset={() => { setSearch(''); setRange(['', '']); }} />
+          {view === 'batches' ? <PaymentBatchesView key={batchKey} L={L} search={search} from={from} to={to} onChanged={() => { load(); loadV61(); }} openReceipt={openBatchReceipt}
+            openEdit={(b, advanceOnly) => setGroup({ batch: b, advanceOnly: !!advanceOnly })} canCorrect={canCorrect} onRequest={setReqTarget} /> : null}
+          {view === 'cheques' ? <ChequePortfolioView L={L} payments={rows} search={search} onChanged={() => { load(); setBatchKey(k => k + 1); }} /> : null}
+          {view === 'promises' ? <PromisesView L={L} search={search} /> : null}
+          {view === 'corrections' ? <CorrectionsView L={L} onChanged={() => { load(); loadV61(); setBatchKey(k => k + 1); }} /> : null}
+        </>
+      ) : <>
       <ListToolbar L={L} search={search} setSearch={setSearch} from={from} to={to} setPeriod={(f, t) => setRange([f, t])}
         count={filtered.length} total={rows.length}
         onReset={() => { setSearch(''); setRange(['', '']); setFilter('active'); setTypeF('all'); setModeF('all'); setAuthorF('all'); }}>
@@ -10923,7 +12046,7 @@ function Payments({ L }) {
             <tr key={(p.sourceTable || '') + (p.docId || '') + '-' + (p.id || i)} className={p.canceled ? 'payment-canceled' : ''}>
               <td className="whitespace-nowrap">{frDate(p.date) || '-'}{p.createdAt ? <div className="text-xs text-slate-400">{new Date(p.createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</div> : null}</td>
               <td><Badge tone={p.type === 'encaissement' ? 'green' : 'amber'}>{p.type === 'encaissement' ? L('cashIn') : L('cashOut')}</Badge></td>
-              <td className="font-mono text-xs whitespace-nowrap">{p.docNumber || '-'}</td>
+              <td className="font-mono text-xs whitespace-nowrap">{p.docNumber || '-'}{p.batchNo ? <div><span className="batch-tag" title={tx('Règlement groupé', 'أداء جماعي')}>🧾 {p.batchNo}</span></div> : null}</td>
               <td>{p.tiers || '-'}</td>
               <td>
                 <div>{p.mode || '-'}</div>
@@ -10948,8 +12071,10 @@ function Payments({ L }) {
               </td>
               <td>
                 <div className="flex gap-1 items-center">
+                  {p.mode !== 'Avoir' ? <button onClick={() => openReceiptFor(p)} className="btn bg-white border" title={tx('Bon de paiement (imprimer, PDF, WhatsApp)', 'سند الأداء')} data-pay-receipt>🧾</button> : null}
                   {attachEnabled ? <button onClick={() => setAttach(p)} className="btn bg-white border" title={L('attach')} aria-label={L('attach')}>📎</button> : null}
-                  {!p.canceled && p.mode !== 'Avoir' && can('payments.cancel') ? <button onClick={() => cancel(p)} className="btn bg-white border text-red-700">{L('cancelPayment')}</button> : null}
+                  {!p.canceled && p.mode !== 'Avoir' && !p.batchId && canCorrect(p.createdBy, p.createdAt, p.branchId, payKey(p)) ? <button onClick={() => cancel(p)} className="btn bg-white border text-red-700">{L('cancelPayment')}</button>
+                    : !p.canceled && p.mode !== 'Avoir' && !p.batchId && String(p.createdBy || '') === String(me || '') ? <button onClick={() => setReqTarget({ label: p.docNumber + ' · ' + dh(p.montant), payload: { target: 'payment', table: p.sourceTable, docId: p.docId, paymentId: String(p.id) } })} className="btn bg-white border text-sm" title={tx('Délai dépassé : demander au gérant', 'انتهى الأجل: طلب من المسير')} data-request-fix>✋ {tx('Demander', 'طلب')}</button> : null}
                 </div>
               </td>
             </tr>
@@ -10958,6 +12083,13 @@ function Payments({ L }) {
         </tbody>
       </Table>
       <ShowMore L={L} more={more} shown={shown.length} total={filtered.length} />
+      </>}
+
+      {receipt ? <PaymentReceiptModal L={L} receipt={receipt} close={() => setReceipt(null)} /> : null}
+      {reqTarget ? <CorrectionRequestModal target={reqTarget} close={() => setReqTarget(null)} done={() => { setReqTarget(null); loadV61(); }} /> : null}
+      {legacy && legacyCredit.length ? <LegacyCreditModal L={L} rows={legacyCredit} close={() => setLegacy(false)} done={async () => { await load(); }} /> : null}
+      {group ? <GroupPaymentModal L={L} batch={group.batch} preset={group.preset} advanceOnly={group.advanceOnly} onUseAdvance={b => setGroup({ batch: b, advanceOnly: true })} close={() => setGroup(null)}
+        done={async res => { setGroup(null); await load(); setBatchKey(k => k + 1); const { data } = await supabase.from('payment_batches').select('*').eq('id', res.id).maybeSingle(); if (data) openBatchReceipt(data); }} /> : null}
 
       {attach ? (
         <Modal title={L('attach') + ' — ' + (attach.docNumber || '') + ' · ' + dh(attach.montant || 0)} onClose={() => setAttach(null)}>
@@ -10988,14 +12120,14 @@ function PaymentModal({ L, isSales, pay, setPay, save, close }) {
       <p className="text-sm mb-2">{L('remaining')} : <b>{dh(pay.reste || 0)}</b></p>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <Field label={L('date')} name="date" type="date" />
-        <label className="text-xs text-slate-500">Mode<select className="input mt-1 mb-2" value={mode} onChange={e => setPay({ ...pay, mode: e.target.value })}>{['Espèces', 'Chèque', 'Virement', 'Carte', 'Effet', 'Crédit'].map(x => <option key={x}>{x}</option>)}</select></label>
+        <label className="text-xs text-slate-500">Mode<select className="input mt-1 mb-2" value={mode} onChange={e => setPay({ ...pay, mode: e.target.value })}>{['Espèces', 'Chèque', 'Virement', 'Carte', 'Effet', 'Autre'].map(x => <option key={x}>{x}</option>)}</select></label>
         <Field label="Montant" name="montant" type="number" />
         {mode === 'Espèces' && <><Field label={L('cashRegister')} name="cashRegister" /><Field label={L('receiptNo')} name="receiptNo" /></>}
         {mode === 'Chèque' && <><Field label={L('chequeNo')} name="chequeNo" /><Field label={L('bank')} name="bank" /><Field label={L('dueDate')} name="dueDate" type="date" /><SelectField label={L('paymentStatus')} name="paymentStatus" options={['En portefeuille','Déposé','Encaissé','Rejeté']} /></>}
         {mode === 'Virement' && <><Field label={L('bank')} name="bank" /><Field label={L('transferRef')} name="transferRef" /><Field label={L('valueDate')} name="valueDate" type="date" /></>}
         {mode === 'Carte' && <><Field label={L('terminal')} name="terminal" /><Field label={L('transactionNo')} name="transactionNo" /></>}
         {mode === 'Effet' && <><Field label={L('billNo')} name="billNo" /><Field label={L('bank')} name="bank" /><Field label={L('dueDate')} name="dueDate" type="date" /><SelectField label={L('paymentStatus')} name="paymentStatus" options={['En portefeuille','Déposé','Encaissé','Rejeté']} /></>}
-        {mode === 'Crédit' && <><Field label={L('dueDate')} name="dueDate" type="date" /><Field label={L('note')} name="note" /></>}
+        {mode === 'Autre' && <Field label={tx('Référence', 'المرجع')} name="transferRef" />}
       </div>
       <label className="text-xs text-slate-500">{L('note')}<textarea className="input mt-1" value={pay.note || ''} onChange={e => setPay({ ...pay, note: e.target.value })} /></label>
       <button onClick={save} className="btn bg-emerald-600 text-white mt-4">{L('save')}</button>
@@ -11606,6 +12738,13 @@ function Parties({ L, type }) {
   const [users, setUsers] = useState([]);
   const [branches, setBranches] = useState([]);
   const [form, setForm] = useState(null);
+  // V62 : champs avancés de la fiche repliés en mode simplifié (ouverts si la fiche les utilise déjà)
+  const [moreParty, setMoreParty] = useState(!isSimpleUi());
+  const formKey = form ? String(form.id || 'new') : '';
+  useEffect(() => {
+    if (!form) return;
+    setMoreParty(!isSimpleUi() || !!form.is_walk_in || Number(form.credit_limit || 0) > 0 || form.price_tier === 'gros' || form.pos_visible === false || (form.branch_ids || []).length > 0);
+  }, [formKey]);
   const [ownerFilter, setOwnerFilter] = useState('all');
   const [scopeFilter, setScopeFilter] = useState('all');
   const [search, setSearch] = useState('');
@@ -11615,7 +12754,12 @@ function Parties({ L, type }) {
   const [dups, setDups] = useState(null);
   const [merge, setMerge] = useState(null);
   const [walkIns, setWalkIns] = useState(false);
+  const [advances, setAdvances] = useState({});
   useEffect(() => { const it = takeListIntent(type); if (it?.search) setSearch(it.search); }, []);
+  useEffect(() => {
+    if (!featureOn('groupPayments')) return;
+    loadPartyAdvances(type, null).then(list => { const m = {}; list.forEach(b => { m[b.party_id] = (m[b.party_id] || 0) + batchAdvance(b); }); setAdvances(m); }).catch(() => {});
+  }, [type]);
   const [busy, setBusy] = useState(false);
 
   async function load() {
@@ -11817,6 +12961,7 @@ function Parties({ L, type }) {
                     <div className="text-xs text-slate-500">{(b.byBranch || []).filter(v => v.outstanding > 0.009).map(v => branchName(v.branchId) + ' ' + fmt(v.outstanding)).join(' · ')}</div>
                   ) : null}
                   {isClients && !x.is_walk_in ? <div className="text-xs text-slate-400">{Number(x.credit_limit || 0) > 0 ? '/ ' + dh(x.credit_limit) : L('noLimit')}{x.price_tier === 'gros' ? ' · ' + L('wholesale') : ''}</div> : null}
+                  {advances[x.id] > 0.009 ? <div className="text-xs text-sky-700 font-semibold" data-party-advance={x.name}>💰 {tx('Avance', 'تسبيق')} {dh(advances[x.id])}</div> : null}
                 </td>
                 <td>
                   {x.is_walk_in ? <Badge tone="slate">{branchName(x.branch_id)}</Badge>
@@ -11825,6 +12970,7 @@ function Parties({ L, type }) {
                 </td>
                 <td className="flex gap-1 flex-wrap">
                   {canWriteParty && (!x.is_walk_in || admin) ? <button onClick={() => setForm({ ...x, branch_ids: partyBranchIds(x) })} className="btn bg-white border">{L('edit')}</button> : null}
+                  {featureOn('groupPayments') && can(isClients ? 'sales.pay' : 'purchases.pay') && Number(b?.outstanding || 0) > 0.009 ? <button onClick={() => goToPage('payments', { newBatch: { kind: isClients ? 'encaissement' : 'decaissement', partyId: x.id } })} className="btn bg-emerald-600 text-white" data-party-pay={x.name}>💳 {tx('Régler', 'أداء')}</button> : null}
                   {x.is_walk_in && !admin ? <span className="text-xs text-slate-400" title={L('wiAdminOnly')}>🔒</span> : null}
                   {admin && canDeleteParty && !x.is_walk_in ? <button onClick={() => setMerge({ keep: x, removeId: '' })} className="btn bg-white border" title={L('pMergeTitle')}>⇄ {L('pMerge')}</button> : null}
                   {canDeleteParty && !x.is_walk_in ? <button onClick={() => remove(x)} className="btn bg-red-600 text-white">{L('del')}</button> : null}
@@ -11862,6 +13008,7 @@ function Parties({ L, type }) {
             </label>
           </div>
 
+          {!moreParty ? <button type="button" className="more-fields-btn mb-3" onClick={() => setMoreParty(true)} data-more-fields>▸ {isClients ? tx('Plus d\'options (tarif, plafond de crédit, caisse, vendeur, drogueries…)', 'خيارات إضافية') : tx('Plus d\'options (drogueries…)', 'خيارات إضافية')}</button> : <>
           {isClients && !form.is_walk_in ? (
             <div className="grid grid-cols-2 gap-2 mb-2">
               <label className="text-xs text-slate-500">{L('priceTier')}
@@ -11927,6 +13074,7 @@ function Parties({ L, type }) {
               ) : null}
             </div>
           ) : null}
+          </>}
 
           {dups ? (
             <div className="bg-amber-50 border border-amber-300 rounded-xl p-3 mb-3 text-sm space-y-2">
@@ -12576,6 +13724,7 @@ function MobileAppAdmin({ L }) {
 
 function Settings({ L }) {
   const [settings, setSettings] = useState(null);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [err, setErr] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -12618,6 +13767,17 @@ function Settings({ L }) {
       </Header>
 
       <div className="grid md:grid-cols-2 gap-4">
+        <div className="card p-5 md:col-span-2 ui-mode-card" data-ui-mode-settings>
+          <h2 className="font-bold mb-1">🧭 {tx('Mode d\'affichage', 'طريقة العرض')}</h2>
+          <p className="text-xs text-slate-500 mb-3">{tx('L\'affichage simplifié montre seulement l\'essentiel : accueil avec gros boutons, menus et listes allégés, options avancées repliées. Rien n\'est supprimé : chaque utilisateur peut cliquer sur « Tout afficher » en bas du menu.', 'العرض المبسط يظهر الأساسيات فقط. لا شيء يُحذف.')}</p>
+          <div className="flex gap-2 flex-wrap">
+            {[['1', '🧭 ' + tx('Simplifié (recommandé pour débuter)', 'مبسط (موصى به للبداية)')], ['0', '📊 ' + tx('Complet', 'كامل')]].map(([v, t]) => (
+              <button key={v} type="button" className={'btn ' + (String(settings.ui_simple ?? '0') === v ? 'bg-slate-900 text-white' : 'bg-white border')} onClick={() => set('ui_simple', v)} data-ui-mode={v}>{t}</button>
+            ))}
+          </div>
+          <p className="text-xs text-slate-400 mt-2">{tx('Réglage par défaut pour toute la droguerie. Pensez à « Enregistrer ».', 'إعداد افتراضي لكل المحل. لا تنسوا « حفظ ».')}</p>
+        </div>
+
         <div className="card p-5">
           <h2 className="font-bold mb-3">{L('company') || 'Société'}</h2>
           {field('company_name', L('company') || 'Société')}
@@ -12646,6 +13806,12 @@ function Settings({ L }) {
           {field('company_rib', L('companyRib'))}
         </div>
 
+        {isSimpleUi() && !showAdvanced ? (
+          <button type="button" className="card p-5 md:col-span-2 advanced-toggle" onClick={() => setShowAdvanced(true)} data-advanced-settings>
+            <b>⚙️ {tx('Réglages avancés', 'إعدادات متقدمة')} ▸</b>
+            <small>{tx('Charte graphique, messages WhatsApp, alertes, correction des règlements', 'الهوية البصرية، رسائل واتساب، التنبيهات، تصحيح الأداءات')}</small>
+          </button>
+        ) : <>
         <BrandingSettings L={L} settings={settings} set={set} />
 
         <WaTemplatesSettings L={L} settings={settings} set={set} />
@@ -12675,7 +13841,19 @@ function Settings({ L }) {
           </div>
         </div>
 
+        <div className="card p-5 md:col-span-2" data-pay-edit-settings>
+          <h2 className="font-bold mb-1">✏️ {tx('Correction des règlements par leur auteur', 'تصحيح الأداءات من طرف صاحبها')}</h2>
+          <p className="text-xs text-slate-500 mb-3">{tx('Un utilisateur qui a le droit « Corriger ses propres règlements » peut annuler ou modifier ses règlements pendant ce délai. Après, il envoie une demande au gérant. Les profils qui ont « Annuler un paiement » ne sont pas limités.', 'يمكن للمستخدم تصحيح أداءاته خلال هذا الأجل.')}</p>
+          <div className="flex flex-wrap gap-4 items-end">
+            <label className="text-xs text-slate-500">{tx('Délai (heures, 0 = aucune correction libre)', 'الأجل (ساعات)')}
+              <input className="input mt-1" style={{ width: 140 }} type="number" min="0" step="0.5" value={settings.pay_edit_hours ?? '2'} onChange={e => set('pay_edit_hours', e.target.value)} data-pay-edit-hours />
+            </label>
+            <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={String(settings.pay_edit_until_closure ?? '1') !== '0'} onChange={e => set('pay_edit_until_closure', e.target.checked ? '1' : '0')} data-pay-edit-closure /> {tx('… et seulement tant que la caisse du jour n\'est pas clôturée', '… وما دام الصندوق غير مغلق')}</label>
+          </div>
+        </div>
+
         <AlertRulesSettings L={L} />
+        </>}
       </div>
     </>
   );

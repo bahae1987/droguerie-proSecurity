@@ -1362,3 +1362,66 @@ tr.party-walkin > td { background: #fffbeb; }
 .alert-group-row td { background: #f8fafc; font-weight: 800; font-size: 12px; color: #475569; text-transform: uppercase; }
 .rule-dirty td { background: #fffbeb; }
 @media (max-width: 640px) { .notif-pop { position: fixed; top: 64px; inset-inline: 12px; width: auto; } }
+
+/* ===== V60 : bon de paiement, règlements groupés ===== */
+.pay-receipt-amount { font-size: 20px !important; }
+.pay-receipt-words { border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 12px; font-size: 12px; margin-bottom: 6px; background: #f8fafc; }
+.pay-receipt-total td { background: #f1f5f9; font-weight: 800; }
+.pay-receipt-canceled { border: 2px solid #dc2626; color: #dc2626; font-weight: 900; text-align: center; padding: 6px; border-radius: 8px; margin: 8px 0; letter-spacing: 2px; }
+.batch-tag { display: inline-block; font-size: 10px; font-weight: 700; color: #075985; background: #e0f2fe; border-radius: 999px; padding: 1px 7px; margin-top: 2px; }
+.pay-row-on td { background: #ecfdf5; }
+
+/* V61 : corrections, avances, promesses, chèques */
+.pay-view-alert { box-shadow: 0 0 0 2px #f59e0b inset; }
+.alloc-x { margin-inline-start: 6px; border: 1px solid #fecaca; color: #dc2626; background: #fff; border-radius: 6px; font-size: 10px; line-height: 1; padding: 2px 5px; cursor: pointer; }
+.alloc-x:hover { background: #fee2e2; }
+.promise-badge { display: inline-block; margin-top: 3px; font-size: 11px; font-weight: 600; color: #0369a1; background: #e0f2fe; border-radius: 999px; padding: 1px 8px; white-space: nowrap; }
+.promise-badge.due { color: #92400e; background: #fef3c7; }
+.promise-badge.broken { color: #b91c1c; background: #fee2e2; }
+.cheque-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 12px; }
+@media print { .alloc-x { display: none; } }
+.remove-choice { display: flex !important; flex-direction: column; align-items: flex-start !important; text-align: start; gap: 2px; padding: 10px 14px; width: 100%; }
+.remove-choice small { color: #64748b; font-weight: 400; font-size: 12px; }
+.remove-choice:hover { border-color: #0ea5e9; background: #f0f9ff; }
+
+/* V62 : mode simplifié, aide, démarrage guidé */
+.ui-toggle { background: #1e293b; color: #fff; border: 1px solid #334155; }
+.ui-toggle.on { background: #f59e0b; color: #0f172a; border-color: #f59e0b; }
+.help-steps { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+.help-steps li { display: flex; gap: 12px; align-items: flex-start; }
+.help-steps li span { flex: 0 0 28px; height: 28px; border-radius: 999px; background: #f59e0b; color: #0f172a; font-weight: 800; display: grid; place-items: center; }
+.help-steps li p { margin: 3px 0 0; font-size: 15px; line-height: 1.45; color: #1e293b; }
+.simple-hello { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.simple-hello h1 { font-size: 28px; font-weight: 900; color: #0f172a; margin: 0; }
+.simple-hello p { color: #64748b; margin: 2px 0 0; }
+.simple-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+.simple-action { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 18px; border-radius: 18px; background: #fff; border: 1px solid #e2e8f0; text-align: start; box-shadow: 0 1px 2px rgba(15,23,42,.05); transition: transform .12s, box-shadow .12s, border-color .12s; }
+.simple-action:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(15,23,42,.08); border-color: #f59e0b; }
+.simple-action b { font-size: 17px; color: #0f172a; }
+.simple-action small { color: #64748b; font-size: 13px; }
+.simple-action-icon { font-size: 30px; line-height: 1; margin-bottom: 4px; }
+.simple-action.main { background: #f59e0b; border-color: #f59e0b; }
+.simple-action.main small { color: #422006; }
+.simple-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+.simple-kpi { background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 16px 18px; }
+.simple-kpi span { display: block; font-size: 13px; color: #64748b; font-weight: 600; }
+.simple-kpi b { display: block; font-size: 24px; font-weight: 900; color: #0f172a; margin-top: 4px; }
+.simple-kpi.green b { color: #047857; } .simple-kpi.red b { color: #b91c1c; } .simple-kpi.amber b { color: #b45309; }
+.start-card { border: 2px solid #fde68a; background: #fffbeb; }
+.start-bar { height: 8px; width: 260px; max-width: 100%; background: #fde68a; border-radius: 999px; margin-top: 6px; overflow: hidden; }
+.start-bar span { display: block; height: 100%; background: #f59e0b; border-radius: 999px; }
+.start-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
+.start-step { display: flex; gap: 10px; align-items: flex-start; text-align: start; background: #fff; border: 1px solid #fde68a; border-radius: 14px; padding: 12px; }
+.start-step b { display: block; font-size: 14px; color: #0f172a; }
+.start-step small { display: block; font-size: 12px; color: #64748b; margin-top: 2px; }
+.start-step.done { opacity: .6; background: #f0fdf4; border-color: #bbf7d0; }
+.start-step.done b { text-decoration: line-through; }
+.start-check { flex: 0 0 30px; height: 30px; border-radius: 999px; display: grid; place-items: center; background: #fef3c7; font-size: 16px; }
+.start-step.done .start-check { background: #22c55e; color: #fff; font-weight: 900; }
+.row-menu-more { color: #64748b; font-style: italic; }
+.advanced-toggle { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; text-align: start; cursor: pointer; }
+.advanced-toggle small { color: #64748b; }
+.advanced-toggle:hover { border-color: #f59e0b; }
+.pos-credit-box { background: #fffbeb; border: 1px solid #fde68a; border-radius: 12px; padding: 10px; }
+.more-fields-btn { display: block; width: 100%; text-align: start; padding: 10px 12px; border: 1px dashed #cbd5e1; border-radius: 12px; color: #475569; font-size: 13px; font-weight: 600; background: #f8fafc; }
+.more-fields-btn:hover { border-color: #f59e0b; color: #0f172a; background: #fffbeb; }
