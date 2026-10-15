@@ -1587,6 +1587,15 @@ tr.party-walkin > td { background: #fffbeb; }
 .pos-kiosk .pm-journal { min-height: 0; }
 
 @media (max-width: 1100px) { .pm-body { grid-template-columns: minmax(0, 1fr); } .pm-journal { min-height: 220px; } }
+/* V66 : plein écran sur téléphone / tablette → une colonne qui défile (plus de hauteur fixe : les articles ne recouvrent plus le ticket) */
+@media (max-width: 1100px) {
+  .pos-kiosk .pm { height: auto; min-height: calc(100dvh - 20px); }
+  .pos-kiosk .pm-body { overflow: visible; flex: none; }
+  .pos-kiosk .pm-right { overflow: visible; padding-inline-end: 0; }
+  .pos-kiosk .pm-journal { min-height: 220px; flex: none; }
+  .pos-kiosk .pm-lines { max-height: 45vh; }
+  .pos-kiosk .pm-validate { position: sticky; bottom: 8px; z-index: 5; border-radius: 14px; box-shadow: 0 -6px 18px rgba(15, 23, 42, .12); background: #fff; padding: 4px; }
+}
 @media (max-width: 640px) {
   .pm-row { grid-template-columns: 24px minmax(0, 1fr) 46px 64px 76px; gap: 4px; padding: 7px 6px; font-size: 13px; }
   .pm-modes { grid-template-columns: repeat(3, minmax(0, 1fr)); }
