@@ -4,7 +4,7 @@ import { flushSync } from 'react-dom';
 import { createClient } from '@supabase/supabase-js';
 import './index.css';
 
-console.log('DROGUERIEPRO V58 OK');
+console.log('DROGUERIEPRO V59 OK');
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -1742,15 +1742,20 @@ function templateCodes(tpl) {
 // Fonctions activables pour toute la droguerie (en plus des modules de l'abonnement SaaS)
 const FEATURES = [
   { key: 'pos', saas: 'pos', icon: '🛒', fr: 'Caisse rapide', ar: 'الصندوق السريع', dfr: 'Vente au comptoir avec code-barres et ticket.', dar: 'البيع في الكونطوار بالكود بار والتذكرة.' },
-  { key: 'cashClosure', icon: '💵', fr: 'Clôture de caisse', ar: 'إغلاق الصندوق', dfr: 'Comptage des espèces et écart de caisse chaque soir.', dar: 'عدّ النقد وفرق الصندوق كل مساء.' },
-  { key: 'inventory', icon: '📋', fr: 'Inventaire physique', ar: 'الجرد الفعلي', dfr: 'Comptage du stock et correction des écarts.', dar: 'عدّ المخزون وتصحيح الفروقات.' },
-  { key: 'reorder', icon: '🔁', fr: 'Réapprovisionnement automatique', ar: 'إعادة التزويد التلقائية', dfr: 'Commandes fournisseurs proposées sous le stock minimum.', dar: 'طلبيات موردين مقترحة تحت الحد الأدنى.' },
-  { key: 'import', icon: '📥', fr: 'Import Excel', ar: 'الاستيراد من Excel', dfr: 'Import des produits, clients et fournisseurs.', dar: 'استيراد المنتجات والزبناء والموردين.' },
-  { key: 'returns', icon: '↩️', fr: 'Avoirs et retours fournisseurs', ar: 'الإشعارات الدائنة والمرتجعات', dfr: 'Retours clients et fournisseurs sur facture.', dar: 'مرتجعات الزبناء والموردين على الفاتورة.' },
-  { key: 'share', icon: '📤', fr: 'Partage WhatsApp / e-mail / PDF', ar: 'المشاركة واتساب / بريد / PDF', dfr: 'Envoi des documents depuis l\'aperçu.', dar: 'إرسال الوثائق من المعاينة.' },
+  { key: 'cashClosure', saas: 'cashClosure', icon: '💵', fr: 'Clôture de caisse', ar: 'إغلاق الصندوق', dfr: 'Comptage des espèces et écart de caisse chaque soir.', dar: 'عدّ النقد وفرق الصندوق كل مساء.' },
+  { key: 'inventory', saas: 'inventory', icon: '📋', fr: 'Inventaire physique', ar: 'الجرد الفعلي', dfr: 'Comptage du stock et correction des écarts.', dar: 'عدّ المخزون وتصحيح الفروقات.' },
+  { key: 'reorder', saas: 'reorder', icon: '🔁', fr: 'Réapprovisionnement automatique', ar: 'إعادة التزويد التلقائية', dfr: 'Commandes fournisseurs proposées sous le stock minimum.', dar: 'طلبيات موردين مقترحة تحت الحد الأدنى.' },
+  { key: 'import', saas: 'import', icon: '📥', fr: 'Import Excel', ar: 'الاستيراد من Excel', dfr: 'Import des produits, clients et fournisseurs.', dar: 'استيراد المنتجات والزبناء والموردين.' },
+  { key: 'returns', saas: 'returns', icon: '↩️', fr: 'Avoirs et retours fournisseurs', ar: 'الإشعارات الدائنة والمرتجعات', dfr: 'Retours clients et fournisseurs sur facture.', dar: 'مرتجعات الزبناء والموردين على الفاتورة.' },
+  { key: 'share', saas: 'share', icon: '📤', fr: 'Partage WhatsApp / e-mail / PDF', ar: 'المشاركة واتساب / بريد / PDF', dfr: 'Envoi des documents depuis l\'aperçu.', dar: 'إرسال الوثائق من المعاينة.' },
   { key: 'expenses', saas: 'expenses', icon: '⛽', fr: 'Charges et déplacements', ar: 'المصاريف والتنقلات', dfr: 'Tournées, charges et marge nette.', dar: 'الجولات والمصاريف والهامش الصافي.' },
   { key: 'profit', saas: 'profit', icon: '📈', fr: 'Centre de rentabilité', ar: 'مركز الربحية', dfr: 'Analyse des marges par produit.', dar: 'تحليل الهوامش حسب المنتج.' },
-  { key: 'tools', saas: 'tools', icon: '🧮', fr: 'Outils et calculateurs', ar: 'الأدوات والحاسبات', dfr: 'Calculatrice et calcul de prix.', dar: 'آلة حاسبة وحساب الأثمنة.' }
+  { key: 'tools', saas: 'tools', icon: '🧮', fr: 'Outils et calculateurs', ar: 'الأدوات والحاسبات', dfr: 'Calculatrice et calcul de prix.', dar: 'آلة حاسبة وحساب الأثمنة.' },
+  // V59 : nouvelles options (facturables dans l'abonnement SaaS)
+  { key: 'alerts', saas: 'alerts', icon: '🔔', fr: 'Centre d\'alertes', ar: 'مركز التنبيهات', dfr: 'Cloche de notifications : stock, péremption, échéances, caisse.', dar: 'جرس التنبيهات: المخزون، الصلاحية، الآجال، الصندوق.' },
+  { key: 'alertsControl', saas: 'alertsControl', icon: '🛡', fr: 'Alertes de contrôle', ar: 'تنبيهات المراقبة', dfr: 'Ventes sous le prix d\'achat, remises, suppressions, annulations.', dar: 'البيع بأقل من ثمن الشراء، التخفيضات، الحذف، الإلغاء.' },
+  { key: 'labels', saas: 'labels', icon: '🏷', fr: 'Étiquettes code-barres', ar: 'ملصقات الكود بار', dfr: 'Planches d\'étiquettes prix et code-barres.', dar: 'صفحات ملصقات الأثمنة والكود بار.' },
+  { key: 'bulkPrice', saas: 'bulkPrice', icon: '💲', fr: 'Prix en masse', ar: 'الأثمنة دفعة واحدة', dfr: 'Modifier les prix de vente par lot.', dar: 'تعديل أثمنة البيع دفعة واحدة.' }
 ];
 
 function curLang() {
@@ -3935,7 +3940,19 @@ async function clientOutstanding(clientId) {
 }
 
 async function assertCreditLimit(clientId, addAmount, force) {
-  if (!clientId || force || Number(addAmount || 0) <= 0.01) return;
+  if (!clientId || Number(addAmount || 0) <= 0.01) return;
+  if (force) {
+    // V59 : dépassement autorisé → tracé (alerte « plafond de crédit dépassé »)
+    try {
+      const { data: c } = await supabase.from('clients').select('name, credit_limit').eq('id', clientId).maybeSingle();
+      const limit = Number(c?.credit_limit || 0);
+      if (limit > 0) {
+        const out = await clientOutstanding(clientId);
+        if (out + Number(addAmount) > limit + 0.01) await auditLog('Ventes', 'CREDIT_OVERRIDE', c?.name || '', 'Encours ' + dh(out) + ' + ' + dh(addAmount) + ' > plafond ' + dh(limit));
+      }
+    } catch {}
+    return;
+  }
   const { data: c } = await supabase.from('clients').select('name, credit_limit').eq('id', clientId).maybeSingle();
   const limit = Number(c?.credit_limit || 0);
   if (limit <= 0) return; // 0 = pas de plafond
@@ -4930,6 +4947,7 @@ function Layout({ L, lang, toggleLang, session, setSession }) {
           <div className="app-topline no-print">
             <BranchFilter L={L} value={globalBranchFilter} onChange={v => { setSelectedBranchFilter(v); setGlobalBranchFilter(v); }} />
             <div className="app-topline-actions">
+              {!isSuperAdmin(session) && featureOn('alerts') ? <NotificationBell session={session} /> : null}
               <button type="button" className="btn bg-white border palette-btn" onClick={() => setPalette(true)} title={L('uxShortcuts')}>🔎 {L('uxPalette')}</button>
               {newActions.length ? (
                 <span className="row-menu">
@@ -5095,7 +5113,7 @@ function showToast(message, kind) {
     const type = kind || (TOAST_ERROR_RE.test(text) ? 'error' : 'success');
     const el = document.createElement('div');
     el.className = 'dp-toast ' + type;
-    const span = document.createElement('span'); span.textContent = (type === 'error' ? '⚠ ' : '✔ ') + text;
+    const span = document.createElement('span'); span.textContent = (/^🔔/.test(text) || type === 'warn' ? '' : type === 'error' ? '⚠ ' : '✔ ') + text;
     const x = document.createElement('button'); x.type = 'button'; x.textContent = '✕'; x.setAttribute('aria-label', 'Fermer');
     x.onclick = () => el.remove();
     el.appendChild(span); el.appendChild(x);
@@ -6300,12 +6318,16 @@ const SAAS_MODULE_META = {
   sales: { requires: ['products', 'clients'] }, purchases: { requires: ['products', 'suppliers'] },
   pos: { requires: ['sales', 'products', 'clients'] }, stockMoves: { requires: ['products'] },
   reporting: { requires: ['sales'] }, profit: { requires: ['sales', 'products'] },
-  attachments: { category: 'platform' }, mobileApp: { category: 'platform' }, branches: { category: 'platform' }, users: { category: 'platform' }
+  attachments: { category: 'platform' }, mobileApp: { category: 'platform' }, branches: { category: 'platform' }, users: { category: 'platform' },
+  alerts: { category: 'option' }, alertsControl: { category: 'option', requires: ['alerts'] }, labels: { category: 'option', requires: ['products'] },
+  bulkPrice: { category: 'option', requires: ['products'] }, cashClosure: { category: 'option', requires: ['sales'] }, inventory: { category: 'option', requires: ['products'] },
+  reorder: { category: 'option', requires: ['purchases'] }, import: { category: 'option' }, returns: { category: 'option', requires: ['sales'] }, share: { category: 'option' }
 };
 const SAAS_CATEGORIES = [
   { key: 'core', fr: 'Socle (toujours actif)', ar: 'الأساس (مفعّل دائما)' },
   { key: 'business', fr: 'Modules métier', ar: 'وحدات العمل' },
-  { key: 'platform', fr: 'Modules plateforme', ar: 'وحدات المنصة' }
+  { key: 'platform', fr: 'Modules plateforme', ar: 'وحدات المنصة' },
+  { key: 'option', fr: 'Options payantes', ar: 'خيارات مؤدى عنها' }
 ];
 const SAAS_STATUS = {
   trial: { fr: 'Essai', ar: 'تجربة', tone: 'blue' },
@@ -7593,6 +7615,273 @@ function cashSuggestions(total) {
   return out.slice(0, 5);
 }
 
+/* ===================== V59 : centre d'alertes (cloche) ===================== */
+const ALERT_GROUPS = [
+  { key: 'stock', icon: '📦', fr: 'Stock', ar: 'المخزون' },
+  { key: 'clients', icon: '👥', fr: 'Clients', ar: 'الزبناء' },
+  { key: 'suppliers', icon: '🚚', fr: 'Fournisseurs', ar: 'الموردون' },
+  { key: 'purchases', icon: '📥', fr: 'Achats', ar: 'المشتريات' },
+  { key: 'control', icon: '🛡', fr: 'Contrôle', ar: 'المراقبة' },
+  { key: 'cash', icon: '💵', fr: 'Caisse', ar: 'الصندوق' },
+  { key: 'activity', icon: '📈', fr: 'Activité', ar: 'النشاط' }
+];
+const ALERT_KIND_AR = {
+  stock_low: 'منتج تحت الحد الأدنى', stock_out: 'نفاد المخزون', expiry_30: 'صلاحية قريبة', expiry_7: 'صلاحية وشيكة',
+  invoice_overdue: 'فاتورة زبون متأخرة', credit_override: 'تجاوز سقف الكريدي', supplier_due_soon: 'فاتورة مورد قريبة الأداء',
+  supplier_due_today: 'فاتورة مورد للأداء اليوم', po_late: 'طلبية مورد غير مستلمة', sale_below_cost: 'بيع بأقل من ثمن الشراء',
+  big_discount: 'تخفيض كبير', payment_canceled: 'إلغاء أداء', doc_deleted: 'حذف وثيقة', bulk_price: 'تعديل الأثمنة دفعة واحدة',
+  cash_gap: 'فرق في الصندوق', cash_not_closed: 'صندوق غير مغلق', big_sale: 'عملية بيع كبيرة', new_client: 'زبون جديد'
+};
+const alertGroup = g => ALERT_GROUPS.find(x => x.key === g) || { icon: '🔔', fr: g, ar: g };
+function timeAgo(ts) {
+  const s = Math.max(0, (Date.now() - new Date(ts).getTime()) / 1000);
+  if (s < 60) return tx('à l\'instant', 'الآن');
+  if (s < 3600) return tx('il y a ' + Math.floor(s / 60) + ' min', 'منذ ' + Math.floor(s / 60) + ' د');
+  if (s < 86400) return tx('il y a ' + Math.floor(s / 3600) + ' h', 'منذ ' + Math.floor(s / 3600) + ' س');
+  if (s < 7 * 86400) return tx('il y a ' + Math.floor(s / 86400) + ' j', 'منذ ' + Math.floor(s / 86400) + ' يوم');
+  return new Date(ts).toLocaleDateString('fr-FR');
+}
+
+async function loadMyNotifications(unreadOnly) {
+  const { data, error } = await supabase.rpc('app_my_notifications', { p_limit: 80, p_unread_only: !!unreadOnly });
+  if (error) throw new Error(error.message);
+  return data || [];
+}
+async function markNotificationsRead(ids) {
+  const { data, error } = await supabase.rpc('app_notifications_mark_read', { p_ids: ids && ids.length ? ids : null });
+  if (error) throw new Error(error.message);
+  window.dispatchEvent(new CustomEvent('droguerie_notif_refresh'));
+  return data || 0;
+}
+
+function NotificationBell({ session }) {
+  const [count, setCount] = useState(0);
+  const [open, setOpen] = useState(false);
+  const [list, setList] = useState(null);
+  const [filter, setFilter] = useState('all');
+  const [prefsOpen, setPrefsOpen] = useState(false);
+  const [ready, setReady] = useState(true);
+  const ref = useRef(null);
+  const seenKey = userStoreKey('notif_seen');
+
+  async function poll(runChecks) {
+    try {
+      if (runChecks) await supabase.rpc('app_alerts_run', { p_force: false });
+      const unread = await loadMyNotifications(true);
+      setReady(true);
+      setCount(unread.length);
+      const maxId = unread.reduce((m, n) => Math.max(m, Number(n.id)), 0);
+      const seen = readLocal(seenKey, null);
+      if (seen === null) writeLocal(seenKey, maxId);
+      else if (maxId > seen) {
+        unread.filter(n => Number(n.id) > seen && n.severity !== 'info').slice(0, 3).forEach(n => showToast('🔔 ' + n.title, n.severity === 'danger' ? 'error' : 'warn'));
+        writeLocal(seenKey, maxId);
+      }
+      if (open) setList(await loadMyNotifications(false));
+    } catch (e) {
+      if (/app_my_notifications|function|schema cache/i.test(e.message)) setReady(false);
+    }
+  }
+  useEffect(() => {
+    poll(true);
+    const t1 = setInterval(() => poll(false), 60 * 1000);
+    const t2 = setInterval(() => poll(true), 5 * 60 * 1000);
+    const h = () => poll(false);
+    window.addEventListener('droguerie_notif_refresh', h);
+    return () => { clearInterval(t1); clearInterval(t2); window.removeEventListener('droguerie_notif_refresh', h); };
+  }, [session?.token]);
+  useEffect(() => {
+    if (!open) return undefined;
+    loadMyNotifications(false).then(setList).catch(() => setList([]));
+    const out = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    const esc = e => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', out); document.addEventListener('keydown', esc);
+    return () => { document.removeEventListener('mousedown', out); document.removeEventListener('keydown', esc); };
+  }, [open]);
+
+  if (!ready) return null;
+  const groups = ALERT_GROUPS.filter(g => (list || []).some(n => n.grp === g.key));
+  const shown = (list || []).filter(n => filter === 'all' || (filter === 'unread' ? !n.is_read : n.grp === filter));
+  async function openItem(n) {
+    if (!n.is_read) await markNotificationsRead([n.id]).catch(() => {});
+    setOpen(false);
+    if (n.link_page) goToPage(n.link_page, n.link_ref && Object.keys(n.link_ref).length ? n.link_ref : null);
+  }
+  async function readAll() {
+    await markNotificationsRead(null).catch(e => alert(e.message));
+    setList(await loadMyNotifications(false).catch(() => []));
+    setCount(0);
+  }
+  return (
+    <span className="notif-wrap" ref={ref}>
+      <button type="button" className={'btn bg-white border notif-btn ' + (count ? 'has' : '')} aria-label={tx('Notifications', 'التنبيهات')} aria-expanded={open} data-bell onClick={() => setOpen(!open)}>
+        🔔{count ? <span className="notif-badge" data-bell-count>{count > 99 ? '99+' : count}</span> : null}
+      </button>
+      {open ? (
+        <div className="notif-pop" role="dialog" aria-label={tx('Notifications', 'التنبيهات')}>
+          <div className="notif-head">
+            <b>🔔 {tx('Notifications', 'التنبيهات')}</b>
+            <span className="flex gap-1">
+              {count ? <button type="button" className="notif-link" data-read-all onClick={readAll}>{tx('Tout marquer lu', 'تحديد الكل كمقروء')}</button> : null}
+              <button type="button" className="notif-link" title={tx('Mes alertes', 'تنبيهاتي')} data-my-prefs onClick={() => { setPrefsOpen(true); setOpen(false); }}>⚙</button>
+            </span>
+          </div>
+          <div className="notif-chips">
+            {[['all', tx('Tout', 'الكل')], ['unread', tx('Non lues', 'غير مقروءة') + (count ? ' (' + count + ')' : '')], ...groups.map(g => [g.key, g.icon + ' ' + tx(g.fr, g.ar)])].map(([k, t]) => (
+              <button key={k} type="button" className={'chip ' + (filter === k ? 'chip-on' : '')} data-notif-filter={k} onClick={() => setFilter(k)}>{t}</button>
+            ))}
+          </div>
+          <div className="notif-list">
+            {list === null ? <p className="notif-empty">…</p> : shown.length ? shown.map(n => (
+              <button key={n.id} type="button" className={'notif-item ' + n.severity + (n.is_read ? ' read' : '')} data-notif={n.kind} onClick={() => openItem(n)}>
+                <span className="notif-ico">{alertGroup(n.grp).icon}</span>
+                <span className="notif-txt">
+                  <b>{n.title}</b>
+                  {n.body ? <small>{n.body}</small> : null}
+                  <i>{timeAgo(n.created_at)}{n.branch_name ? ' · ' + n.branch_name : ''}</i>
+                </span>
+                {!n.is_read ? <span className="notif-dot" /> : null}
+              </button>
+            )) : <p className="notif-empty">✔ {tx('Aucune notification', 'لا توجد تنبيهات')}</p>}
+          </div>
+        </div>
+      ) : null}
+      {prefsOpen ? <MyAlertPrefs session={session} close={() => setPrefsOpen(false)} /> : null}
+    </span>
+  );
+}
+
+// Préférences de l'utilisateur : couper une alerte non obligatoire
+function MyAlertPrefs({ session, close }) {
+  const [rules, setRules] = useState(null);
+  const [muted, setMuted] = useState([]);
+  const uid = session?.user?.id;
+  const role = session?.user?.role;
+  useEffect(() => {
+    (async () => {
+      const [{ data: r }, { data: p }] = await Promise.all([
+        supabase.from('alert_rules').select('*').order('sort_order'),
+        supabase.from('user_alert_prefs').select('kind, muted')
+      ]);
+      setRules((r || []).filter(x => x.enabled && ((x.roles || []).includes(role) || x.notify_owner) && (x.grp !== 'control' || featureOn('alertsControl'))));
+      setMuted((p || []).filter(x => x.muted).map(x => x.kind));
+    })().catch(() => setRules([]));
+  }, []);
+  async function toggle(kind, on) {
+    const prev = muted;
+    setMuted(on ? muted.filter(k => k !== kind) : [...muted, kind]);
+    const { error } = on
+      ? await supabase.from('user_alert_prefs').delete().eq('user_id', uid).eq('kind', kind)
+      : await supabase.from('user_alert_prefs').upsert({ user_id: uid, kind, muted: true }, { onConflict: 'user_id,kind' });
+    if (error) { setMuted(prev); return alert(error.message); }
+    window.dispatchEvent(new CustomEvent('droguerie_notif_refresh'));
+  }
+  return (
+    <Modal title={'⚙ ' + tx('Mes alertes', 'تنبيهاتي')} onClose={close}>
+      <p className="text-xs text-slate-500 mb-3">{tx('Choisissez les alertes que vous voulez recevoir. Les alertes marquées « obligatoire » sont imposées par l\'administrateur.', 'اختر التنبيهات التي تريد استقبالها.')}</p>
+      {rules === null ? <p>…</p> : rules.length ? ALERT_GROUPS.map(g => {
+        const rs = rules.filter(r => r.grp === g.key);
+        if (!rs.length) return null;
+        return (
+          <div key={g.key} className="mb-3">
+            <div className="text-xs font-bold text-slate-500 mb-1">{g.icon} {tx(g.fr, g.ar)}</div>
+            {rs.map(r => (
+              <label key={r.kind} className="flex items-center justify-between gap-2 border rounded-lg px-3 py-2 mb-1 text-sm">
+                <span>{tx(r.label, ALERT_KIND_AR[r.kind])}{r.mandatory ? <span className="text-xs text-slate-400"> · {tx('obligatoire', 'إلزامي')}</span> : null}</span>
+                <input type="checkbox" data-pref={r.kind} disabled={r.mandatory} checked={r.mandatory || !muted.includes(r.kind)} onChange={e => toggle(r.kind, e.target.checked)} />
+              </label>
+            ))}
+          </div>
+        );
+      }) : <p className="text-sm text-slate-500">{tx('Aucune alerte n\'est prévue pour votre profil.', 'لا توجد تنبيهات لملفك.')}</p>}
+    </Modal>
+  );
+}
+
+// Réglage par l'administrateur : qui reçoit quoi, seuils, obligatoire, portée
+function AlertRulesSettings({ L }) {
+  const [rules, setRules] = useState(null);
+  const [roles, setRoles] = useState([]);
+  const [dirty, setDirty] = useState({});
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const canEdit = can('settings.manage');
+  async function load() {
+    const [{ data: r, error }, { data: ro }] = await Promise.all([
+      supabase.from('alert_rules').select('*').order('sort_order'),
+      supabase.from('roles').select('id, name').order('id')
+    ]);
+    if (error) { setErr(error.message); setRules([]); return; }
+    setRules(r || []);
+    setRoles((ro || []).map(x => x.name).filter(n => !/super/i.test(n)));
+    setDirty({});
+  }
+  useEffect(() => { load(); }, []);
+  const set = (kind, patch) => { setRules(rules.map(r => r.kind === kind ? { ...r, ...patch } : r)); setDirty({ ...dirty, [kind]: true }); };
+  async function save() {
+    setBusy(true);
+    try {
+      for (const r of rules.filter(x => dirty[x.kind])) {
+        const { error } = await supabase.from('alert_rules').update({ enabled: r.enabled, roles: r.roles, notify_owner: r.notify_owner, mandatory: r.mandatory, scope: r.scope, threshold: r.threshold === '' || r.threshold === null ? null : Number(r.threshold), updated_at: new Date().toISOString() }).eq('kind', r.kind);
+        if (error) throw new Error(error.message);
+      }
+      await auditLog('Paramètres', 'UPDATE', 'Réglage des alertes', Object.keys(dirty).join(', '));
+      showToast(tx('Réglage des alertes enregistré', 'تم حفظ إعدادات التنبيهات'));
+      await load();
+      window.dispatchEvent(new CustomEvent('droguerie_notif_refresh'));
+    } catch (e) { alert(e.message); }
+    setBusy(false);
+  }
+  if (!featureOn('alerts')) {
+    return <div className="card p-5 md:col-span-2 opacity-70"><h2 className="font-bold mb-1">🔔 {tx('Centre d\'alertes', 'مركز التنبيهات')}</h2><Badge tone="slate">{L('permNotInPlan')}</Badge></div>;
+  }
+  if (err && /alert_rules/.test(err)) return <div className="card p-5 md:col-span-2 text-sm text-amber-700">🔔 {tx('Exécutez MAJ_V59_SUPABASE.sql pour activer le centre d\'alertes.', 'نفّذ MAJ_V59_SUPABASE.sql.')}</div>;
+  if (!rules) return null;
+  const controlOn = featureOn('alertsControl');
+  return (
+    <div className="card p-5 md:col-span-2" data-alert-rules>
+      <div className="flex flex-wrap justify-between items-center gap-2 mb-1">
+        <h2 className="font-bold">🔔 {tx('Centre d\'alertes : qui reçoit quoi', 'مركز التنبيهات: من يستقبل ماذا')}</h2>
+        {canEdit ? <button disabled={busy || !Object.keys(dirty).length} onClick={save} className="btn bg-amber-500" data-rules-save>{tx('Enregistrer les alertes', 'حفظ التنبيهات')}{Object.keys(dirty).length ? ' (' + Object.keys(dirty).length + ')' : ''}</button> : null}
+      </div>
+      <p className="text-xs text-slate-500 mb-3">{tx('Cochez les profils qui reçoivent chaque alerte dans la cloche 🔔. « Concerné » : le vendeur ou le créateur du document la reçoit aussi. « Obligatoire » : l\'utilisateur ne peut pas la couper. « Toutes » : visible quelle que soit la droguerie.', 'حدد الملفات التي تستقبل كل تنبيه.')}</p>
+      <div className="overflow-auto">
+        <table className="table w-full alert-rules">
+          <thead>
+            <tr>
+              <th>{tx('Alerte', 'التنبيه')}</th><th>{tx('Active', 'مفعّل')}</th>
+              {roles.map(r => <th key={r} className="text-center">{r}</th>)}
+              <th className="text-center">{tx('Concerné', 'المعني')}</th><th>{tx('Seuil', 'العتبة')}</th><th className="text-center">{tx('Obligatoire', 'إلزامي')}</th><th>{tx('Drogueries', 'المحلات')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {ALERT_GROUPS.map(g => {
+              const rs = rules.filter(r => r.grp === g.key);
+              if (!rs.length) return null;
+              return [
+                <tr key={'g' + g.key} className="alert-group-row"><td colSpan={roles.length + 6}>{g.icon} {tx(g.fr, g.ar)}{g.key === 'control' && !controlOn ? <> <Badge tone="slate">{L('permNotInPlan')}</Badge></> : null}</td></tr>,
+                ...rs.map(r => (
+                  <tr key={r.kind} data-rule={r.kind} className={(r.enabled ? '' : 'opacity-50') + (dirty[r.kind] ? ' rule-dirty' : '')}>
+                    <td className="text-sm font-semibold" style={{ minWidth: 190 }}>{tx(r.label, ALERT_KIND_AR[r.kind])}</td>
+                    <td><input type="checkbox" disabled={!canEdit} data-rule-enabled={r.kind} checked={!!r.enabled} onChange={e => set(r.kind, { enabled: e.target.checked })} /></td>
+                    {roles.map(ro => (
+                      <td key={ro} className="text-center"><input type="checkbox" disabled={!canEdit} data-rule-role={r.kind + ':' + ro} checked={(r.roles || []).includes(ro)} onChange={e => set(r.kind, { roles: e.target.checked ? [...(r.roles || []), ro] : (r.roles || []).filter(x => x !== ro) })} /></td>
+                    ))}
+                    <td className="text-center">{['invoice_overdue'].includes(r.kind) ? <input type="checkbox" disabled={!canEdit} checked={!!r.notify_owner} onChange={e => set(r.kind, { notify_owner: e.target.checked })} /> : <span className="text-slate-300">—</span>}</td>
+                    <td className="whitespace-nowrap">{r.threshold_label ? <><input className="input inline-num" type="number" min="0" disabled={!canEdit} data-rule-threshold={r.kind} value={r.threshold ?? ''} onChange={e => set(r.kind, { threshold: e.target.value })} /> <span className="text-xs text-slate-500">{r.threshold_label}</span></> : <span className="text-slate-300">—</span>}</td>
+                    <td className="text-center"><input type="checkbox" disabled={!canEdit} checked={!!r.mandatory} onChange={e => set(r.kind, { mandatory: e.target.checked })} /></td>
+                    <td><select className="input" style={{ minWidth: 110 }} disabled={!canEdit} value={r.scope || 'branch'} onChange={e => set(r.kind, { scope: e.target.value })}><option value="branch">{tx('La sienne', 'محله')}</option><option value="all">{tx('Toutes', 'الكل')}</option></select></td>
+                  </tr>
+                ))
+              ];
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 function Dashboard({ L }) {
   const [data, setData] = useState(null);
   const [err, setErr] = useState('');
@@ -7738,10 +8027,12 @@ function Products({ L }) {
   const [search, setSearch] = useState('');
   const [err, setErr] = useState('');
   // V58 : filtre d'alerte (depuis « À faire aujourd'hui »), étiquettes, prix en masse
-  const [alertF, setAlertF] = useState(() => takeListIntent('products')?.alert || 'all');
+  const [intent0] = useState(() => takeListIntent('products'));
+  const [alertF, setAlertF] = useState(intent0?.alert || 'all');
+  useEffect(() => { if (intent0?.search) setSearch(intent0.search); }, []);
   const [showLabels, setShowLabels] = useState(false);
   const [showBulk, setShowBulk] = useState(false);
-  const canBulkPrice = canWriteProduct && (isAdmin(getStoredSession()) || isManager(getStoredSession()));
+  const canBulkPrice = canWriteProduct && featureOn('bulkPrice') && (isAdmin(getStoredSession()) || isManager(getStoredSession()));
 
   async function load() {
     try {
@@ -7870,7 +8161,7 @@ function Products({ L }) {
         {canUse('stock.inventory') ? <button onClick={() => setShowInventory(true)} className="btn bg-white border">📋 {L('inventory')}</button> : null}
         {canUse('products.import') ? <button onClick={() => setShowImport(true)} className="btn bg-white border">📥 {L('importExcel')}</button> : null}
         {canUse('stock.reorder') && can('purchases.write') ? <button onClick={() => setShowReorder(true)} className="btn bg-white border">🔁 {L('reorderAuto')}</button> : null}
-        <button onClick={() => setShowLabels(true)} className="btn bg-white border" data-labels-btn disabled={!visibleRows.length}>🏷 {tx('Étiquettes', 'ملصقات')}</button>
+        {featureOn('labels') ? <button onClick={() => setShowLabels(true)} className="btn bg-white border" data-labels-btn disabled={!visibleRows.length}>🏷 {tx('Étiquettes', 'ملصقات')}</button> : null}
         {canBulkPrice ? <button onClick={() => setShowBulk(true)} className="btn bg-white border" data-bulk-btn disabled={!visibleRows.length}>💲 {tx('Prix en masse', 'الأثمنة دفعة واحدة')}</button> : null}
       </div>
 
@@ -9589,7 +9880,7 @@ function Docs({ L, type }) {
   const [err, setErr] = useState('');
   const [userFilter, setUserFilter] = useState(getSelectedUserFilter(type));
   // V58 : filtre posé depuis « À faire aujourd'hui »
-  useEffect(() => { const it = takeListIntent(type); if (it) { if (it.tab) setTab(it.tab); if (it.payF) setPayF(it.payF); } }, []);
+  useEffect(() => { const it = takeListIntent(type); if (it) { if (it.tab) setTab(it.tab); if (it.payF) setPayF(it.payF); if (it.search) setSearch(it.search); } }, []);
   // V58 : brouillon automatique des nouveaux documents (récupérable après fermeture ou rechargement)
   const draftKey = userStoreKey('draft_' + type);
   const [draft, setDraft] = useState(() => { const d = readLocal(draftKey, null); return d && d.form && Date.now() - d.at < 7 * 86400000 ? d : null; });
@@ -10503,6 +10794,7 @@ function Payments({ L }) {
   const [[from, to], setRange] = useState(periodRange('month'));
   const [attach, setAttach] = useState(null);
   const [closure, setClosure] = useState(false);
+  useEffect(() => { const it = takeListIntent('payments'); if (it?.search) { setSearch(it.search); setRange(['', '']); setFilter('all'); } }, []);
   const attachEnabled = hasModuleAccess('attachments');
 
   async function load() {
@@ -11323,6 +11615,7 @@ function Parties({ L, type }) {
   const [dups, setDups] = useState(null);
   const [merge, setMerge] = useState(null);
   const [walkIns, setWalkIns] = useState(false);
+  useEffect(() => { const it = takeListIntent(type); if (it?.search) setSearch(it.search); }, []);
   const [busy, setBusy] = useState(false);
 
   async function load() {
@@ -12381,6 +12674,8 @@ function Settings({ L }) {
             ))}
           </div>
         </div>
+
+        <AlertRulesSettings L={L} />
       </div>
     </>
   );
