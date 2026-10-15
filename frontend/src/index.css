@@ -1432,3 +1432,9 @@ tr.party-walkin > td { background: #fffbeb; }
 .attach-panel { background: #fff; }
 /* V63 : sur téléphone, les fenêtres passent au-dessus de la barre du haut et de la barre du bas (titre et ✕ visibles) */
 .fixed.app-modal { z-index: 75; }
+
+/* V64 : menu ⋯ flottant (n'est plus coupé par le cadre des listes) */
+.row-menu-pop.row-menu-float { z-index: 90; max-height: min(70vh, 520px); overflow-y: auto; }
+.row-menu-btn-label { white-space: nowrap; }
+.closed-note { max-width: 260px; }
+.row-menu-pop.row-menu-float { right: auto; inset-inline-end: auto; bottom: auto; }

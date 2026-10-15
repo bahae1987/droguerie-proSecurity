@@ -1,10 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { flushSync } from 'react-dom';
+import { flushSync, createPortal } from 'react-dom';
 import { createClient } from '@supabase/supabase-js';
 import './index.css';
 
-console.log('DROGUERIEPRO V63 OK');
+console.log('DROGUERIEPRO V64 OK');
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -657,7 +657,7 @@ Object.assign(TXT.fr, {
   poPartial: 'Partiellement reçue',
   poReceived: 'Reçue',
   poReceipts: 'Réceptions',
-  showClosedDocs: 'Afficher les documents soldés',
+  showClosedDocs: 'Afficher aussi les commandes soldées ou clôturées',
   originOrder: 'Commande d\'origine'
 });
 Object.assign(TXT.ar, {
@@ -851,7 +851,7 @@ Object.assign(TXT.ar, {
   poPartial: 'مستلمة جزئياً',
   poReceived: 'مستلمة',
   poReceipts: 'الاستلامات',
-  showClosedDocs: 'عرض الوثائق المنتهية',
+  showClosedDocs: 'عرض الطلبيات المنتهية أو المغلقة أيضا',
   originOrder: 'الطلبية الأصلية'
 });
 
@@ -3553,6 +3553,7 @@ function docRemainingQty(doc) {
 
 function docStatus(doc) {
   if (isReturnDoc(doc)) return 'closed';
+  if (doc && doc.force_closed) return 'closed'; // V64 : commande clôturée avant livraison / réception complète
   const rem = docRemainingQty(doc);
   if (doc.stage === 'facture') return 'closed';
   if (rem <= 0 && ['livraison', 'reception'].includes(doc.stage)) return 'closed';
@@ -3982,11 +3983,12 @@ async function assertCreditLimit(clientId, addAmount, force) {
 
 // Quantités réservées = reste à livrer des commandes clients ouvertes
 async function reservedQtyByProduct(excludeDocId) {
-  const { data, error } = await supabase.from('sales').select('id, stage, lines_json, processed_lines_json, doc_status').eq('stage', 'commande');
+  const { data, error } = await supabase.from('sales').select('*').eq('stage', 'commande');
   if (error) throw new Error(error.message);
   const map = {};
   (data || []).forEach(d => {
     if (excludeDocId && String(d.id) === String(excludeDocId)) return;
+    if (d.force_closed) return; // V64 : commande clôturée → plus de réservation
     docRemainingLines(d).forEach(l => {
       map[l.produitId] = Number(map[l.produitId] || 0) + Number(l.remainingQty || 0);
     });
@@ -4046,7 +4048,7 @@ async function adjustParentTracking(type, parentId, field, deltaMap) {
     const total = docQty(lines);
     const done = processedTotal(current);
     update.qty_done = done;
-    update.doc_status = done >= total - 0.0001 ? 'closed' : (done > 0 ? 'partial' : 'open');
+    update.doc_status = parent.force_closed || done >= total - 0.0001 ? 'closed' : (done > 0 ? 'partial' : 'open');
     if (type === 'sales') update.delivered = done >= total - 0.0001;
     else update.received = done >= total - 0.0001;
   }
@@ -4058,6 +4060,7 @@ async function updateDoc(type, id, body) {
   requirePerm(type === 'sales' ? 'sales.write' : 'purchases.write', type === 'sales' ? 'Modification vente' : 'Modification achat');
   const isSales = type === 'sales';
   const { data: existing, error: readError } = await supabase.from(type).select('*').eq('id', id).single();
+  if (existing?.force_closed) throw new Error('Commande clôturée : rouvrez-la pour la modifier');
   if (readError) throw new Error(readError.message);
 
   if (isReturnDoc(existing)) {
@@ -4334,6 +4337,7 @@ async function advanceDoc(type, id, opts = {}) {
   const { data: doc, error } = await supabase.from(type).select('*').eq('id', id).single();
   if (error) throw new Error(error.message);
 
+  if (doc.force_closed) throw new Error('Commande clôturée : rouvrez-la pour continuer');
   const next = nextStageAllowed(doc, type);
   if (!next) return;
 
@@ -4479,6 +4483,7 @@ async function partialDoc(type, id, body) {
   if (error) throw new Error(error.message);
 
   if (doc.stage === 'facture') throw new Error('Action partielle non autorisée sur une facture');
+  if (doc.force_closed) throw new Error('Commande clôturée : rouvrez-la pour continuer');
   if (isSales && !['commande', 'livraison'].includes(doc.stage)) throw new Error('La livraison partielle se fait depuis une commande');
   if (!isSales && !['commande', 'reception'].includes(doc.stage)) throw new Error('La réception partielle se fait depuis une commande achat');
 
@@ -5252,17 +5257,36 @@ function ShowMore({ L, more, shown, total }) {
 }
 
 // Menu « ⋯ » d'actions secondaires d'une ligne
-function RowMenu({ L, items }) {
+function RowMenu({ L, items, label, title }) {
   const [open, setOpen] = useState(false);
+  const [more, setMore] = useState(false);
+  const [pos, setPos] = useState(null);
   const ref = useRef(null);
+  const popRef = useRef(null);
+  // V64 : le menu s'affiche au-dessus de tout (rendu dans <body>, position fixe) : il n'est plus coupé par le cadre de la liste
+  function place() {
+    const btn = ref.current?.querySelector('.row-menu-btn');
+    if (!btn || typeof window === 'undefined') return;
+    const r = btn.getBoundingClientRect();
+    const pw = popRef.current?.offsetWidth || 220, ph = popRef.current?.offsetHeight || 0;
+    const rtl = !!btn.closest('.rtl');
+    let left = rtl ? r.left : r.right - pw;
+    left = Math.max(8, Math.min(left, window.innerWidth - pw - 8));
+    const below = window.innerHeight - r.bottom;
+    const up = ph > 0 && below < ph + 12 && r.top > below;
+    const top = up ? Math.max(8, r.top - ph - 4) : Math.min(r.bottom + 4, Math.max(8, window.innerHeight - ph - 8));
+    setPos({ top, left, rtl });
+  }
+  useLayoutEffect(() => { if (open) place(); else setPos(null); }, [open, more]);
   useEffect(() => {
     if (!open) return undefined;
-    const h = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-    const k = e => { if (e.key === 'Escape') setOpen(false); };
+    const h = e => { if (ref.current && ref.current.contains(e.target)) return; if (popRef.current && popRef.current.contains(e.target)) return; setOpen(false); setMore(false); };
+    const k = e => { if (e.key === 'Escape') { setOpen(false); setMore(false); } };
+    const sc = e => { if (popRef.current && popRef.current.contains(e.target)) return; place(); };
     document.addEventListener('mousedown', h); document.addEventListener('keydown', k);
-    return () => { document.removeEventListener('mousedown', h); document.removeEventListener('keydown', k); };
+    window.addEventListener('scroll', sc, true); window.addEventListener('resize', sc);
+    return () => { document.removeEventListener('mousedown', h); document.removeEventListener('keydown', k); window.removeEventListener('scroll', sc, true); window.removeEventListener('resize', sc); };
   }, [open]);
-  const [more, setMore] = useState(false);
   const list = (items || []).filter(x => x && !x.hidden);
   if (!list.length) return null;
   // V62 : en mode simplifié, les actions avancées sont repliées sous « Plus d'actions »
@@ -5270,15 +5294,17 @@ function RowMenu({ L, items }) {
   const basic = simple ? list.filter(x => !x.adv) : list;
   const adv = simple ? list.filter(x => x.adv) : [];
   const item = (x, i) => <button key={i} type="button" role="menuitem" className={'row-menu-item ' + (x.tone === 'danger' ? 'danger' : '') + (x.adv && simple ? ' adv' : '')} onClick={e => { e.stopPropagation(); setOpen(false); setMore(false); x.onClick(); }}>{x.icon ? x.icon + ' ' : ''}{x.label}</button>;
+  const pop = open ? (
+    <span ref={popRef} className="row-menu-pop row-menu-float" role="menu" dir={pos?.rtl ? 'rtl' : undefined}
+      style={{ position: 'fixed', top: pos ? pos.top : -9999, left: pos ? pos.left : -9999, visibility: pos ? 'visible' : 'hidden' }}>
+      {basic.map(item)}
+      {adv.length ? (more ? adv.map((x, i) => item(x, 'a' + i)) : <button type="button" className="row-menu-item row-menu-more" data-row-more onClick={e => { e.stopPropagation(); setMore(true); }}>▾ {tx('Plus d\'actions', 'إجراءات أخرى')} ({adv.length})</button>) : null}
+    </span>
+  ) : null;
   return (
     <span className="row-menu" ref={ref}>
-      <button type="button" className="btn bg-white border row-menu-btn" aria-label={L('uxMore')} aria-expanded={open} onClick={e => { e.stopPropagation(); setOpen(!open); }}>⋯</button>
-      {open ? (
-        <span className="row-menu-pop" role="menu">
-          {basic.map(item)}
-          {adv.length ? (more ? adv.map((x, i) => item(x, 'a' + i)) : <button type="button" className="row-menu-item row-menu-more" data-row-more onClick={e => { e.stopPropagation(); setMore(true); }}>▾ {tx('Plus d\'actions', 'إجراءات أخرى')} ({adv.length})</button>) : null}
-        </span>
-      ) : null}
+      <button type="button" className={'btn bg-white border row-menu-btn' + (label ? ' row-menu-btn-label' : '')} aria-label={title || L('uxMore')} title={title} aria-expanded={open} onClick={e => { e.stopPropagation(); setOpen(!open); }}>{label || '⋯'}</button>
+      {pop && typeof document !== 'undefined' && document.body ? createPortal(pop, document.body) : pop}
     </span>
   );
 }
@@ -8923,6 +8949,74 @@ function SimpleHome({ L, data, onFull }) {
   );
 }
 
+// ===================== V64 : clôture des commandes, titres explicites =====================
+function docStageTitle(isSales, stage) {
+  const m = isSales
+    ? { devis: tx('Devis client', 'عرض سعر'), commande: tx('Commande client', 'طلبية زبون'), livraison: tx('Bon de livraison', 'سند تسليم'), facture: tx('Facture client', 'فاتورة زبون') }
+    : { commande: tx('Commande fournisseur', 'طلبية مورد'), reception: tx('Réception fournisseur', 'استلام من مورد'), facture: tx('Facture fournisseur', 'فاتورة مورد') };
+  return m[stage] || (isSales ? tx('Vente', 'بيع') : tx('Achat', 'شراء'));
+}
+
+function CloseOrderModal({ L, doc, type, close, done }) {
+  const isSales = type === 'sales';
+  const quote = doc.stage === 'devis';
+  const lines = docRemainingLines(doc).filter(l => Number(l.remainingQty || 0) > 0.0001);
+  const rest = lines.reduce((t, l) => t + Number(l.remainingQty || 0), 0);
+  const reasons = quote
+    ? [tx('Refusé par le client', 'رفضه الزبون'), tx('Sans réponse du client', 'بدون رد من الزبون'), tx('Prix trop élevé', 'الثمن مرتفع'), tx('Le client a acheté ailleurs', 'الزبون اشترى من مكان آخر'), tx('Autre motif', 'سبب آخر')]
+    : isSales
+    ? [tx('Le client ne veut plus le reste', 'الزبون لا يريد الباقي'), tx('Rupture : nous ne pouvons pas livrer le reste', 'نفاد: لا يمكن تسليم الباقي'), tx('Le client a pris un autre produit', 'الزبون أخذ منتجا آخر'), tx('Autre motif', 'سبب آخر')]
+    : [tx('Le fournisseur ne livrera pas le reste', 'المورد لن يسلم الباقي'), tx('Rupture chez le fournisseur', 'نفاد لدى المورد'), tx('Reste commandé ailleurs', 'الباقي طُلب من مورد آخر'), tx('Autre motif', 'سبب آخر')];
+  const [reason, setReason] = useState(reasons[0]);
+  const [note, setNote] = useState('');
+  const [busy, setBusy] = useState(false);
+  const other = reason === reasons[reasons.length - 1];
+  async function save() {
+    const text = other ? note.trim() : reason + (note.trim() ? ' — ' + note.trim() : '');
+    if (!text) return alert(tx('Indiquez le motif de la clôture', 'اذكر سبب الإغلاق'));
+    setBusy(true);
+    const { data, error } = await supabase.rpc('app_close_order', { p_table: type, p_id: doc.id, p_close: true, p_note: text });
+    setBusy(false);
+    if (error) return alert(error.message);
+    showToast(quote ? tx('Devis ' + (data?.number || docNo(doc)) + ' clôturé sans suite', 'تم إغلاق عرض السعر') : tx('Commande ' + (data?.number || docNo(doc)) + ' clôturée · ' + fmt(data?.rest ?? rest) + (isSales ? ' unité(s) libérée(s) du stock réservé' : ' unité(s) qui ne sont plus attendues'), 'تم إغلاق الطلبية'));
+    done && done();
+  }
+  return (
+    <Modal title={'🔒 ' + (quote ? tx('Clôturer le devis ', 'إغلاق عرض السعر ') : tx('Clôturer la commande ', 'إغلاق الطلبية ')) + docNo(doc)} onClose={close} wide>
+      <p className="text-sm text-slate-600 mb-3" data-close-explain>
+        {quote
+          ? tx('Le devis est classé « sans suite » : il ne peut plus être transformé en commande et n\'apparaît plus dans « Devis sans réponse ». Le motif aide à suivre les devis perdus. Vous pourrez le rouvrir.', 'يُصنف عرض السعر بدون متابعة.')
+          : isSales
+          ? tx('La commande est soldée telle quelle. Ce qui a déjà été livré ne change pas (bons de livraison, factures). Le reste n\'est plus réservé : ce stock redevient disponible pour les autres ventes.', 'تُغلق الطلبية كما هي. الباقي لم يعد محجوزا ويصبح المخزون متاحا.')
+          : tx('La commande est soldée telle quelle. Ce qui a déjà été reçu ne change pas. Le reste n\'est plus attendu : il disparaît de « à réceptionner » et le réapprovisionnement le propose de nouveau si besoin.', 'تُغلق الطلبية كما هي. الباقي لم يعد منتظرا.')}
+      </p>
+      {quote ? <div className="text-sm mb-1" data-close-quote>{doc.client_name || ''} · <b>{dh(doc.totalTTC ?? doc.total_ttc)}</b> · {lines.length} {tx('ligne(s)', 'سطر')}</div> : <Table>
+        <thead><tr><th>{L('product')}</th><th>{tx('Commandé', 'المطلوب')}</th><th>{isSales ? tx('Livré', 'المسلم') : tx('Reçu', 'المستلم')}</th><th>{isSales ? tx('Reste libéré', 'الباقي المحرر') : tx('Reste annulé', 'الباقي الملغى')}</th></tr></thead>
+        <tbody>
+          {lines.map((l, i) => (
+            <tr key={i} data-close-line={l.nom}>
+              <td>{l.nom}{l.nomAr ? <div className="text-xs text-slate-400">{l.nomAr}</div> : null}</td>
+              <td>{fmt(l.qte)} {l.unite}</td><td>{fmt(l.processedQty || 0)}</td><td className="font-bold text-amber-700">{fmt(l.remainingQty)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </Table>}
+      <div className="grid md:grid-cols-2 gap-3 mt-3">
+        <label className="text-xs text-slate-500">{tx('Motif', 'السبب')}
+          <select className="input mt-1" value={reason} onChange={e => setReason(e.target.value)} data-close-reason>{reasons.map(r => <option key={r}>{r}</option>)}</select>
+        </label>
+        <label className="text-xs text-slate-500">{other ? tx('Précisez le motif (obligatoire)', 'حدد السبب') : tx('Précision (facultatif)', 'توضيح (اختياري)')}
+          <input className="input mt-1" value={note} onChange={e => setNote(e.target.value)} data-close-note />
+        </label>
+      </div>
+      <div className="flex flex-wrap gap-2 items-center justify-between mt-4">
+        <span className="text-xs text-slate-500">{quote ? tx('Le devis pourra être rouvert (menu ⋯ → « Rouvrir »).', 'يمكن إعادة فتحه.') : tx('La commande pourra être rouverte (menu ⋯ → « Rouvrir »).', 'يمكن إعادة فتح الطلبية.')}</span>
+        <button disabled={busy} onClick={save} className="btn bg-slate-900 text-white" data-close-confirm>🔒 {quote ? tx('Clôturer le devis', 'إغلاق عرض السعر') : tx('Clôturer', 'إغلاق') + ' · ' + fmt(rest) + ' ' + (isSales ? tx('non livré(s)', 'غير مسلم') : tx('non reçu(s)', 'غير مستلم'))}</button>
+      </div>
+    </Modal>
+  );
+}
+
 function Dashboard({ L }) {
   const [data, setData] = useState(null);
   const [err, setErr] = useState('');
@@ -9052,6 +9146,7 @@ function Dashboard({ L }) {
 }
 
 function Products({ L }) {
+  const simpleUi = isSimpleUi();
   const canWriteProduct = can('products.write');
   const canDeleteProduct = can('products.delete');
   const canAdjustStock = can('stock.adjust');
@@ -9200,6 +9295,19 @@ function Products({ L }) {
         {canWriteProduct ? <button onClick={() => setForm({ ref: '', nom: '', categorie: lists.categories[0]?.name || 'Divers', unite: lists.units[0]?.name || 'Pièce', prixAchat: 0, prixVente: 0, quantite: 0, stockMin: 0, branchId: currentBranchId() || branches[0]?.id || '' })} className="btn bg-amber-500">{L('new')}</button> : null}
       </Header>
 
+      {simpleUi ? (
+        <div className="flex flex-wrap gap-2 mb-4" data-product-tools-simple>
+          {canUse('products.import') ? <button onClick={() => setShowImport(true)} className="btn bg-white border">📥 {L('importExcel')}</button> : null}
+          {featureOn('labels') ? <button onClick={() => setShowLabels(true)} className="btn bg-white border" data-labels-btn disabled={!visibleRows.length}>🏷 {tx('Étiquettes', 'ملصقات')}</button> : null}
+          <RowMenu L={L} label={'🧰 ' + tx('Autres outils', 'أدوات أخرى') + ' ▾'} title={tx('Autres outils', 'أدوات أخرى')} items={[
+            canWriteProduct && { icon: '🗂', label: L('categoriesUnits'), onClick: () => setShowLists(true) },
+            canUse('stock.inventory') && { icon: '📋', label: L('inventory'), onClick: () => setShowInventory(true) },
+            canUse('stock.reorder') && can('purchases.write') && { icon: '🔁', label: L('reorderAuto'), onClick: () => setShowReorder(true) },
+            canBulkPrice && visibleRows.length && { icon: '💲', label: tx('Prix en masse', 'الأثمنة دفعة واحدة'), onClick: () => setShowBulk(true) }
+          ].filter(Boolean)} />
+          <ExportButtons L={L} spec={() => productsExportSpec(L, visibleRows)} />
+        </div>
+      ) : (
       <div className="flex flex-wrap gap-2 mb-4">
         <ExportButtons L={L} spec={() => productsExportSpec(L, visibleRows)} />
         {canWriteProduct ? <button onClick={() => setShowLists(true)} className="btn bg-white border">{L('categoriesUnits')}</button> : null}
@@ -9209,6 +9317,7 @@ function Products({ L }) {
         {featureOn('labels') ? <button onClick={() => setShowLabels(true)} className="btn bg-white border" data-labels-btn disabled={!visibleRows.length}>🏷 {tx('Étiquettes', 'ملصقات')}</button> : null}
         {canBulkPrice ? <button onClick={() => setShowBulk(true)} className="btn bg-white border" data-bulk-btn disabled={!visibleRows.length}>💲 {tx('Prix en masse', 'الأثمنة دفعة واحدة')}</button> : null}
       </div>
+      )}
 
       <div className="flex gap-1 mb-4 flex-wrap" data-alert-filter>
         {[['all', tx('Tous les produits', 'كل المنتجات')], ['low', '📉 ' + tx('Sous le stock minimum', 'تحت الحد الأدنى') + ' (' + rows.filter(p => isLowStockAlert(p)).length + ')'], ['expiry', '⌛ ' + tx('Péremption proche', 'صلاحية قريبة') + ' (' + rows.filter(p => isExpiryAlert(p)).length + ')']].map(([k, t]) => (
@@ -9268,12 +9377,23 @@ function Products({ L }) {
               <td>
                 <Badge tone={productProfitStatus(p) === 'critical' ? 'red' : productProfitStatus(p) === 'warning' ? 'amber' : 'green'}>{dh(p.prixVente - p.prixAchat)}</Badge>
               </td>
+              {simpleUi ? (
+                <td><div className="flex gap-1 items-center flex-nowrap">
+                  {canWriteProduct ? <button onClick={() => setForm(p)} className="btn bg-white border">{L('edit')}</button> : null}
+                  <RowMenu L={L} items={[
+                    canAdjustStock && { icon: '±', label: tx('Corriger le stock', 'تصحيح المخزون'), onClick: () => setStock({ ...p, qte: 1, sign: 1, reason: L('stockAdjustIn') }) },
+                    can('stock.transfer') && moduleOn('branches') && { icon: '⇄', label: L('stockTransfer'), onClick: () => setTransfer({ productId: p.id, productName: p.nom, fromBranchId: p.branchId, toBranchId: branches.find(b => Number(b.id) !== Number(p.branchId))?.id || '', quantity: 1, reason: L('stockTransfer') }) },
+                    canDeleteProduct && { icon: '🗑', label: L('del'), onClick: () => remove(p.id), tone: 'danger' }
+                  ].filter(Boolean)} />
+                </div></td>
+              ) : (
               <td className="flex gap-1 flex-wrap">
                 {canWriteProduct ? <button onClick={() => setForm(p)} className="btn bg-white border">{L('edit')}</button> : null}
                 {canAdjustStock ? <button onClick={() => setStock({ ...p, qte: 1, sign: 1, reason: L('stockAdjustIn') })} className="btn bg-white border">{L('stock')}</button> : null}
                 {can('stock.transfer') && moduleOn('branches') ? <button onClick={() => setTransfer({ productId: p.id, productName: p.nom, fromBranchId: p.branchId, toBranchId: branches.find(b => Number(b.id) !== Number(p.branchId))?.id || '', quantity: 1, reason: L('stockTransfer') })} className="btn bg-white border">{L('stockTransfer')}</button> : null}
                 {canDeleteProduct ? <button onClick={() => remove(p.id)} className="btn bg-red-600 text-white">{L('del')}</button> : null}
               </td>
+              )}
             </tr>
           ))}
         </tbody>
@@ -10359,13 +10479,13 @@ function planReorder(products, { onOrder = {}, reserved = {}, lastPurchase = {} 
 }
 
 async function loadReorderContext(bId) {
-  let q = supabase.from('purchases').select('id, stage, supplier_id, lines_json, processed_lines_json, branch_id').order('id', { ascending: false }).limit(1000);
+  let q = supabase.from('purchases').select('*').order('id', { ascending: false }).limit(1000);
   if (bId) q = q.eq('branch_id', bId);
   const [{ data: purchases, error }, reserved] = await Promise.all([q, reservedQtyByProduct(null)]);
   if (error) throw new Error(error.message);
   const onOrder = {}; const lastPurchase = {};
   (purchases || []).forEach(d => {
-    if (d.stage === 'commande') {
+    if (d.stage === 'commande' && !d.force_closed) {
       docRemainingLines(d).forEach(l => { onOrder[l.produitId] = Number(onOrder[l.produitId] || 0) + Number(l.remainingQty || 0); });
     }
     if (['commande', 'reception', 'facture'].includes(d.stage)) {
@@ -10950,6 +11070,19 @@ function Docs({ L, type }) {
   const [err, setErr] = useState('');
   const [userFilter, setUserFilter] = useState(getSelectedUserFilter(type));
   const simpleList = isSimpleUi();
+  // V64 : clôture d'une commande non livrée / non reçue en totalité
+  const [closing, setClosing] = useState(null);
+  async function reopenOrder(d) {
+    const quote = d.stage === 'devis';
+    if (!confirm(quote ? tx('Rouvrir le devis ' + docNo(d) + ' ?', 'إعادة فتح عرض السعر؟') : isSales ? tx('Rouvrir la commande ' + docNo(d) + ' ? Le reste non livré sera de nouveau réservé.', 'إعادة فتح الطلبية؟') : tx('Rouvrir la commande ' + docNo(d) + ' ? Le reste sera de nouveau attendu.', 'إعادة فتح الطلبية؟'))) return;
+    try {
+      if (isSales && !quote) await assertSalesAvailability(docRemainingLines(d).filter(l => Number(l.remainingQty || 0) > 0).map(l => ({ ...l, qte: l.remainingQty })), d.id);
+      const { error } = await supabase.rpc('app_close_order', { p_table: type, p_id: d.id, p_close: false, p_note: '' });
+      if (error) throw new Error(error.message);
+      showToast(quote ? tx('Devis ' + docNo(d) + ' rouvert', 'تمت إعادة فتح عرض السعر') : tx('Commande ' + docNo(d) + ' rouverte', 'تمت إعادة فتح الطلبية'));
+      load();
+    } catch (e) { alert(e.message); }
+  }
   // V61 : promesses de paiement ouvertes (factures clients)
   const [promises, setPromises] = useState({});
   const [promiseDoc, setPromiseDoc] = useState(null);
@@ -11012,7 +11145,7 @@ function Docs({ L, type }) {
 
   // V52 : les BL / BR sont toujours « clôturés » côté stock → ils restent affichés (avant : onglet Réceptions vide)
   const filtered = applyUserFilterToRows((tab === 'all' ? rows : rows.filter(x => x.stage === tab)).filter(x => {
-    if (tab === 'commande' && docStatus(x) === 'closed' && !showClosed) return false;
+    if ((tab === 'commande' || tab === 'devis') && docStatus(x) === 'closed' && !showClosed) return false;
     // V55 : recherche, période, règlement
     if (!inPeriod(x.date, from, to)) return false;
     if (payF !== 'all' && (x.stage !== 'facture' || (payF === 'unpaid' ? x.statutPaiement === 'paid' : x.statutPaiement !== payF))) return false;
@@ -11202,8 +11335,8 @@ function Docs({ L, type }) {
 
       <div className="flex gap-1 mb-4 flex-wrap items-center">
         {tabs.filter(t => !simpleList || ['all', 'facture', 'reception'].includes(t[0]) || tab === t[0] || rows.some(x => x.stage === t[0])).map(t => <button key={t[0]} onClick={() => setTab(t[0])} data-doc-tab={t[0]} className={'px-3 py-1.5 rounded-lg text-sm ' + (tab === t[0] ? 'bg-slate-800 text-white' : 'bg-white border text-slate-500')}>{t[1]}</button>)}
-        {tab === 'commande' ? (
-          <label className="text-xs text-slate-500 flex items-center gap-1 ms-3"><input type="checkbox" checked={showClosed} onChange={e => setShowClosed(e.target.checked)} /> {L('showClosedDocs')}</label>
+        {tab === 'commande' || tab === 'devis' ? (
+          <label className="text-xs text-slate-500 flex items-center gap-1 ms-3"><input type="checkbox" checked={showClosed} onChange={e => setShowClosed(e.target.checked)} data-show-closed /> {tab === 'devis' ? tx('Afficher aussi les devis clôturés', 'عرض عروض الأسعار المغلقة أيضا') : L('showClosedDocs')}</label>
         ) : null}
       </div>
 
@@ -11263,7 +11396,9 @@ function Docs({ L, type }) {
                   <div className="text-xs text-slate-400">{isSales ? L('customer') : L('supplier')}</div>
                   {isSales && promises[d.id] && Number(d.reste || 0) > 0.009 ? <div className={'promise-badge ' + (promises[d.id].status === 'broken' ? 'broken' : String(promises[d.id].promise_date) <= today() ? 'due' : '')} data-promise-badge>🤝 {promises[d.id].status === 'broken' ? tx('promesse non tenue', 'وعد غير محترم') : tx('promis le', 'موعود في')} {frDate(promises[d.id].promise_date)} · {dh(promises[d.id].amount)}</div> : null}
                 </td>
-                <td>{(() => { const st = docStatusView(d, type, L); return <Badge tone={st.tone}>{st.label}</Badge>; })()}</td>
+                <td>{(() => { const st = docStatusView(d, type, L); return <Badge tone={st.tone}>{st.label}</Badge>; })()}
+                  {d.force_closed ? <div className="text-[11px] text-slate-500 mt-1 closed-note" data-closed-note={docNo(d)} title={(d.closed_by_label || '') + (d.closed_at ? ' · ' + new Date(d.closed_at).toLocaleString('fr-FR') : '')}>🔒 {d.stage === 'devis' ? tx('Sans suite', 'بدون متابعة') : fmt(docRemainingQty(d)) + ' ' + (isSales ? tx('non livré(s)', 'غير مسلم') : tx('non reçu(s)', 'غير مستلم'))} · {d.closed_note}</div> : null}
+                </td>
                 {!simpleList ? <td className="text-xs">
                   <div>{L('quantity')}: <b>{docQty(d.lignes)}</b></div>
                   <div>{L('remainingQty')}: <b>{docRemainingQty(d)}</b></div>
@@ -11287,16 +11422,19 @@ function Docs({ L, type }) {
                     // V55 : une action principale visible, les autres dans le menu « ⋯ »
                     const payIt = () => setPay({ ...d, date: today(), mode: 'Espèces', montant: d.reste || d.totalTTC, cashRegister: '', receiptNo: '', chequeNo: '', bank: '', dueDate: '', paymentStatus: 'En portefeuille', transferRef: '', valueDate: '', terminal: '', transactionNo: '', billNo: '', note: '' });
                     const acts = [
-                      canWriteDoc && !isSales && d.stage === 'commande' && docRemainingQty(d) > 0 && { icon: '📦', label: L('receiveAction'), onClick: () => openReceive(d), main: true },
+                      canWriteDoc && !isSales && d.stage === 'commande' && !d.force_closed && docRemainingQty(d) > 0 && { icon: '📦', label: L('receiveAction'), onClick: () => openReceive(d), main: true },
                       canWriteDoc && !isSales && d.stage === 'reception' && docInvoiceRemainingQty(d) > 0 && { icon: '🧾', label: L('invoiceAction'), onClick: () => openInvoice(d), main: true },
-                      canWriteDoc && isSales && !isReturnDoc(d) && d.stage !== 'facture' && { icon: '➜', label: L('advance'), onClick: () => advance(d.id), main: true },
+                      canWriteDoc && isSales && !isReturnDoc(d) && d.stage !== 'facture' && !d.force_closed && { icon: d.stage === 'devis' ? '➜' : d.stage === 'commande' ? '🚚' : '🧾', label: d.stage === 'devis' ? tx('Passer en commande', 'تحويل إلى طلبية') : d.stage === 'commande' ? tx('Livrer', 'تسليم') : tx('Facturer', 'فوترة'), onClick: () => advance(d.id), main: true },
                       canPayDoc && paymentButtonVisible(d) && { icon: '💳', label: L('pay'), onClick: payIt, main: true, pay: true },
                       canPayDoc && isSales && d.stage === 'facture' && !isReturnDoc(d) && Number(d.reste || 0) > 0.009 && { icon: '🤝', label: tx('Promesse de paiement', 'وعد بالأداء'), onClick: () => setPromiseDoc(d) },
                       { icon: '👁', label: L('preview'), onClick: () => setPreview(d) },
-                      canWriteDoc && isSales && d.stage !== 'facture' && !isReturnDoc(d) && docRemainingQty(d) > 0 && { adv: true, icon: '🚚', label: L('partialDelivery'), onClick: () => setPartial({ doc: d, date: today(), lignes: docRemainingLines(d).map(l => ({ ...l, qteToProcess: Number(l.remainingQty || 0), excluded: false })) }) },
+                      canWriteDoc && isSales && d.stage !== 'facture' && !isReturnDoc(d) && !d.force_closed && docRemainingQty(d) > 0 && { adv: true, icon: '🚚', label: L('partialDelivery'), onClick: () => setPartial({ doc: d, date: today(), lignes: docRemainingLines(d).map(l => ({ ...l, qteToProcess: Number(l.remainingQty || 0), excluded: false })) }) },
                       canWriteDoc && isSales && canPartialInvoice(d, type) && { adv: true, icon: '🧾', label: L('partialInvoice'), onClick: () => setPartial({ mode: 'invoice', doc: d, date: today(), lignes: docInvoiceRemainingLines(d).filter(l => Number(l.remainingQty || 0) > 0).map(l => ({ ...l, qteToProcess: Number(l.remainingQty || 0), excluded: false })) }) },
                       canWriteDoc && canUse(isSales ? 'sales.return' : 'purchases.return') && canReturnDoc(d) && { icon: '↩', label: isSales ? L('creditNote') : L('supplierReturn'), onClick: () => setPartial({ mode: 'return', restock: true, doc: d, date: today(), lignes: docReturnRemainingLines(d).filter(l => Number(l.remainingQty || 0) > 0).map(l => ({ ...l, qteToProcess: 0, excluded: false })) }) },
-                      canWriteDoc && !isReturnDoc(d) && { icon: '✏️', label: L('edit'), onClick: () => setForm({ id: d.id, start: d.stage, date: d.date, partyId: isSales ? d.client_id : d.supplier_id, supplierRef: d.supplier_ref || '', dueDate: d.due_date || '', lignes: (d.lignes || []).map(l => ({ produitId: l.produitId, qte: l.qte, prixUnit: l.prixUnit, remise: l.remise || 0 })) }) },
+                      canWriteDoc && d.stage === 'commande' && !d.force_closed && docStatus(d) !== 'closed' && docRemainingQty(d) > 0.0001 && { icon: '🔒', label: isSales ? tx('Clôturer (reste non livré)', 'إغلاق (الباقي غير مسلم)') : tx('Clôturer (reste non reçu)', 'إغلاق (الباقي غير مستلم)'), onClick: () => setClosing(d) },
+                      canWriteDoc && isSales && d.stage === 'devis' && !d.force_closed && { icon: '🔒', label: tx('Clôturer le devis (refusé, sans suite…)', 'إغلاق عرض السعر'), onClick: () => setClosing(d) },
+                      canWriteDoc && d.force_closed && { icon: '🔓', label: d.stage === 'devis' ? tx('Rouvrir le devis', 'إعادة فتح عرض السعر') : tx('Rouvrir la commande', 'إعادة فتح الطلبية'), onClick: () => reopenOrder(d) },
+                      canWriteDoc && !isReturnDoc(d) && !d.force_closed && { icon: '✏️', label: L('edit'), onClick: () => setForm({ id: d.id, start: d.stage, date: d.date, partyId: isSales ? d.client_id : d.supplier_id, supplierRef: d.supplier_ref || '', dueDate: d.due_date || '', lignes: (d.lignes || []).map(l => ({ produitId: l.produitId, qte: l.qte, prixUnit: l.prixUnit, remise: l.remise || 0 })) }) },
                       canWriteDoc && !isReturnDoc(d) && { adv: true, icon: '⧉', label: tx('Dupliquer', 'نسخ'), onClick: () => duplicate(d) },
                       canDeleteDoc && { icon: '🗑', label: L('del'), onClick: () => remove(d.id), tone: 'danger' }
                     ].filter(Boolean);
@@ -11312,7 +11450,17 @@ function Docs({ L, type }) {
               </tr>
             );
           })}
-          {!filtered.length ? <tr><td colSpan="11" className="text-center text-slate-500 py-6">{L('noData')}</td></tr> : null}
+          {!filtered.length ? <tr><td colSpan="11" className="text-center text-slate-500 py-6" data-empty-docs>
+            {L('noData')}
+            {/* V64 : liste vide → l'action utile est proposée directement */}
+            {canWriteDoc && (tab === 'all' || ['facture', 'devis', 'commande', 'reception'].includes(tab)) && !search && !from && !to ? (
+              <div className="mt-3 flex gap-2 justify-center flex-wrap">
+                <button type="button" className="btn bg-amber-500" onClick={() => create(tab === 'all' ? (isSales ? 'facture' : 'reception') : tab)} data-empty-create>
+                  ＋ {docStageTitle(isSales, tab === 'all' ? (isSales ? 'facture' : 'reception') : tab)}
+                </button>
+              </div>
+            ) : null}
+          </td></tr> : null}
         </tbody>
       </Table>
       )}
@@ -11321,6 +11469,7 @@ function Docs({ L, type }) {
       {form ? <DocModal L={L} isSales={isSales} form={form} setForm={setForm} products={products} parties={parties} save={save} close={() => setForm(null)} discardDraft={discardDraft} /> : null}
       {pay ? <PaymentModal L={L} isSales={isSales} pay={pay} setPay={setPay} save={settle} close={() => setPay(null)} /> : null}
       {promiseDoc ? <PromiseModal L={L} doc={promiseDoc} close={() => setPromiseDoc(null)} done={() => { setPromiseDoc(null); loadPromises(); }} /> : null}
+      {closing ? <CloseOrderModal L={L} doc={closing} type={type} close={() => setClosing(null)} done={() => { setClosing(null); load(); }} /> : null}
       {partial ? <PartialModal L={L} isSales={isSales} partial={partial} setPartial={setPartial} save={doPartial} close={() => setPartial(null)} /> : null}
       {preview ? <DocumentPreview L={L} isSales={isSales} doc={preview} close={() => setPreview(null)} /> : null}
     </>
@@ -11331,6 +11480,7 @@ function Docs({ L, type }) {
 function docStatusView(d, type, L) {
   const isSales = type === 'sales';
   if (isReturnDoc(d)) return { label: L('closed'), tone: 'green' };
+  if (d.force_closed) return { label: d.stage === 'devis' ? tx('Clôturé', 'مغلق') : tx('Clôturée', 'مغلقة'), tone: 'slate' };
   if (d.stage === 'facture') {
     return d.statutPaiement === 'paid' ? { label: L('paid'), tone: 'green' } : d.statutPaiement === 'partial' ? { label: L('partial'), tone: 'amber' } : { label: L('unpaid'), tone: 'red' };
   }
@@ -11343,6 +11493,10 @@ function docStatusView(d, type, L) {
   const st = docStatus(d);
   if (!isSales && d.stage === 'commande') {
     return st === 'closed' ? { label: L('poReceived'), tone: 'green' } : st === 'partial' ? { label: L('poPartial'), tone: 'amber' } : { label: L('poOpen'), tone: 'blue' };
+  }
+  // V64 : statuts explicites des commandes clients
+  if (isSales && d.stage === 'commande') {
+    return st === 'closed' ? { label: tx('Livrée', 'مسلمة'), tone: 'green' } : st === 'partial' ? { label: tx('Partiellement livrée', 'مسلمة جزئيا'), tone: 'amber' } : { label: tx('À livrer', 'للتسليم'), tone: 'blue' };
   }
   return st === 'closed' ? { label: L('closed'), tone: 'green' } : st === 'partial' ? { label: L('partial'), tone: 'amber' } : { label: L('open'), tone: 'blue' };
 }
@@ -11543,7 +11697,7 @@ function DocModal({ L, isSales, form, setForm, products, parties, save, close, d
   const unitOf = (productId) => products.find(x => String(x.id) === String(productId))?.unite || '';
 
   return (
-    <Modal title={isSales ? L('sales') : L('purchases')} onClose={close} wide>
+    <Modal title={(form.id ? tx('Modifier — ', 'تعديل — ') : '') + docStageTitle(isSales, form.start)} onClose={close} wide>
       {attachEnabled ? (
         <div className="flex gap-2 mb-4">
           <button onClick={() => setTab('doc')} className={'btn ' + (tab === 'doc' ? 'bg-slate-900 text-white' : 'bg-white border')}>{L('document')}</button>
@@ -13122,8 +13276,15 @@ function Parties({ L, type }) {
                   {canWriteParty && (!x.is_walk_in || admin) ? <button onClick={() => setForm({ ...x, branch_ids: partyBranchIds(x) })} className="btn bg-white border">{L('edit')}</button> : null}
                   {featureOn('groupPayments') && can(isClients ? 'sales.pay' : 'purchases.pay') && Number(b?.outstanding || 0) > 0.009 ? <button onClick={() => goToPage('payments', { newBatch: { kind: isClients ? 'encaissement' : 'decaissement', partyId: x.id } })} className="btn bg-emerald-600 text-white" data-party-pay={x.name}>💳 {tx('Régler', 'أداء')}</button> : null}
                   {x.is_walk_in && !admin ? <span className="text-xs text-slate-400" title={L('wiAdminOnly')}>🔒</span> : null}
+                  {isSimpleUi() ? (
+                    <RowMenu L={L} items={[
+                      admin && canDeleteParty && !x.is_walk_in && { icon: '⇄', label: L('pMerge'), onClick: () => setMerge({ keep: x, removeId: '' }) },
+                      canDeleteParty && !x.is_walk_in && { icon: '🗑', label: L('del'), onClick: () => remove(x), tone: 'danger' }
+                    ].filter(Boolean)} />
+                  ) : <>
                   {admin && canDeleteParty && !x.is_walk_in ? <button onClick={() => setMerge({ keep: x, removeId: '' })} className="btn bg-white border" title={L('pMergeTitle')}>⇄ {L('pMerge')}</button> : null}
                   {canDeleteParty && !x.is_walk_in ? <button onClick={() => remove(x)} className="btn bg-red-600 text-white">{L('del')}</button> : null}
+                  </>}
                 </td>
               </tr>
             );
