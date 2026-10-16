@@ -1652,3 +1652,36 @@ tr.party-walkin > td { background: #fffbeb; }
   body:has(.app-modal .print-area) .app-main > div > *:not(.app-modal):not(:has(.app-modal)) { display: none !important; }
   body:has(.app-modal .print-area) .app-topline, body:has(.app-modal .print-area) .saas-banners { display: none !important; }
 }
+
+/* V70 : Petite droguerie */
+.small-shop-card { border: 2px solid #fde68a; background: #fffbeb; }
+.small-shop-card.on { border-color: #86efac; background: #f0fdf4; }
+.small-shop-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 13px; color: #334155; }
+.small-shop-status { background: #dcfce7; color: #166534; font-weight: 700; border-radius: 10px; padding: 8px 12px; text-align: center; }
+.small-shop-apply { font-size: 16px; padding: 12px 16px; font-weight: 800; }
+.simple-actions.small-shop { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.simple-actions.small-shop .simple-action { min-height: 120px; }
+.simple-actions.small-shop .simple-action.main { grid-column: 1 / -1; min-height: 150px; }
+.simple-actions.small-shop .simple-action b { font-size: 22px; }
+.simple-actions.small-shop .simple-action-icon { font-size: 40px; }
+@media (min-width: 1100px) { .simple-actions.small-shop { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+/* V70 : encaisser un crédit (Petite droguerie) */
+.credit-list { display: flex; flex-direction: column; gap: 8px; max-height: 60vh; overflow-y: auto; }
+.credit-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; align-items: center; border: 1px solid #e2e8f0; border-radius: 14px; padding: 10px 12px; background: #fff; }
+.credit-row b { display: block; font-size: 16px; }
+.credit-row small { color: #64748b; font-size: 12px; }
+.credit-due { font-size: 17px; font-weight: 800; color: #b91c1c; white-space: nowrap; }
+.credit-row .btn { font-size: 15px; padding: 10px 14px; }
+@media (max-width: 480px) { .credit-row { grid-template-columns: minmax(0, 1fr) auto; } .credit-row .btn { grid-column: 1 / -1; } }
+.credit-pay { display: flex; flex-direction: column; gap: 12px; }
+.credit-who { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; background: #fef2f2; border-radius: 12px; padding: 10px 14px; font-size: 16px; }
+.credit-who span b { color: #b91c1c; }
+.credit-amount-label { font-size: 14px; color: #334155; font-weight: 600; display: flex; flex-direction: column; gap: 6px; }
+.credit-amount { font-size: 34px; font-weight: 900; text-align: center; border: 2px solid #f59e0b; border-radius: 14px; padding: 10px; width: 100%; }
+.credit-modes { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.credit-modes .pm-mode { display: flex; flex-direction: column; align-items: center; gap: 2px; background: #fff; border: 1px solid #cbd5e1; border-radius: 10px; padding: 8px 4px; font-size: 13px; font-weight: 600; color: #334155; }
+.credit-modes .pm-mode.on { background: #0f172a; color: #fff; border-color: #0f172a; }
+.credit-modes .pm-mode span { font-size: 18px; }
+.credit-validate { font-size: 17px; padding: 12px 18px; font-weight: 800; }
+.credit-done { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; padding: 10px 0; font-size: 16px; }
+.credit-done-icon { width: 56px; height: 56px; border-radius: 50%; background: #dcfce7; color: #15803d; font-size: 30px; font-weight: 900; display: flex; align-items: center; justify-content: center; }

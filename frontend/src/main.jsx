@@ -4,7 +4,7 @@ import { flushSync, createPortal } from 'react-dom';
 import { createClient } from '@supabase/supabase-js';
 import './index.css';
 
-console.log('DROGUERIEPRO V69 OK');
+console.log('DROGUERIEPRO V70 OK');
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -3430,6 +3430,7 @@ async function loadSettings() {
   cacheAlertSettings(out);
   cacheWaSettings(out);
   cacheUiSettings(out);
+  cacheSmallShop(out);
   cacheAttachSettings(out);
   cachePosSettings(out);
   setBrandCache(brandFromSettings(out));
@@ -3443,6 +3444,7 @@ async function saveSettings(settings) {
   cacheAlertSettings(settings);
   cacheWaSettings(settings);
   cacheUiSettings(settings);
+  cacheSmallShop(settings);
   cacheAttachSettings(settings);
   cachePosSettings(settings);
   setBrandCache(brandFromSettings(settings));
@@ -5034,7 +5036,10 @@ function Layout({ L, lang, toggleLang, session, setSession }) {
 
   const visibleItems = items.filter(item => visibleMenuItem(item, session, disabledModules));
   const byKey = Object.fromEntries(visibleItems.map(x => [x[0], x]));
-  const menuGroups = simple
+  const small = isSmallShop();
+  const menuGroups = small
+    ? [{ key: 'home', items: ['dashboard'] }, { key: 'sales', items: ['pos', 'clients'] }, { key: 'stock', items: ['products', 'purchases'] }, { key: 'more', items: SMALL_SHOP_MORE }, ...MENU_GROUPS.filter(g => g.key === 'admin')]
+    : simple
     ? [...MENU_GROUPS.filter(g => g.key !== 'admin').map(g => ({ ...g, items: g.items.filter(k => !SIMPLE_MORE_PAGES.includes(k)) })), { key: 'more', items: SIMPLE_MORE_PAGES }, ...MENU_GROUPS.filter(g => g.key === 'admin')]
     : MENU_GROUPS;
   const groups = menuGroups.map(g => ({ ...g, items: g.items.map(k => byKey[k]).filter(Boolean) })).filter(g => g.items.length);
@@ -5071,7 +5076,7 @@ function Layout({ L, lang, toggleLang, session, setSession }) {
 
   const q = normSearch(menuQ).trim();
   const toggleGroup = (key, isOpen) => { const c = { ...collapsed, [key]: !!isOpen }; setCollapsed(c); try { localStorage.setItem('droguerie_menu_collapsed', JSON.stringify(c)); } catch {} };
-  const bottom = ['dashboard', 'pos', 'sales', 'clients'].map(k => byKey[k]).filter(Boolean).slice(0, 4);
+  const bottom = (small ? ['dashboard', 'pos', 'clients', 'products'] : ['dashboard', 'pos', 'sales', 'clients']).map(k => byKey[k]).filter(Boolean).slice(0, 4);
 
   return (
     <div className={(lang === 'ar' ? 'rtl ' : '') + (brand.applyApp ? 'brand-app' : '')}>
@@ -5120,6 +5125,7 @@ function Layout({ L, lang, toggleLang, session, setSession }) {
                       key={item[0]}
                       onClick={() => setPage(item[0])}
                       aria-current={page === item[0] ? 'page' : undefined}
+                      data-menu-page={item[0]}
                       className={'menu-item w-full text-left px-3 py-2 rounded-lg ' + (page === item[0] ? 'bg-amber-500 text-slate-900 font-bold' : 'hover:bg-slate-800 text-white')}
                     >
                       <span className="menu-icon" aria-hidden="true">{MENU_ICONS[item[0]] || '•'}</span>{item[1]}
@@ -6550,7 +6556,8 @@ const SAAS_MODULE_META = {
   alerts: { category: 'option' }, alertsControl: { category: 'option', requires: ['alerts'] }, labels: { category: 'option', requires: ['products'] },
   bulkPrice: { category: 'option', requires: ['products'] }, cashClosure: { category: 'option', requires: ['sales'] }, inventory: { category: 'option', requires: ['products'] },
   reorder: { category: 'option', requires: ['purchases'] }, import: { category: 'option' }, returns: { category: 'option', requires: ['sales'] }, share: { category: 'option' },
-  groupPayments: { category: 'option', requires: ['payments'] }, chequePortfolio: { category: 'option', requires: ['payments'] }
+  groupPayments: { category: 'option', requires: ['payments'] }, chequePortfolio: { category: 'option', requires: ['payments'] },
+  smallShop: { category: 'option', requires: ['pos'] } // V70 : Petite droguerie
 };
 const SAAS_CATEGORIES = [
   { key: 'core', fr: 'Socle (toujours actif)', ar: 'الأساس (مفعّل دائما)' },
@@ -8929,6 +8936,41 @@ function setUiPref(mode) {
 // Écrans rangés dans « Plus d'écrans » en mode simplifié
 const SIMPLE_MORE_PAGES = ['stockMoves', 'expenses', 'reporting', 'profit', 'tools'];
 
+/* V70 : option SaaS « Petite droguerie » (un seul magasin, un seul gestionnaire)
+   Réglage en un clic : affichage simplifié + caisse « grande surface » + menu réduit à l'essentiel
+   (Accueil, Caisse, Clients, Produits, Achats). Rien n'est supprimé : les autres écrans restent dans
+   « Plus d'écrans », « Tout afficher » reste disponible et un clic remet l'affichage d'avant. */
+const SMALL_SHOP_MAIN = ['dashboard', 'pos', 'clients', 'products', 'purchases'];
+const SMALL_SHOP_MORE = ['sales', 'suppliers', 'payments', 'stockMoves', 'expenses', 'reporting', 'profit', 'tools'];
+function cacheSmallShop(s) {
+  const v = String(s?.small_shop ?? '0') === '1' ? '1' : '0';
+  let prev = null;
+  try { prev = localStorage.getItem('droguerie_small_shop'); localStorage.setItem('droguerie_small_shop', v); } catch {}
+  if (prev !== null && prev !== v) { try { window.dispatchEvent(new CustomEvent('droguerie_ui_mode')); } catch {} }
+}
+function smallShopSetting() { try { return localStorage.getItem('droguerie_small_shop') === '1'; } catch { return false; } }
+// Actif si : option incluse dans l'abonnement + appliquée par l'administrateur + affichage simplifié pour cet utilisateur
+function isSmallShop() { return moduleOn('smallShop') && smallShopSetting() && isSimpleUi(); }
+async function applySmallShop(on, current) {
+  requirePerm('settings.manage', 'Paramètres');
+  let rows;
+  if (on) {
+    const prev = JSON.stringify({ ui_simple: String(current?.ui_simple ?? '0'), pos_theme: String(current?.pos_theme || 'classic') });
+    rows = { small_shop: '1', small_shop_prev: prev, ui_simple: '1', pos_theme: 'market' };
+  } else {
+    const prev = jsonValue(current?.small_shop_prev, {}) || {};
+    rows = { small_shop: '0', ui_simple: prev.ui_simple === '1' ? '1' : '0', pos_theme: prev.pos_theme === 'market' ? 'market' : 'classic' };
+  }
+  const { error } = await supabase.from('app_settings').upsert(Object.entries(rows).map(([key, value]) => ({ key, value })), { onConflict: 'key' });
+  if (error) throw new Error(error.message);
+  const next = { ...(current || {}), ...rows };
+  cacheUiSettings(next); cachePosSettings(next); cacheSmallShop(next);
+  setUiPref(null); writeLocal(userStoreKey('pos_theme'), null);
+  try { window.dispatchEvent(new CustomEvent('droguerie_ui_mode')); } catch {}
+  await auditLog('Paramètres', 'UPDATE', 'Petite droguerie', on ? 'Affichage « Petite droguerie » appliqué' : 'Retour à l\'affichage précédent');
+  return next;
+}
+
 // Messages d'erreur compréhensibles (le message technique reste visible entre crochets pour le support)
 function permLabel(code) {
   for (const m of PERM_MODULES) for (const p of m.perms) if (p.code === code) return tx(p.fr, p.ar);
@@ -9031,6 +9073,7 @@ function StartChecklist() {
     { k: 'users', icon: '👤', t: tx('Créer un compte pour chaque vendeur', 'إنشاء حساب لكل بائع'), s: tx('Chacun son identifiant : on sait qui a fait quoi', 'لكل واحد حسابه'), go: () => goToPage('users') },
     { k: 'sales', icon: '🛒', t: tx('Faire votre première vente', 'أول عملية بيع'), s: tx('Avec la Caisse rapide', 'بالصندوق السريع'), go: () => goToPage('pos') }
   ];
+  if (isSmallShop()) { const i = steps.findIndex(x => x.k === 'users'); if (i >= 0) steps.splice(i, 1); }
   const done = steps.filter(x => st[x.k]).length;
   if (done === steps.length) return null;
   async function hide() {
@@ -9060,6 +9103,7 @@ function StartChecklist() {
 
 // Accueil simplifié : gros boutons, 4 chiffres, « À faire aujourd'hui »
 function SimpleHome({ L, data, onFull }) {
+  const [credit, setCredit] = useState(false);
   const t = today();
   const sales = data.sales || [];
   const payDate = p => String(p.date || p.createdAt || '').slice(0, 10);
@@ -9067,7 +9111,15 @@ function SimpleHome({ L, data, onFull }) {
   const toCollect = sales.filter(d => d.stage === 'facture' && !isReturnDoc(d)).reduce((s, d) => s + Math.max(0, Number(d.reste || 0)), 0);
   const low = (data.products || []).filter(p => isLowStockAlert(p)).length;
   const session = getStoredSession();
-  const actions = [
+  const small = isSmallShop();
+  const actions = small ? [
+    // V70 : « Petite droguerie » : les gestes du quotidien, en gros
+    featureOn('pos') && can('pos.use') && { k: 'pos', icon: '🛒', t: tx('Vendre', 'بيع'), s: tx('Caisse : comptant ou à crédit', 'الصندوق: نقدا أو بالدين'), run: () => goToPage('pos'), main: true },
+    can('sales.pay') && { k: 'collect', icon: '📒', t: tx('Encaisser un crédit', 'تحصيل دين'), s: tx('Un client paie ce qu\'il doit', 'زبون يؤدي ما عليه'), run: () => setCredit(true) },
+    can('purchases.write') && { k: 'receive', icon: '📥', t: tx('Arrivée de marchandise', 'وصول السلع'), s: tx('Le stock augmente', 'المخزون يرتفع'), run: () => { queueQuickAction('purchases', 'reception'); goToPage('purchases'); } },
+    can('products.read') && { k: 'stock', icon: '🏷️', t: tx('Mes produits', 'منتجاتي'), s: tx('Prix et quantités', 'الأثمنة والكميات'), run: () => goToPage('products') },
+    can('clients.write') && { k: 'client', icon: '👥', t: tx('Nouveau client', 'زبون جديد'), s: tx('Nom et téléphone', 'الاسم والهاتف'), run: () => { queueQuickAction('clients', 'new'); goToPage('clients'); } }
+  ].filter(Boolean) : [
     featureOn('pos') && can('pos.use') && { k: 'pos', icon: '🛒', t: tx('Caisse', 'الصندوق'), s: tx('Vendre au comptoir', 'البيع في الكونطوار'), run: () => goToPage('pos'), main: true },
     can('sales.write') && { k: 'invoice', icon: '🧾', t: tx('Nouvelle facture', 'فاتورة جديدة'), s: tx('Pour un client', 'لزبون'), run: () => { queueQuickAction('sales', 'facture'); goToPage('sales'); } },
     can('sales.pay') && { k: 'collect', icon: '💳', t: tx('Encaisser un client', 'تحصيل من زبون'), s: tx('Factures non réglées', 'فواتير غير مؤداة'), run: () => goToPage('sales', { tab: 'facture', payF: 'unpaid' }) },
@@ -9085,19 +9137,20 @@ function SimpleHome({ L, data, onFull }) {
         </div>
         <button type="button" className="btn bg-white border text-sm" onClick={onFull} data-full-dashboard>📊 {tx('Tableau de bord complet', 'لوحة القيادة الكاملة')}</button>
       </div>
-      <div className="simple-actions mb-6">
+      <div className={'simple-actions mb-6' + (small ? ' small-shop' : '')} data-small-shop={small ? '1' : '0'}>
         {actions.map(a => (
           <button key={a.k} type="button" className={'simple-action ' + (a.main ? 'main' : '')} onClick={a.run} data-simple-action={a.k}>
             <span className="simple-action-icon">{a.icon}</span><b>{a.t}</b><small>{a.s}</small>
           </button>
         ))}
       </div>
+      {credit ? <SmallCreditModal L={L} close={() => setCredit(false)} /> : null}
       {isAdmin(session) ? <StartChecklist /> : null}
       <TodayPanel data={data} />
       <div className="simple-kpis">
         <div className="simple-kpi"><span>{tx('Ventes du jour', 'مبيعات اليوم')}</span><b>{dh(data.kpis.todaySales || 0)}</b></div>
         <div className="simple-kpi green"><span>{tx('Encaissé aujourd\'hui', 'المحصل اليوم')}</span><b>{dh(cashToday)}</b></div>
-        <div className={'simple-kpi ' + (toCollect > 0.009 ? 'red' : '')}><span>{tx('Reste à encaisser', 'الباقي للتحصيل')}</span><b>{dh(toCollect)}</b></div>
+        <div className={'simple-kpi ' + (toCollect > 0.009 ? 'red' : '')}><span>{small ? tx('Crédits clients (on me doit)', 'ديون الزبناء (لي عندهم)') : tx('Reste à encaisser', 'الباقي للتحصيل')}</span><b>{dh(toCollect)}</b></div>
         <div className={'simple-kpi ' + (low ? 'amber' : '')}><span>{tx('Produits à commander', 'منتجات للطلب')}</span><b>{low}</b></div>
       </div>
     </>
@@ -14720,6 +14773,8 @@ function Settings({ L }) {
           <p className="text-xs text-slate-400 mt-2">{tx('Réglage par défaut pour toute la droguerie. Pensez à « Enregistrer ».', 'إعداد افتراضي لكل المحل. لا تنسوا « حفظ ».')}</p>
         </div>
 
+        {moduleOn('smallShop') ? <SmallShopCard settings={settings} setSettings={setSettings} /> : null}
+
         <div className="card p-5">
           <h2 className="font-bold mb-3">{L('company') || 'Société'}</h2>
           {field('company_name', L('company') || 'Société')}
@@ -14937,6 +14992,161 @@ function BrandingSettings({ L, settings, set }) {
             </div>
           </div>
           <p className="text-xs text-slate-400 mt-2">{L('brandSaveHint')}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- V70 : « Encaisser un crédit » simplifié (Petite droguerie) ----------
+   Les clients qui doivent de l'argent, un gros bouton par client, le montant, Valider.
+   Le paiement est réparti sur les factures du client, de la plus ancienne à la plus récente. */
+async function loadClientDebts() {
+  const session = getStoredSession();
+  const { data, error } = await applyDocScope(supabase.from('sales').select('*'), 'sales', session).eq('stage', 'facture');
+  if (error) throw new Error(error.message);
+  const by = {};
+  (data || []).map(mapDoc).filter(d => d.client_id && !isReturnDoc(d) && Number(d.reste || 0) > 0.009).forEach(d => {
+    const k = String(d.client_id);
+    if (!by[k]) by[k] = { id: d.client_id, name: d.client_name || '-', due: 0, docs: [] };
+    by[k].due += Number(d.reste || 0); by[k].docs.push(d);
+  });
+  const ids = Object.keys(by).map(Number);
+  if (ids.length) {
+    const { data: cl } = await supabase.from('clients').select('id, name, phone').in('id', ids);
+    (cl || []).forEach(c => { const x = by[String(c.id)]; if (x) { x.name = c.name || x.name; x.phone = c.phone || ''; } });
+  }
+  return Object.values(by).map(x => ({ ...x, due: Math.round(x.due * 100) / 100, docs: x.docs.sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')) || Number(a.id) - Number(b.id)) }))
+    .sort((a, b) => b.due - a.due);
+}
+async function payClientDebt(client, amount, mode) {
+  let left = Math.round(Number(amount || 0) * 100) / 100;
+  if (!(left > 0)) throw new Error(tx('Tapez le montant payé par le client', 'اكتب المبلغ الذي أداه الزبون'));
+  if (left > client.due + 0.009) throw new Error(tx('Le client doit ' + dh(client.due) + ' : le montant ne peut pas dépasser cette somme.', 'الزبون عليه ' + dh(client.due)));
+  const paid = [];
+  for (const d of client.docs) {
+    if (left <= 0.009) break;
+    const part = Math.min(left, Math.round(Number(d.reste || 0) * 100) / 100);
+    if (part <= 0.009) continue;
+    await payDoc('sales', d.id, { date: today(), mode, montant: part, note: tx('Encaissement d\'un crédit', 'تحصيل دين') });
+    paid.push({ doc: docNo(d), montant: part });
+    left = Math.round((left - part) * 100) / 100;
+  }
+  return paid;
+}
+function SmallCreditModal({ L, close }) {
+  const [rows, setRows] = useState(null);
+  const [err, setErr] = useState('');
+  const [q, setQ] = useState('');
+  const [sel, setSel] = useState(null);
+  const [amount, setAmount] = useState('');
+  const [mode, setMode] = useState('Espèces');
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(null);
+  const load = () => loadClientDebts().then(setRows).catch(e => setErr(e.message));
+  useEffect(() => { load(); }, []);
+  const list = (rows || []).filter(r => !q.trim() || normSearch(r.name + ' ' + (r.phone || '')).includes(normSearch(q).trim()));
+  const total = (rows || []).reduce((t, r) => t + r.due, 0);
+  async function validate() {
+    setBusy(true);
+    try {
+      const paid = await payClientDebt(sel, amount, mode);
+      const sum = paid.reduce((t, p) => t + p.montant, 0);
+      setDone({ name: sel.name, sum, rest: Math.max(0, Math.round((sel.due - sum) * 100) / 100), docs: paid.length });
+      setSel(null); setAmount(''); load();
+    } catch (e) { alert(e.message); }
+    setBusy(false);
+  }
+  return (
+    <Modal title={'📒 ' + tx('Encaisser un crédit', 'تحصيل دين')} onClose={close}>
+      {err ? <ErrorBox msg={err} /> : null}
+      {done ? (
+        <div className="credit-done" data-credit-done>
+          <div className="credit-done-icon">✔</div>
+          <b>{done.name} {tx('a payé', 'أدى')} <span dir="ltr">{dh(done.sum)}</span></b>
+          <span>{done.rest > 0.009 ? <>{tx('Il doit encore', 'ما زال عليه')} <b dir="ltr">{dh(done.rest)}</b></> : tx('Il ne doit plus rien.', 'لم يعد عليه أي شيء.')}</span>
+          <div className="flex gap-2 mt-3 flex-wrap justify-center">
+            <button type="button" className="btn bg-white border" onClick={() => setDone(null)} data-credit-again>{tx('Encaisser un autre client', 'تحصيل من زبون آخر')}</button>
+            <button type="button" className="btn bg-slate-900 text-white" onClick={close} data-credit-close>{tx('Terminé', 'تم')}</button>
+          </div>
+        </div>
+      ) : sel ? (
+        <div className="credit-pay" data-credit-pay>
+          <div className="credit-who"><b>{sel.name}</b><span>{tx('doit', 'عليه')} <b dir="ltr">{dh(sel.due)}</b></span></div>
+          <label className="credit-amount-label">{tx('Combien le client paie ?', 'كم يؤدي الزبون؟')}
+            <input className="credit-amount" inputMode="decimal" autoFocus value={amount} placeholder="0,00" onChange={e => setAmount(e.target.value.replace(',', '.').replace(/[^\d.]/g, ''))} data-credit-amount />
+          </label>
+          <div className="flex gap-2 flex-wrap">
+            <button type="button" className="btn bg-white border" onClick={() => setAmount(String(sel.due))} data-credit-all>{tx('Tout', 'الكل')} : <span dir="ltr">{dh(sel.due)}</span></button>
+          </div>
+          <div className="credit-modes">
+            {[['Espèces', '💵'], ['Chèque', '🧾'], ['Carte', '💳'], ['Virement', '🏦']].map(([m, i]) => (
+              <button key={m} type="button" className={'pm-mode' + (mode === m ? ' on' : '')} onClick={() => setMode(m)} data-credit-mode={m}><span>{i}</span>{L('pm_' + m) || m}</button>
+            ))}
+          </div>
+          <div className="flex gap-2 justify-end mt-2">
+            <button type="button" className="btn bg-white border" onClick={() => setSel(null)}>← {tx('Retour', 'رجوع')}</button>
+            <button type="button" disabled={busy || !(Number(amount) > 0)} className="btn bg-emerald-600 text-white credit-validate" onClick={validate} data-credit-validate>✔ {tx('Valider', 'تأكيد')}{Number(amount) > 0 ? <> · <span dir="ltr">{dh(Number(amount))}</span></> : null}</button>
+          </div>
+        </div>
+      ) : (
+        <div data-credit-list>
+          <p className="text-sm text-slate-600 mb-2">{tx('Les clients qui vous doivent de l\'argent', 'الزبناء الذين عليهم ديون')} · {tx('total', 'المجموع')} <b dir="ltr">{dh(total)}</b></p>
+          <input className="input mb-3" placeholder={'🔎 ' + tx('Nom ou téléphone du client', 'اسم أو هاتف الزبون')} value={q} onChange={e => setQ(e.target.value)} data-credit-search />
+          {!rows ? <p>…</p> : !list.length ? <p className="text-slate-500 text-sm">{tx('Aucun client ne vous doit d\'argent.', 'لا يوجد زبون عليه دين.')}</p> : (
+            <div className="credit-list">
+              {list.map(r => (
+                <div key={r.id} className="credit-row" data-credit-client={r.name}>
+                  <div><b>{r.name}</b><small dir="ltr">{r.phone || ''}</small></div>
+                  <div className="credit-due" dir="ltr">{dh(r.due)}</div>
+                  <button type="button" className="btn bg-emerald-600 text-white" onClick={() => { setSel(r); setAmount(''); setMode('Espèces'); }} data-credit-pick={r.name}>💵 {tx('Encaisser', 'تحصيل')}</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </Modal>
+  );
+}
+
+/* ---------- V70 : carte « Petite droguerie » (Paramètres) ---------- */
+function SmallShopCard({ settings, setSettings }) {
+  const [busy, setBusy] = useState(false);
+  const on = String(settings.small_shop ?? '0') === '1';
+  async function run(v) {
+    if (!v && !confirm(tx('Revenir à l\'affichage d\'avant (menus complets) ? Aucune donnée n\'est modifiée.', 'الرجوع إلى العرض السابق؟ لا تتغير أي معطيات.'))) return;
+    setBusy(true);
+    try {
+      const next = await applySmallShop(v, settings);
+      setSettings(prev => ({ ...prev, ...next }));
+      showToast(v ? tx('Affichage « Petite droguerie » appliqué', 'تم تطبيق عرض « محل صغير »') : tx('Affichage d\'avant rétabli', 'تمت استعادة العرض السابق'));
+    } catch (e) { alert(e.message); }
+    setBusy(false);
+  }
+  return (
+    <div className={'card p-5 md:col-span-2 small-shop-card' + (on ? ' on' : '')} data-small-shop-card={on ? 'on' : 'off'}>
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div style={{ flex: '1 1 380px' }}>
+          <h2 className="font-bold mb-1">🏪 {tx('Petite droguerie : un seul magasin, un seul gestionnaire', 'محل صغير: محل واحد ومسير واحد')}</h2>
+          <p className="text-sm text-slate-600 mb-2">{tx('En un clic, l\'application ne montre que les gestes du quotidien :', 'بنقرة واحدة، يعرض التطبيق عمليات كل يوم فقط:')}</p>
+          <ul className="small-shop-list">
+            <li>🛒 {tx('Accueil à gros boutons : Vendre, Encaisser un crédit, Arrivée de marchandise, Mes produits', 'واجهة بأزرار كبيرة: بيع، تحصيل دين، وصول السلع، منتجاتي')}</li>
+            <li>📋 {tx('Menu réduit : Accueil, Caisse, Clients, Produits, Achats', 'قائمة مختصرة: الرئيسية، الصندوق، الزبناء، المنتجات، المشتريات')}</li>
+            <li>🧾 {tx('Caisse « grande surface » et affichage simplifié', 'صندوق « سوبرماركت » وعرض مبسط')}</li>
+            <li>✅ {tx('Rien n\'est supprimé : les autres écrans restent dans « Plus d\'écrans » et « Tout afficher » reste disponible', 'لا شيء يُحذف: باقي الشاشات في « شاشات أخرى »')}</li>
+          </ul>
+        </div>
+        <div className="flex flex-col gap-2 items-stretch" style={{ minWidth: 240 }}>
+          {on ? (
+            <>
+              <div className="small-shop-status" data-small-shop-status>✔ {tx('Affichage « Petite droguerie » actif', 'عرض « محل صغير » مفعل')}</div>
+              <button type="button" disabled={busy} onClick={() => run(false)} className="btn bg-white border" data-small-shop-off>↩ {tx('Revenir à l\'affichage d\'avant', 'الرجوع إلى العرض السابق')}</button>
+            </>
+          ) : (
+            <button type="button" disabled={busy} onClick={() => run(true)} className="btn bg-amber-500 small-shop-apply" data-small-shop-on>🏪 {tx('Appliquer en un clic', 'تطبيق بنقرة واحدة')}</button>
+          )}
+          <small className="text-xs text-slate-400">{tx('Appliqué tout de suite, sans « Enregistrer ».', 'يُطبق فورا بدون « حفظ ».')}</small>
         </div>
       </div>
     </div>
