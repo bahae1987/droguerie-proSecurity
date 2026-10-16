@@ -4,7 +4,7 @@ import { flushSync, createPortal } from 'react-dom';
 import { createClient } from '@supabase/supabase-js';
 import './index.css';
 
-console.log('DROGUERIEPRO V68 OK');
+console.log('DROGUERIEPRO V69 OK');
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -1089,6 +1089,17 @@ async function waitImages(root) {
   await Promise.all(imgs.map(i => (i.complete ? null : new Promise(r => { i.onload = r; i.onerror = r; }))));
 }
 
+// V69 : image PNG du document (même rendu que le PDF) jointe au Blob : WhatsApp sur ordinateur → Ctrl+V dans la conversation
+async function withPng(blob, canvas) {
+  try {
+    if (canvas && canvas.height <= 16000 && canvas.toBlob) {
+      const png = await new Promise(r => canvas.toBlob(r, 'image/png'));
+      if (png) blob.png = png;
+    }
+  } catch {}
+  return blob;
+}
+
 async function elementToPdfBlob(el) {
   const [{ default: html2canvas }, { jsPDF }] = await Promise.all([import('html2canvas'), import('jspdf')]);
   const W = 794; // largeur A4 à 96 ppp
@@ -1131,7 +1142,7 @@ async function elementToPdfBlob(el) {
     if (pages > 1) {
       for (let i = 1; i <= pages; i++) { pdf.setPage(i); pdf.setFontSize(8); pdf.setTextColor(120); pdf.text(i + ' / ' + pages, 210 - margin, 297 - 4, { align: 'right' }); }
     }
-    return pdf.output('blob');
+    return withPng(pdf.output('blob'), canvas);
   } finally {
     host.remove();
   }
@@ -1457,6 +1468,7 @@ function WhatsAppModal({ L, kind, party, buildVars, makePdf: makePdf0, pdfFolder
   const [saveNum, setSaveNum] = useState(true);
   const [prep, setPrep] = useState({ state: 'idle' }); // idle | busy | ready | error
   const [step2, setStep2] = useState(false);
+  const [copied, setCopied] = useState(false); // V69 : document copié dans le presse-papiers
   const [info, setInfo] = useState('');
   const blobCache = useRef({});
   const prepSeq = useRef(0);
@@ -1506,19 +1518,37 @@ function WhatsAppModal({ L, kind, party, buildVars, makePdf: makePdf0, pdfFolder
     try { if (!mobile) localStorage.setItem('droguerie_wa_pc', pc); } catch {}
     if (onPrefs) onPrefs({ pdf: pdfKey, attach });
   }
+  // V69 : ordinateur + pièce jointe → en un clic : document copié (Ctrl+V), PDF téléchargé, conversation ouverte
+  async function copyDocImage() {
+    const png = prep.blob && prep.blob.png;
+    if (!png || !navigator.clipboard || typeof window.ClipboardItem === 'undefined') return false;
+    try { await navigator.clipboard.write([new window.ClipboardItem({ 'image/png': png })]); return true; } catch { return false; }
+  }
   // Clic : ouverture immédiate de la conversation (dans le geste de l'utilisateur)
-  function send() {
+  async function send() {
     if (invalid || waiting) return;
     savePrefs();
+    const pcFile = !mobile && attach === 'file' && !!prep.blob;
+    if (pcFile) {
+      const ok = await copyDocImage();
+      setCopied(ok);
+      downloadBlobFile(prep.blob, fileName);
+    }
     const text = finalizeWa(message, link);
     const url = waOpenUrl(num, text, mobile, pc);
     if (typeof window.__dpWaOpen === 'function') window.__dpWaOpen(url); // tests automatiques
     else if (mobile || url.startsWith('whatsapp:')) window.location.href = url;
     else { const w = window.open(url, 'dp_whatsapp'); if (!w) window.location.href = url; }
     afterSend(attach === 'link' && link ? 'link' : attach);
-    if (attach === 'file' && prep.blob) { setStep2(true); setInfo(''); }
+    if (attach === 'file' && prep.blob) { setStep2(true); setInfo(pcFile ? L('waFileDesktop') : ''); }
     else if (linkFailed && prep.blob) { setStep2(true); setInfo(L('waLinkFailed')); }
     else close();
+  }
+  // V69 : partage direct du PDF (Windows / Mac), lancé immédiatement : le PDF est déjà prêt
+  async function shareDirect() {
+    const blob = prep.blob; if (!blob) return;
+    try { await navigator.share({ files: [new File([blob], fileName, { type: 'application/pdf' })] }); }
+    catch (e) { if (e && e.name !== 'AbortError') setCopied(false); }
   }
   // 2e étape : le PDF seul (le message est déjà dans la conversation)
   async function sendFile() {
@@ -1540,7 +1570,7 @@ function WhatsAppModal({ L, kind, party, buildVars, makePdf: makePdf0, pdfFolder
   }
   const attachLabels = {
     link: tx('Message + lien du PDF (recommandé : un seul envoi)', 'الرسالة + رابط PDF (مُستحسن: إرسال واحد)'),
-    file: tx('Message + PDF en pièce jointe (2 étapes)', 'الرسالة + ملف PDF مرفق (خطوتان)'),
+    file: mobile ? tx('Message + PDF en pièce jointe (2 étapes)', 'الرسالة + ملف PDF مرفق (خطوتان)') : tx('Message + document joint (copié automatiquement : Ctrl+V dans WhatsApp)', 'الرسالة + الوثيقة (تُنسخ تلقائياً: Ctrl+V في واتساب)'),
     none: L('waAttachNone')
   };
 
@@ -1548,7 +1578,32 @@ function WhatsAppModal({ L, kind, party, buildVars, makePdf: makePdf0, pdfFolder
     <Modal title={'🟢 ' + L('waTitle') + (party?.name ? ' — ' + party.name : '')} onClose={close} wide>
       {step2 ? (
         <div className="wa-step2" data-wa-step2>
-          <div className="wa-step-done">✔ {tx('Étape 1 : WhatsApp est ouvert sur la conversation', 'الخطوة 1: تم فتح محادثة واتساب')} {num ? <b dir="ltr">{waDisplayNumber(num)}</b> : null} {tx('avec le message.', 'مع الرسالة.')}</div>
+          <div className="wa-step-done">✔ {mobile ? tx('Étape 1 : WhatsApp est ouvert sur la conversation', 'الخطوة 1: تم فتح محادثة واتساب') : tx('WhatsApp est ouvert sur la conversation', 'تم فتح محادثة واتساب')} {num ? <b dir="ltr">{waDisplayNumber(num)}</b> : null} {tx('avec le message.', 'مع الرسالة.')}</div>
+          {!mobile ? (
+            <div className="wa-step-next" data-wa-pc-auto>
+              {copied ? (
+                <>
+                  <b>📋 {tx('Le document est copié : dans la conversation WhatsApp, appuyez sur', 'تم نسخ الوثيقة: داخل محادثة واتساب اضغط على')} <kbd className="wa-kbd">{/Mac/.test(navigator.platform || '') ? '⌘' : 'Ctrl'} + V</kbd> {tx('puis Entrée.', 'ثم Enter للإرسال.')}</b>
+                  <p>{tx('Il s\'affiche dans la conversation, prêt à envoyer. Le PDF est aussi enregistré dans vos Téléchargements :', 'تظهر الوثيقة في المحادثة جاهزة للإرسال. ملف PDF محفوظ أيضاً في التنزيلات:')} <b dir="ltr">{fileName}</b></p>
+                </>
+              ) : (
+                <>
+                  <b>📄 {tx('Le PDF est téléchargé :', 'تم تحميل ملف PDF:')} <span dir="ltr">{fileName}</span></b>
+                  <p>{tx('Glissez-le depuis la barre de téléchargements du navigateur dans la conversation WhatsApp.', 'اسحبه من شريط التنزيلات إلى محادثة واتساب.')}</p>
+                </>
+              )}
+              {canShareFiles() ? (
+                <div className="wa-share-direct">
+                  <button type="button" onClick={shareDirect} className="btn wa-send" data-wa-share-direct>📤 {tx('Ou : envoyer le PDF directement dans WhatsApp', 'أو: إرسال PDF مباشرة إلى واتساب')}</button>
+                  <small>{tx('Partage de l\'ordinateur → WhatsApp → choisissez le client (en haut de la liste).', 'مشاركة الحاسوب ← واتساب ← اختر الزبون (في أعلى القائمة).')}</small>
+                </div>
+              ) : null}
+              <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={async () => setCopied(await copyDocImage())} className="btn bg-white border" data-wa-copy>📋 {tx('Copier à nouveau', 'نسخ مرة أخرى')}</button>
+                <button type="button" onClick={() => downloadBlobFile(prep.blob, fileName)} className="btn bg-white border" data-wa-sendfile>📄 {tx('Télécharger à nouveau', 'تحميل مرة أخرى')}</button>
+              </div>
+            </div>
+          ) : (
           <div className="wa-step-next">
             <b>{tx('Étape 2 : envoyer le PDF', 'الخطوة 2: إرسال ملف PDF')}</b>
             <p>{mobile
@@ -1557,7 +1612,8 @@ function WhatsAppModal({ L, kind, party, buildVars, makePdf: makePdf0, pdfFolder
             <button type="button" onClick={sendFile} className="btn wa-send" data-wa-sendfile>📄 {mobile ? tx('Envoyer le PDF', 'إرسال PDF') : tx('Télécharger le PDF', 'تحميل PDF')}</button>
             <small dir="ltr">{fileName}</small>
           </div>
-          {info ? <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-xl p-3 mt-3 text-sm">{info}</div> : null}
+          )}
+          {info && mobile ? <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-xl p-3 mt-3 text-sm">{info}</div> : null}
           <div className="flex flex-wrap justify-end gap-2 mt-4">
             <button type="button" onClick={() => setStep2(false)} className="btn bg-white border">← {tx('Retour', 'رجوع')}</button>
             <button type="button" onClick={close} className="btn bg-slate-900 text-white" data-wa-done>{tx('Terminé', 'تم')}</button>
@@ -1623,7 +1679,7 @@ function WhatsAppModal({ L, kind, party, buildVars, makePdf: makePdf0, pdfFolder
             <div className="wa-head">{party?.name || 'WhatsApp'}<small dir="ltr">{num ? waDisplayNumber(num) : ''}</small></div>
             <div className="wa-chat">
               <div className="wa-bubble" dir={lang === 'ar' ? 'rtl' : 'ltr'}>{preview}</div>
-              {attach === 'file' && makePdf ? <div className="wa-file" data-wa-file>📄 {fileName}<small>{tx('2e étape', 'الخطوة 2')}</small></div> : null}
+              {attach === 'file' && makePdf ? <div className="wa-file" data-wa-file>📄 {fileName}<small>{mobile ? tx('2e étape', 'الخطوة 2') : 'Ctrl + V'}</small></div> : null}
             </div>
           </div>
         </div>
@@ -10853,7 +10909,7 @@ async function ticketToPdfBlob(t, lang) {
     const w = 80, h = Math.max(60, canvas.height * w / canvas.width);
     const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [w, h], compress: true });
     pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, w, h);
-    return pdf.output('blob');
+    return withPng(pdf.output('blob'), canvas);
   } finally {
     host.remove();
   }
