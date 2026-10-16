@@ -4,7 +4,7 @@ import { flushSync, createPortal } from 'react-dom';
 import { createClient } from '@supabase/supabase-js';
 import './index.css';
 
-console.log('DROGUERIEPRO V70 OK');
+console.log('DROGUERIEPRO V71 OK');
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -4972,7 +4972,7 @@ function Layout({ L, lang, toggleLang, session, setSession }) {
     return () => window.removeEventListener('droguerie_ui_mode', h);
   }, []);
   const simple = isSimpleUi();
-  useEffect(() => { loadSettings().catch(() => null); }, []);
+  useEffect(() => { loadSettings().then(() => setUiTick(t => t + 1)).catch(() => null); }, []);
 
   function setPage(p) {
     setPageState(p);
@@ -7134,6 +7134,14 @@ function SaasModules({ data, reload }) {
     try {
       await setEnabled([m.code, ...cascade], enable);
       await auditLog('SaaS', 'UPDATE', 'Module ' + m.name, (enable ? 'activé' : 'désactivé') + (cascade.length ? ' (+ ' + cascade.join(', ') + ')' : ''));
+      // V71 : « Petite droguerie » activée → appliquée tout de suite si le SuperAdmin le confirme (sinon : bandeau chez l'administrateur)
+      if (enable && m.code === 'smallShop') {
+        const cur = await loadSettings();
+        if (String(cur.small_shop) !== '1' && confirm(tx('Option « Petite droguerie » activée.\n\nL\'appliquer maintenant à la droguerie (accueil à gros boutons, menu réduit, caisse grande surface) ?\n\nOK = appliquer maintenant · Annuler = l\'administrateur l\'appliquera depuis son accueil.', 'تم تفعيل الخيار. تطبيقه الآن؟'))) {
+          await applySmallShop(true, cur);
+          showToast(tx('« Petite droguerie » appliquée : les utilisateurs la voient à leur prochain écran', 'تم التطبيق'));
+        }
+      }
       const disabled = await refreshSaasModulesCache();
       window.dispatchEvent(new CustomEvent('droguerie_modules_changed', { detail: disabled }));
       await reload();
@@ -8917,12 +8925,20 @@ function ChequePortfolioView({ L, payments, search, onChanged }) {
 // ===================== V62 : mode simplifié, aide, démarrage guidé, messages clairs =====================
 // Mode d'affichage : réglage de la droguerie (Paramètres) + choix personnel de chaque utilisateur (ce poste)
 function cacheUiSettings(s) {
+  try { localStorage.setItem('droguerie_ui_reset_at', String(Number(s?.ui_reset_at || 0) || 0)); } catch {}
   const v = String(s?.ui_simple ?? '0') === '1' ? '1' : '0';
   let prev = null;
   try { prev = localStorage.getItem('droguerie_ui_simple'); localStorage.setItem('droguerie_ui_simple', v); } catch {}
   if (prev !== v) { try { window.dispatchEvent(new CustomEvent('droguerie_ui_mode')); } catch {} }
 }
-function uiUserPref() { return readLocal(userStoreKey('ui_mode'), ''); }
+function uiUserPref() {
+  // V71 : un choix personnel (« Tout afficher ») fait AVANT l'application de « Petite droguerie » ne compte plus
+  const p = readLocal(userStoreKey('ui_mode'), '');
+  if (!p) return '';
+  let reset = 0; try { reset = Number(localStorage.getItem('droguerie_ui_reset_at') || 0); } catch {}
+  const at = Number(readLocal(userStoreKey('ui_mode_at'), 0) || 0);
+  return reset && at < reset ? '' : p;
+}
 function isSimpleUi() {
   const p = uiUserPref();
   if (p === 'simple') return true;
@@ -8931,6 +8947,7 @@ function isSimpleUi() {
 }
 function setUiPref(mode) {
   writeLocal(userStoreKey('ui_mode'), mode || null);
+  writeLocal(userStoreKey('ui_mode_at'), mode ? Date.now() : null);
   try { window.dispatchEvent(new CustomEvent('droguerie_ui_mode')); } catch {}
 }
 // Écrans rangés dans « Plus d'écrans » en mode simplifié
@@ -8946,7 +8963,7 @@ function cacheSmallShop(s) {
   const v = String(s?.small_shop ?? '0') === '1' ? '1' : '0';
   let prev = null;
   try { prev = localStorage.getItem('droguerie_small_shop'); localStorage.setItem('droguerie_small_shop', v); } catch {}
-  if (prev !== null && prev !== v) { try { window.dispatchEvent(new CustomEvent('droguerie_ui_mode')); } catch {} }
+  if (prev !== v && (prev !== null || v === '1')) { try { window.dispatchEvent(new CustomEvent('droguerie_ui_mode')); } catch {} }
 }
 function smallShopSetting() { try { return localStorage.getItem('droguerie_small_shop') === '1'; } catch { return false; } }
 // Actif si : option incluse dans l'abonnement + appliquée par l'administrateur + affichage simplifié pour cet utilisateur
@@ -8956,7 +8973,7 @@ async function applySmallShop(on, current) {
   let rows;
   if (on) {
     const prev = JSON.stringify({ ui_simple: String(current?.ui_simple ?? '0'), pos_theme: String(current?.pos_theme || 'classic') });
-    rows = { small_shop: '1', small_shop_prev: prev, ui_simple: '1', pos_theme: 'market' };
+    rows = { small_shop: '1', small_shop_prev: prev, ui_simple: '1', pos_theme: 'market', ui_reset_at: String(Date.now()) };
   } else {
     const prev = jsonValue(current?.small_shop_prev, {}) || {};
     rows = { small_shop: '0', ui_simple: prev.ui_simple === '1' ? '1' : '0', pos_theme: prev.pos_theme === 'market' ? 'market' : 'classic' };
@@ -9296,7 +9313,7 @@ function Dashboard({ L }) {
   if (err) return <ErrorBox msg={err} />;
   if (!data) return <p>Chargement...</p>;
 
-  if (isSimpleUi() && !full) return <SimpleHome L={L} data={data} onFull={() => setFull(true)} />;
+  if (isSimpleUi() && !full) return <><SmallShopOffer /><SimpleHome L={L} data={data} onFull={() => setFull(true)} /></>;
   const k = data.kpis;
   const recent = data.movements.slice(0, 6);
   const lowProducts = data.products.filter(p => isLowStockAlert(p)).slice(0, 6);
@@ -9309,6 +9326,7 @@ function Dashboard({ L }) {
 
   return (
     <>
+      <SmallShopOffer />
       <Header title={L('dashboard')}>
         {isSimpleUi() ? <button onClick={() => setFull(false)} className="btn bg-white border" data-simple-dashboard>🧭 {tx('Accueil simple', 'الواجهة المبسطة')}</button> : null}
         <button onClick={load} className="btn bg-white border">↻</button>
@@ -15107,6 +15125,32 @@ function SmallCreditModal({ L, close }) {
         </div>
       )}
     </Modal>
+  );
+}
+
+/* ---------- V71 : option activée mais pas encore appliquée → proposée sur l'accueil de l'administrateur ---------- */
+function SmallShopOffer() {
+  const [hidden, setHidden] = useState(() => !!readLocal(userStoreKey('small_shop_offer_later'), false));
+  const [busy, setBusy] = useState(false);
+  const session = getStoredSession();
+  if (hidden || !moduleOn('smallShop') || smallShopSetting() || !can('settings.manage') || isSuperAdmin(session)) return null;
+  async function apply() {
+    setBusy(true);
+    try { const cur = await loadSettings(); await applySmallShop(true, cur); showToast(tx('Affichage « Petite droguerie » appliqué', 'تم تطبيق عرض « محل صغير »')); }
+    catch (e) { alert(e.message); }
+    setBusy(false);
+  }
+  return (
+    <div className="small-shop-offer mb-4" data-small-shop-offer>
+      <div>
+        <b>🏪 {tx('L\'option « Petite droguerie » est activée pour votre droguerie.', 'خيار « محل صغير » مفعل لمحلكم.')}</b>
+        <span>{tx('Un clic : accueil à gros boutons, menu réduit, caisse grande surface. Rien n\'est supprimé.', 'بنقرة: أزرار كبيرة، قائمة مختصرة، صندوق سوبرماركت. لا شيء يُحذف.')}</span>
+      </div>
+      <div className="flex gap-2 flex-wrap">
+        <button type="button" disabled={busy} className="btn bg-amber-500 small-shop-apply" onClick={apply} data-small-shop-offer-apply>🏪 {tx('Appliquer maintenant', 'تطبيق الآن')}</button>
+        <button type="button" className="btn bg-white border" onClick={() => { writeLocal(userStoreKey('small_shop_offer_later'), true); setHidden(true); }} data-small-shop-offer-later>{tx('Plus tard (Paramètres)', 'لاحقاً (الإعدادات)')}</button>
+      </div>
+    </div>
   );
 }
 
