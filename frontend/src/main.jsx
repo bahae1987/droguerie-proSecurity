@@ -4,7 +4,7 @@ import { flushSync, createPortal } from 'react-dom';
 import { createClient } from '@supabase/supabase-js';
 import './index.css';
 
-console.log('DROGUERIEPRO V71 OK');
+console.log('DROGUERIEPRO V72 OK');
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -3014,6 +3014,9 @@ function visibleMenuItem(item, session, disabledModules = getDisabledModulesCach
   }
 
   if (page === 'saas') return false;
+  // V72 : Petite droguerie → uniquement les écrans utiles ; « Mon bilan » n'existe que dans ce mode
+  if (page === 'myReport') return isSmallShopStrict(session) && !disabledModules.includes('smallShop');
+  if (isSmallShopStrict(session) && !smallShopPages().includes(page)) return false;
   const feature = { pos: 'pos', expenses: 'expenses', profit: 'profit', tools: 'tools' }[page];
   if (feature && getFeaturesOff().includes(feature)) return false;
   return !disabledModules.includes(moduleCode);
@@ -4946,7 +4949,7 @@ const MENU_GROUPS = [
 const MENU_ICONS = {
   dashboard: '🏠', pos: '🛒', sales: '🧾', clients: '👥', purchases: '📦', suppliers: '🚚', products: '🏷️', stockMoves: '🔄',
   payments: '💳', expenses: '⛽', reporting: '📈', profit: '💹', tools: '🧮', settings: '⚙️', permissions: '🔐', branches: '🏬',
-  users: '👤', mobileApp: '📱', backup: '🗄️', saas: '☁️'
+  users: '👤', mobileApp: '📱', backup: '🗄️', saas: '☁️', myReport: '📊'
 };
 
 function Layout({ L, lang, toggleLang, session, setSession }) {
@@ -5008,7 +5011,8 @@ function Layout({ L, lang, toggleLang, session, setSession }) {
     ['clients', L('clients'), 'clients.read'],
     ['suppliers', L('suppliers'), 'suppliers.read'],
     ['expenses', L('expensesMod'), 'expenses.read'],
-    ['users', L('users'), 'users.read']
+    ['users', L('users'), 'users.read'],
+    ['myReport', tx('Mon bilan', 'حصيلتي'), 'reporting.read']
   ];
 
   useEffect(() => {
@@ -5073,6 +5077,37 @@ function Layout({ L, lang, toggleLang, session, setSession }) {
     window.addEventListener('keydown', h);
     return () => window.removeEventListener('keydown', h);
   }, []);
+
+  const pageView = (
+    <>
+          {page === 'dashboard' ? <Dashboard L={L} /> : null}
+          {page === 'saas' ? <SuperAdminCenter L={L} /> : null}
+          {page === 'backup' ? <BackupCenter L={L} /> : null}
+          {page === 'profit' ? <ProfitCenter L={L} /> : null}
+          {page === 'reporting' ? <ReportingCenter L={L} /> : null}
+          {page === 'tools' ? <ToolsCenter L={L} /> : null}
+          {page === 'products' ? <Products L={L} /> : null}
+          {page === 'pos' ? <PosCenter L={L} /> : null}
+          {page === 'sales' ? <Docs L={L} type="sales" /> : null}
+          {page === 'purchases' ? <Docs L={L} type="purchases" /> : null}
+          {page === 'payments' ? <Payments L={L} /> : null}
+          {page === 'stockMoves' ? <StockMovements L={L} /> : null}
+          {page === 'settings' ? <Settings L={L} /> : null}
+          {page === 'permissions' ? <Permissions L={L} /> : null}
+          {page === 'branches' ? <Branches L={L} /> : null}
+          {page === 'mobileApp' ? <MobileAppAdmin L={L} /> : null}
+          {page === 'clients' ? <Parties L={L} type="clients" /> : null}
+          {page === 'suppliers' ? <Parties L={L} type="suppliers" /> : null}
+          {page === 'expenses' ? <ExpensesCenter L={L} /> : null}
+          {page === 'users' ? <Users L={L} /> : null}
+          {page === 'myReport' ? <SmallReport L={L} /> : null}
+    </>
+  );
+  // V72 : « Petite droguerie » → une application à part : en-tête au nom de la droguerie, gros onglets, rien d'autre
+  if (isSmallShopStrict(session)) {
+    return <SmallApp L={L} lang={lang} toggleLang={toggleLang} session={session} setSession={setSession} page={page} setPage={setPage}
+      byKey={byKey} brand={brand} pageView={pageView} pageKey={pageKey} pwdOpen={pwdOpen} setPwdOpen={setPwdOpen} />;
+  }
 
   const q = normSearch(menuQ).trim();
   const toggleGroup = (key, isOpen) => { const c = { ...collapsed, [key]: !!isOpen }; setCollapsed(c); try { localStorage.setItem('droguerie_menu_collapsed', JSON.stringify(c)); } catch {} };
@@ -5174,26 +5209,7 @@ function Layout({ L, lang, toggleLang, session, setSession }) {
           <SaasBanner session={session} />
           <div key={page + '-' + globalBranchFilter + '-' + pageKey}>
 
-          {page === 'dashboard' ? <Dashboard L={L} /> : null}
-          {page === 'saas' ? <SuperAdminCenter L={L} /> : null}
-          {page === 'backup' ? <BackupCenter L={L} /> : null}
-          {page === 'profit' ? <ProfitCenter L={L} /> : null}
-          {page === 'reporting' ? <ReportingCenter L={L} /> : null}
-          {page === 'tools' ? <ToolsCenter L={L} /> : null}
-          {page === 'products' ? <Products L={L} /> : null}
-          {page === 'pos' ? <PosCenter L={L} /> : null}
-          {page === 'sales' ? <Docs L={L} type="sales" /> : null}
-          {page === 'purchases' ? <Docs L={L} type="purchases" /> : null}
-          {page === 'payments' ? <Payments L={L} /> : null}
-          {page === 'stockMoves' ? <StockMovements L={L} /> : null}
-          {page === 'settings' ? <Settings L={L} /> : null}
-          {page === 'permissions' ? <Permissions L={L} /> : null}
-          {page === 'branches' ? <Branches L={L} /> : null}
-          {page === 'mobileApp' ? <MobileAppAdmin L={L} /> : null}
-          {page === 'clients' ? <Parties L={L} type="clients" /> : null}
-          {page === 'suppliers' ? <Parties L={L} type="suppliers" /> : null}
-          {page === 'expenses' ? <ExpensesCenter L={L} /> : null}
-          {page === 'users' ? <Users L={L} /> : null}
+          {pageView}
 
           </div>
         </main>
@@ -6557,13 +6573,14 @@ const SAAS_MODULE_META = {
   bulkPrice: { category: 'option', requires: ['products'] }, cashClosure: { category: 'option', requires: ['sales'] }, inventory: { category: 'option', requires: ['products'] },
   reorder: { category: 'option', requires: ['purchases'] }, import: { category: 'option' }, returns: { category: 'option', requires: ['sales'] }, share: { category: 'option' },
   groupPayments: { category: 'option', requires: ['payments'] }, chequePortfolio: { category: 'option', requires: ['payments'] },
-  smallShop: { category: 'option', requires: ['pos'] } // V70 : Petite droguerie
+  smallShop: { category: 'mode', requires: ['pos'] } // V72 : mode « Petite droguerie » (hors formules)
 };
 const SAAS_CATEGORIES = [
   { key: 'core', fr: 'Socle (toujours actif)', ar: 'الأساس (مفعّل دائما)' },
   { key: 'business', fr: 'Modules métier', ar: 'وحدات العمل' },
   { key: 'platform', fr: 'Modules plateforme', ar: 'وحدات المنصة' },
-  { key: 'option', fr: 'Options payantes', ar: 'خيارات مؤدى عنها' }
+  { key: 'option', fr: 'Options payantes', ar: 'خيارات مؤدى عنها' },
+  { key: 'mode', fr: 'Modes d\'affichage du client (activés uniquement ici)', ar: 'أنماط العرض' }
 ];
 const SAAS_STATUS = {
   trial: { fr: 'Essai', ar: 'تجربة', tone: 'blue' },
@@ -7072,7 +7089,7 @@ function SaasPlans({ data, reload }) {
             ))}
           </div>
           <div className="text-xs font-bold text-slate-500 mt-4 mb-2">{tx('Modules inclus (aucun = formule « sur mesure » : les modules ne changent pas à l\'application)', 'الوحدات المضمنة')}</div>
-          {SAAS_CATEGORIES.map(cat => (
+          {SAAS_CATEGORIES.filter(cat => cat.key !== 'mode').map(cat => (
             <div key={cat.key} className="mb-2">
               <div className="text-xs text-slate-400 mb-1">{tx(cat.fr, cat.ar)}</div>
               <div className="flex flex-wrap gap-2">
@@ -7134,14 +7151,8 @@ function SaasModules({ data, reload }) {
     try {
       await setEnabled([m.code, ...cascade], enable);
       await auditLog('SaaS', 'UPDATE', 'Module ' + m.name, (enable ? 'activé' : 'désactivé') + (cascade.length ? ' (+ ' + cascade.join(', ') + ')' : ''));
-      // V71 : « Petite droguerie » activée → appliquée tout de suite si le SuperAdmin le confirme (sinon : bandeau chez l'administrateur)
-      if (enable && m.code === 'smallShop') {
-        const cur = await loadSettings();
-        if (String(cur.small_shop) !== '1' && confirm(tx('Option « Petite droguerie » activée.\n\nL\'appliquer maintenant à la droguerie (accueil à gros boutons, menu réduit, caisse grande surface) ?\n\nOK = appliquer maintenant · Annuler = l\'administrateur l\'appliquera depuis son accueil.', 'تم تفعيل الخيار. تطبيقه الآن؟'))) {
-          await applySmallShop(true, cur);
-          showToast(tx('« Petite droguerie » appliquée : les utilisateurs la voient à leur prochain écran', 'تم التطبيق'));
-        }
-      }
+      // V72 : « Petite droguerie » : la base applique / retire le mode (déclencheur) → relire les réglages
+      if (m.code === 'smallShop') { await loadSettings().catch(() => null); showToast(enable ? tx('Mode « Petite droguerie » activé : le client voit l\'application simplifiée à sa prochaine ouverture', 'تم تفعيل نمط « محل صغير »') : tx('Mode « Petite droguerie » désactivé : affichage d\'avant rétabli', 'تم إلغاء النمط')); }
       const disabled = await refreshSaasModulesCache();
       window.dispatchEvent(new CustomEvent('droguerie_modules_changed', { detail: disabled }));
       await reload();
@@ -7155,7 +7166,7 @@ function SaasModules({ data, reload }) {
   async function enableAll() {
     if (!confirm(tx('Activer tous les modules ?', 'تفعيل كل الوحدات؟'))) return;
     setBusy(true);
-    try { await setEnabled(mods.filter(m => m.enabled === false).map(m => m.code), true); await auditLog('SaaS', 'UPDATE', 'Modules', 'Tous activés'); const d = await refreshSaasModulesCache(); window.dispatchEvent(new CustomEvent('droguerie_modules_changed', { detail: d })); await reload(); } catch (e) { alert(e.message); }
+    try { await setEnabled(mods.filter(m => m.enabled === false && m.code !== 'smallShop').map(m => m.code), true); await auditLog('SaaS', 'UPDATE', 'Modules', 'Tous activés'); const d = await refreshSaasModulesCache(); window.dispatchEvent(new CustomEvent('droguerie_modules_changed', { detail: d })); await reload(); } catch (e) { alert(e.message); }
     setBusy(false);
   }
   const q = normSearch(search);
@@ -7203,7 +7214,50 @@ function SaasModules({ data, reload }) {
           </div>
         );
       })}
+      <SmallShopSaasPanel on={byCode.smallShop ? byCode.smallShop.enabled !== false : false} />
     </>
+  );
+}
+
+// V72 : mode « Petite droguerie » : écrans gardés en arrière-plan à rendre visibles + demandes du client
+function SmallShopSaasPanel({ on }) {
+  const [extra, setExtra] = useState(null);
+  const [reqs, setReqs] = useState([]);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    loadSettings().then(st => setExtra(jsonValue(st.small_shop_extra, []) || [])).catch(() => setExtra([]));
+    supabase.from('audit_logs').select('created_at, user_label, object_label, detail').eq('action', 'REQUEST').order('created_at', { ascending: false }).limit(20)
+      .then(({ data }) => setReqs(data || []), () => {});
+  }, [on]);
+  if (extra === null) return null;
+  async function toggle(k) {
+    const prev = extra;
+    const next = extra.includes(k) ? extra.filter(x => x !== k) : [...extra, k];
+    setExtra(next); setBusy(true);
+    const { error } = await supabase.from('app_settings').upsert({ key: 'small_shop_extra', value: JSON.stringify(next) }, { onConflict: 'key' });
+    setBusy(false);
+    if (error) { setExtra(prev); return alert(error.message); }
+    cacheSmallShop({ small_shop: smallShopSetting() ? '1' : '0', small_shop_extra: JSON.stringify(next) });
+    await auditLog('SaaS', 'UPDATE', 'Petite droguerie : écrans', next.join(', ') || '-');
+  }
+  return (
+    <div className="card p-4 mb-4 small-shop-saas" data-small-shop-saas>
+      <h2 className="font-black mb-1">🏪 {tx('Mode « Petite droguerie »', 'نمط « محل صغير »')} : {on ? <span className="text-emerald-700" data-small-shop-saas-state="on">{tx('activé', 'مفعل')}</span> : <span className="text-slate-500" data-small-shop-saas-state="off">{tx('désactivé', 'غير مفعل')}</span>}</h2>
+      <p className="text-xs text-slate-500 mb-3">{tx('Activé avec l\'interrupteur ci-dessus : le client (administrateur compris) voit une application simplifiée — Accueil, Vendre, Clients, Produits, Achats, Fournisseurs, Mon bilan. Toutes les autres fonctions et données restent en arrière-plan. Cochez un écran pour le rendre visible au client sans quitter le mode.', 'يرى الزبون تطبيقاً مبسطاً. باقي الوظائف في الخلفية.')}</p>
+      <div className="flex flex-wrap gap-2 mb-3">
+        {SMALL_SHOP_EXTRAS.map(x => (
+          <label key={x.k} className={'saas-chip ' + (extra.includes(x.k) ? 'on' : '')}>
+            <input type="checkbox" disabled={busy} checked={extra.includes(x.k)} onChange={() => toggle(x.k)} data-small-extra={x.k} /> {MENU_ICONS[x.k] || ''} {tx(x.fr, x.ar)}
+          </label>
+        ))}
+      </div>
+      <div className="text-xs font-bold text-slate-500 mb-1">{tx('Demandes du client', 'طلبات الزبون')}</div>
+      {reqs.length ? (
+        <div className="text-sm" data-small-requests>
+          {reqs.map((r, i) => <div key={i} className="flex justify-between gap-3 border-b py-1"><span>📩 <b>{r.object_label}</b> · {r.user_label}</span><span className="text-slate-400 text-xs">{new Date(r.created_at).toLocaleString('fr-FR')}</span></div>)}
+        </div>
+      ) : <p className="text-xs text-slate-400">{tx('Aucune demande pour l\'instant.', 'لا طلبات.')}</p>}
+    </div>
   );
 }
 
@@ -7548,7 +7602,10 @@ function TodayPanel({ data }) {
     can('sales.read') && quotes.length && { key: 'quotes', icon: '📝', tone: 'amber', title: tx('Devis sans réponse depuis 7 jours', 'عروض أسعار بدون رد منذ 7 أيام'), sub: dh(sum(quotes, d => d.totalTTC)) + ' ' + tx('à relancer', 'للتذكير'), n: quotes.length, go: () => goToPage('sales', { tab: 'devis' }) },
     can('products.read') && low.length && { key: 'low', icon: '📉', tone: 'red', title: tx('Produits sous le stock minimum', 'منتجات تحت الحد الأدنى'), sub: low.slice(0, 3).map(p => p.nom).join(', '), n: low.length, go: () => goToPage('products', { alert: 'low' }) },
     can('products.read') && exp.length && { key: 'expiry', icon: '⌛', tone: 'amber', title: tx('Péremption proche', 'صلاحية قريبة الانتهاء'), sub: exp.slice(0, 3).map(p => p.nom).join(', '), n: exp.length, go: () => goToPage('products', { alert: 'expiry' }) }
-  ].filter(Boolean);
+  ].filter(Boolean)
+    // V72 : Petite droguerie → seulement ce qui mène à un écran du mode ; les factures en retard ouvrent « Encaisser un crédit »
+    .filter(i => !isSmallShopStrict() || ['overdue', 'low', 'expiry', 'receive', 'toInvoice', 'supplierDue'].includes(i.key))
+    .map(i => (isSmallShopStrict() && i.key === 'overdue' ? { ...i, go: () => window.dispatchEvent(new CustomEvent('dp_open_credit')) } : i));
   return (
     <div className="card p-5 mb-6 today-panel" data-today>
       <div className="flex items-center justify-between mb-3">
@@ -8940,6 +8997,7 @@ function uiUserPref() {
   return reset && at < reset ? '' : p;
 }
 function isSimpleUi() {
+  if (isSmallShopStrict()) return true; // V72 : pas de « Tout afficher » en Petite droguerie
   const p = uiUserPref();
   if (p === 'simple') return true;
   if (p === 'full') return false;
@@ -8960,14 +9018,31 @@ const SIMPLE_MORE_PAGES = ['stockMoves', 'expenses', 'reporting', 'profit', 'too
 const SMALL_SHOP_MAIN = ['dashboard', 'pos', 'clients', 'products', 'purchases'];
 const SMALL_SHOP_MORE = ['sales', 'suppliers', 'payments', 'stockMoves', 'expenses', 'reporting', 'profit', 'tools'];
 function cacheSmallShop(s) {
+  try { localStorage.setItem('droguerie_small_extra', JSON.stringify(jsonValue(s?.small_shop_extra, []) || [])); } catch {}
   const v = String(s?.small_shop ?? '0') === '1' ? '1' : '0';
   let prev = null;
   try { prev = localStorage.getItem('droguerie_small_shop'); localStorage.setItem('droguerie_small_shop', v); } catch {}
   if (prev !== v && (prev !== null || v === '1')) { try { window.dispatchEvent(new CustomEvent('droguerie_ui_mode')); } catch {} }
 }
 function smallShopSetting() { try { return localStorage.getItem('droguerie_small_shop') === '1'; } catch { return false; } }
-// Actif si : option incluse dans l'abonnement + appliquée par l'administrateur + affichage simplifié pour cet utilisateur
-function isSmallShop() { return moduleOn('smallShop') && smallShopSetting() && isSimpleUi(); }
+// V72 : mode activé par le SuperAdmin (Centre SaaS) ; la base applique les réglages
+function isSmallShop() { return moduleOn('smallShop') && smallShopSetting(); }
+// Application dédiée pour tous les profils sauf le SuperAdmin : seuls les écrans utiles existent
+function isSmallShopStrict(session = getStoredSession()) { return isSmallShop() && !isSuperAdmin(session); }
+const SMALL_SHOP_PAGES = ['dashboard', 'pos', 'clients', 'products', 'purchases', 'suppliers', 'myReport'];
+// Modules gardés en arrière-plan : le client peut demander leur activation, le SuperAdmin les rend visibles un par un
+const SMALL_SHOP_EXTRAS = [
+  { k: 'sales', fr: 'Ventes : devis, commandes, factures', ar: 'المبيعات: عروض، طلبيات، فواتير', dfr: 'Faire des devis et des factures pour les clients professionnels.', dar: 'عروض أسعار وفواتير للمهنيين.' },
+  { k: 'payments', fr: 'Paiements et chèques', ar: 'الأداءات والشيكات', dfr: 'Tous les règlements reçus et payés, chèques et effets.', dar: 'كل الأداءات والشيكات.' },
+  { k: 'stockMoves', fr: 'Mouvements de stock', ar: 'حركات المخزون', dfr: 'L\'historique de chaque entrée et sortie d\'article.', dar: 'تاريخ كل دخول وخروج.' },
+  { k: 'reporting', fr: 'Reporting complet', ar: 'التقارير الكاملة', dfr: 'Analyses détaillées et exports Excel.', dar: 'تحليلات مفصلة وتصدير Excel.' },
+  { k: 'profit', fr: 'Centre de rentabilité', ar: 'مركز الربحية', dfr: 'Marge par produit et par catégorie.', dar: 'الهامش حسب المنتج.' },
+  { k: 'expenses', fr: 'Charges et déplacements', ar: 'المصاريف والتنقلات', dfr: 'Loyer, salaires, carburant : bénéfice net.', dar: 'الكراء، الأجور، الوقود: الربح الصافي.' },
+  { k: 'tools', fr: 'Outils et calculateurs', ar: 'الأدوات والحاسبات', dfr: 'Calcul de peinture, de prix, conversions.', dar: 'حساب الصباغة والأثمنة.' },
+  { k: 'users', fr: 'Plusieurs utilisateurs', ar: 'عدة مستخدمين', dfr: 'Un compte pour chaque vendeur, avec ses droits.', dar: 'حساب لكل بائع.' }
+];
+function smallShopExtras() { try { return (JSON.parse(localStorage.getItem('droguerie_small_extra') || '[]') || []).filter(k => SMALL_SHOP_EXTRAS.some(x => x.k === k)); } catch { return []; } }
+function smallShopPages() { return [...SMALL_SHOP_PAGES, ...smallShopExtras()]; }
 async function applySmallShop(on, current) {
   requirePerm('settings.manage', 'Paramètres');
   let rows;
@@ -9121,6 +9196,7 @@ function StartChecklist() {
 // Accueil simplifié : gros boutons, 4 chiffres, « À faire aujourd'hui »
 function SimpleHome({ L, data, onFull }) {
   const [credit, setCredit] = useState(false);
+  useEffect(() => { const h = () => setCredit(true); window.addEventListener('dp_open_credit', h); return () => window.removeEventListener('dp_open_credit', h); }, []);
   const t = today();
   const sales = data.sales || [];
   const payDate = p => String(p.date || p.createdAt || '').slice(0, 10);
@@ -9135,7 +9211,9 @@ function SimpleHome({ L, data, onFull }) {
     can('sales.pay') && { k: 'collect', icon: '📒', t: tx('Encaisser un crédit', 'تحصيل دين'), s: tx('Un client paie ce qu\'il doit', 'زبون يؤدي ما عليه'), run: () => setCredit(true) },
     can('purchases.write') && { k: 'receive', icon: '📥', t: tx('Arrivée de marchandise', 'وصول السلع'), s: tx('Le stock augmente', 'المخزون يرتفع'), run: () => { queueQuickAction('purchases', 'reception'); goToPage('purchases'); } },
     can('products.read') && { k: 'stock', icon: '🏷️', t: tx('Mes produits', 'منتجاتي'), s: tx('Prix et quantités', 'الأثمنة والكميات'), run: () => goToPage('products') },
-    can('clients.write') && { k: 'client', icon: '👥', t: tx('Nouveau client', 'زبون جديد'), s: tx('Nom et téléphone', 'الاسم والهاتف'), run: () => { queueQuickAction('clients', 'new'); goToPage('clients'); } }
+    can('clients.write') && { k: 'client', icon: '👥', t: tx('Nouveau client', 'زبون جديد'), s: tx('Nom et téléphone', 'الاسم والهاتف'), run: () => { queueQuickAction('clients', 'new'); goToPage('clients'); } },
+    can('suppliers.read') && { k: 'suppliers', icon: '🚚', t: tx('Mes fournisseurs', 'مورّدي'), s: tx('Ce que je leur dois', 'ما عليّ لهم'), run: () => goToPage('suppliers') },
+    can('reporting.read') && { k: 'report', icon: '📊', t: tx('Mon bilan', 'حصيلتي'), s: tx('Ventes, crédits, bénéfice', 'المبيعات، الديون، الربح'), run: () => goToPage('myReport') }
   ].filter(Boolean) : [
     featureOn('pos') && can('pos.use') && { k: 'pos', icon: '🛒', t: tx('Caisse', 'الصندوق'), s: tx('Vendre au comptoir', 'البيع في الكونطوار'), run: () => goToPage('pos'), main: true },
     can('sales.write') && { k: 'invoice', icon: '🧾', t: tx('Nouvelle facture', 'فاتورة جديدة'), s: tx('Pour un client', 'لزبون'), run: () => { queueQuickAction('sales', 'facture'); goToPage('sales'); } },
@@ -9152,7 +9230,7 @@ function SimpleHome({ L, data, onFull }) {
           <h1>{tx('Bonjour', 'مرحبا')} {name} 👋</h1>
           <p>{frDate(t)} · {tx('Que voulez-vous faire ?', 'ماذا تريدون أن تفعلوا؟')}</p>
         </div>
-        <button type="button" className="btn bg-white border text-sm" onClick={onFull} data-full-dashboard>📊 {tx('Tableau de bord complet', 'لوحة القيادة الكاملة')}</button>
+        {small ? null : <button type="button" className="btn bg-white border text-sm" onClick={onFull} data-full-dashboard>📊 {tx('Tableau de bord complet', 'لوحة القيادة الكاملة')}</button>}
       </div>
       <div className={'simple-actions mb-6' + (small ? ' small-shop' : '')} data-small-shop={small ? '1' : '0'}>
         {actions.map(a => (
@@ -9162,7 +9240,7 @@ function SimpleHome({ L, data, onFull }) {
         ))}
       </div>
       {credit ? <SmallCreditModal L={L} close={() => setCredit(false)} /> : null}
-      {isAdmin(session) ? <StartChecklist /> : null}
+      {isAdmin(session) && !small ? <StartChecklist /> : null}
       <TodayPanel data={data} />
       <div className="simple-kpis">
         <div className="simple-kpi"><span>{tx('Ventes du jour', 'مبيعات اليوم')}</span><b>{dh(data.kpis.todaySales || 0)}</b></div>
@@ -9243,7 +9321,24 @@ function CloseOrderModal({ L, doc, type, close, done }) {
 }
 
 // ===================== V65 : caisse « grande surface » =====================
-function cachePosSettings(s) { try { localStorage.setItem('droguerie_pos_theme', s?.pos_theme === 'market' ? 'market' : 'classic'); } catch {} }
+// V72 : thèmes de caisse (activables dans Paramètres)
+const POS_THEMES = [
+  { k: 'market', icon: '🏬', fr: 'Grande surface', ar: 'المتاجر الكبرى', dfr: 'Fond clair, grande zone de scan, pavé numérique.', dar: 'خلفية فاتحة، منطقة مسح كبيرة.' },
+  { k: 'night', icon: '🌙', fr: 'Grande surface sombre', ar: 'داكن', dfr: 'Fond sombre, chiffres très lisibles, moins d\'éblouissement.', dar: 'خلفية داكنة، أرقام واضحة.' },
+  { k: 'touch', icon: '👆', fr: 'Tactile (gros boutons)', ar: 'لمسي (أزرار كبيرة)', dfr: 'Pour tablette ou écran tactile : articles et touches plus grands.', dar: 'للوحة اللمسية: أزرار أكبر.' },
+  { k: 'compact', icon: '💻', fr: 'Compact (petit écran)', ar: 'مضغوط (شاشة صغيرة)', dfr: 'Pour un ordinateur portable : tout tient sur l\'écran.', dar: 'للحاسوب المحمول.' },
+  { k: 'classic', icon: '🧾', fr: 'Classique', ar: 'كلاسيكي', dfr: 'L\'écran de caisse d\'origine.', dar: 'الواجهة الأصلية.' }
+];
+function posThemesOff() { try { return JSON.parse(localStorage.getItem('droguerie_pos_themes_off') || '[]') || []; } catch { return []; } }
+function posDefaultTheme() { try { const t = localStorage.getItem('droguerie_pos_theme') || 'classic'; return POS_THEMES.some(x => x.k === t) ? t : 'classic'; } catch { return 'classic'; } }
+function posThemesAvailable() { const off = posThemesOff(), def = posDefaultTheme(); return POS_THEMES.filter(x => x.k === def || !off.includes(x.k)); }
+function cachePosSettings(s) {
+  try {
+    const t = POS_THEMES.some(x => x.k === s?.pos_theme) ? s.pos_theme : 'classic';
+    localStorage.setItem('droguerie_pos_theme', t);
+    localStorage.setItem('droguerie_pos_themes_off', JSON.stringify((jsonValue(s?.pos_themes_off, []) || []).filter(k => k !== t)));
+  } catch {}
+}
 // Bip du lecteur : court et aigu = article ajouté ; grave = article introuvable
 let posAudioCtx = null;
 function posBeep(ok, muted) {
@@ -9313,7 +9408,7 @@ function Dashboard({ L }) {
   if (err) return <ErrorBox msg={err} />;
   if (!data) return <p>Chargement...</p>;
 
-  if (isSimpleUi() && !full) return <><SmallShopOffer /><SimpleHome L={L} data={data} onFull={() => setFull(true)} /></>;
+  if (isSimpleUi() && (!full || isSmallShopStrict())) return <SimpleHome L={L} data={data} onFull={() => setFull(true)} />;
   const k = data.kpis;
   const recent = data.movements.slice(0, 6);
   const lowProducts = data.products.filter(p => isLowStockAlert(p)).slice(0, 6);
@@ -9326,7 +9421,6 @@ function Dashboard({ L }) {
 
   return (
     <>
-      <SmallShopOffer />
       <Header title={L('dashboard')}>
         {isSimpleUi() ? <button onClick={() => setFull(false)} className="btn bg-white border" data-simple-dashboard>🧭 {tx('Accueil simple', 'الواجهة المبسطة')}</button> : null}
         <button onClick={load} className="btn bg-white border">↻</button>
@@ -10900,8 +10994,8 @@ function escapeHtml(v) {
 // V66 : contenu du ticket (impression et PDF WhatsApp)
 // V68 : ticket en français ou en arabe (langue de l'application à l'impression, langue du message pour WhatsApp)
 const TICKET_TXT = {
-  fr: { ticket: 'Ticket', date: 'Date', client: 'Client', cashier: 'Caissier', ht: 'Total HT', vat: 'TVA', ttc: 'TOTAL TTC', pay: 'Paiement', recv: 'Reçu', change: 'Rendu', tel: 'Tél', cur: 'DH', thanks: 'Merci de votre visite' },
-  ar: { ticket: 'تذكرة', date: 'التاريخ', client: 'الزبون', cashier: 'أمين الصندوق', ht: 'المجموع دون احتساب الرسوم', vat: 'الضريبة على القيمة المضافة', ttc: 'المجموع مع احتساب الرسوم', pay: 'طريقة الأداء', recv: 'المبلغ المستلم', change: 'الباقي', tel: 'الهاتف', cur: 'درهم', thanks: 'شكراً لزيارتكم' }
+  fr: { ticket: 'Ticket', date: 'Date', client: 'Client', cashier: 'Caissier', ht: 'Total HT', vat: 'TVA', ttc: 'TOTAL TTC', pay: 'Paiement', recv: 'Reçu', change: 'Rendu', tel: 'Tél', cur: 'DH', thanks: 'Merci de votre visite', proforma: 'NON PAYÉ — PRO FORMA' },
+  ar: { ticket: 'تذكرة', date: 'التاريخ', client: 'الزبون', cashier: 'أمين الصندوق', ht: 'المجموع دون احتساب الرسوم', vat: 'الضريبة على القيمة المضافة', ttc: 'المجموع مع احتساب الرسوم', pay: 'طريقة الأداء', recv: 'المبلغ المستلم', change: 'الباقي', tel: 'الهاتف', cur: 'درهم', thanks: 'شكراً لزيارتكم', proforma: 'غير مؤدى — فاتورة أولية' }
 };
 function ticketBodyHtml(t, lang) {
   const ar = lang === 'ar';
@@ -10924,7 +11018,7 @@ function ticketBodyHtml(t, lang) {
   <div class="c"><bdi>${escapeHtml(c.address || '')}</bdi></div>
   <div class="c">${c.phone ? T.tel + ' : <bdi>' + escapeHtml(c.phone) + '</bdi>' : ''}</div>
   <div class="c">${c.ice ? 'ICE : <bdi>' + escapeHtml(c.ice) + '</bdi>' : ''}</div>
-  <hr><div>${T.ticket} : <b><bdi>${escapeHtml(t.number)}</bdi></b></div>
+  <hr>${t.proforma ? `<div class="c pf">*** ${T.proforma} ***</div>` : ''}<div>${T.ticket} : <b><bdi>${escapeHtml(t.number)}</bdi></b></div>
   <div>${T.date} : <bdi>${escapeHtml(t.date)}</bdi></div>
   <div>${T.client} : <bdi>${escapeHtml(clientName)}</bdi></div>
   <div>${T.cashier} : <bdi>${escapeHtml(t.cashier || '')}</bdi></div><hr>
@@ -10933,7 +11027,7 @@ function ticketBodyHtml(t, lang) {
     <tr><td>${T.ht}</td><td class="r">${n(t.totals.totalHT)}</td></tr>
     <tr><td>${T.vat}</td><td class="r">${n(t.totals.vat)}</td></tr>
     <tr class="tot"><td>${T.ttc}</td><td class="r"><bdi>${fmt(t.totals.totalTTC)} ${T.cur}</bdi></td></tr>
-    <tr><td>${T.pay}</td><td class="r">${escapeHtml(payLabel)}</td></tr>
+    ${t.proforma ? '' : `<tr><td>${T.pay}</td><td class="r">${escapeHtml(payLabel)}</td></tr>`}
     ${t.payMode === 'Espèces' && Number(t.received) > 0 ? `<tr><td>${T.recv}</td><td class="r">${n(t.received)}</td></tr><tr><td>${T.change}</td><td class="r">${n(t.change)}</td></tr>` : ''}
   </table><hr>
   <div class="c">${escapeHtml(thanks)}</div>`;
@@ -10943,6 +11037,7 @@ const TICKET_CSS = `
     .c { text-align: center; } .r { text-align: end; white-space: nowrap; } .n { font-weight: bold; padding-top: 4px; }
     table { width: 100%; border-collapse: collapse; } hr { border: 0; border-top: 1px dashed #000; margin: 6px 0; }
     .tot td { font-size: 14px; font-weight: bold; } i { font-style: normal; }
+    .pf { font-weight: bold; font-size: 13px; border: 1px dashed #000; padding: 3px; margin: 4px 0; }
     img.logo { max-width: 56mm; max-height: 22mm; object-fit: contain; filter: grayscale(1) contrast(1.3); margin-bottom: 2px; }`;
 const TICKET_FONT = { fr: "'Courier New', monospace", ar: "Tahoma, 'Arial', 'Noto Sans Arabic', sans-serif" };
 function printTicket(t, lang) {
@@ -10957,6 +11052,87 @@ function printTicket(t, lang) {
   const w = window.open('', '_blank', 'width=380,height=640');
   if (!w) { alert(lg === 'ar' ? 'اسمح بالنوافذ المنبثقة لطباعة التذكرة' : 'Autorisez les fenêtres pop-up pour imprimer le ticket'); return; }
   w.document.open(); w.document.write(html); w.document.close();
+}
+
+// V72 : dernier ticket / dernière facture finale de la caisse, relus en base (aussi après un rechargement de la page)
+async function loadLastSaleTicket(company) {
+  const session = getStoredSession();
+  const me = session?.user?.id;
+  const base = () => applyDocScope(supabase.from('sales').select('*'), 'sales', session).eq('stage', 'facture').order('id', { ascending: false }).limit(1);
+  let { data, error } = await (me ? base().eq('created_by', me) : base());
+  if (!error && !data?.length && me) ({ data, error } = await base());
+  if (error) throw new Error(error.message);
+  const r = data?.[0];
+  if (!r) return null;
+  const d = mapDoc(r);
+  const pays = d.paiements.filter(p => !p.canceled);
+  return {
+    company, docId: r.id, number: d.numeros[docKey('sales', 'facture')] || Object.values(d.numeros).pop() || String(r.id),
+    date: new Date(r.created_at || r.date).toLocaleString('fr-FR'), client: r.client_name || '', clientId: r.client_id || null,
+    clientName: r.client_id ? (r.client_name || '') : '', cashier: r.created_by_label || '', lines: d.lignes,
+    totals: { totalHT: d.totalHT, vat: d.tva, totalTTC: d.totalTTC }, payMode: pays.length ? pays[pays.length - 1].mode : 'Crédit', received: 0, change: 0
+  };
+}
+
+// V72 : PDF du dernier ticket et de la dernière facture finale (vente validée) : partager ou télécharger
+function PosPdfModal({ L, close, company, lastTicket }) {
+  const lang = curLang() === 'ar' ? 'ar' : 'fr';
+  const [doc, setDoc] = useState('ticket');
+  const [src, setSrc] = useState(lastTicket ? { state: 'ready', t: lastTicket } : { state: 'busy' });
+  const [prep, setPrep] = useState({ state: 'busy' });
+  const cache = useRef({});
+  useEffect(() => {
+    if (lastTicket) return;
+    let live = true;
+    loadLastSaleTicket(company).then(t => { if (live) setSrc(t ? { state: 'ready', t } : { state: 'none' }); })
+      .catch(e => { if (live) setSrc({ state: 'error', error: e.message }); });
+    return () => { live = false; };
+  }, []);
+  const t = src.t;
+  const fileName = t ? storageSafe((doc === 'ticket' ? 'Ticket_' : 'Facture_') + t.number) + (lang === 'ar' ? '_ar' : '') + '.pdf' : '';
+  useEffect(() => {
+    if (!t) return;
+    let live = true;
+    setPrep({ state: 'busy' });
+    (async () => {
+      try {
+        const b = cache.current[doc] || (doc === 'ticket' ? await ticketToPdfBlob(t, lang) : await saleInvoicePdfBlob(L, t.docId, t.company || company, lang));
+        cache.current[doc] = b; if (live) setPrep({ state: 'ready', blob: b });
+      } catch (e) { if (live) setPrep({ state: 'error', error: e.message }); }
+    })();
+    return () => { live = false; };
+  }, [doc, t]);
+  const canShare = featureOn('share') && canShareFiles();
+  async function share() {
+    try { await navigator.share({ files: [new File([prep.blob], fileName, { type: 'application/pdf' })], title: fileName }); }
+    catch (e) { if (e?.name !== 'AbortError') downloadBlobFile(prep.blob, fileName); }
+  }
+  return (
+    <Modal title={'📄 ' + tx('Partager en PDF', 'مشاركة PDF')} onClose={close}>
+      {src.state === 'busy' ? <div className="text-sm text-slate-500 my-3" data-pos-pdf-loading>{tx('Recherche de la dernière vente…', 'البحث عن آخر بيع…')}</div> : null}
+      {src.state === 'none' ? <div className="pos-pdf-src my-3" data-pos-pdf-src="none"><b>{tx('Aucune vente validée pour l\'instant.', 'لا يوجد أي بيع مصادق عليه بعد.')}</b><span>{tx('Encaissez une vente : son ticket et sa facture seront disponibles ici.', 'سجّل عملية بيع: ستجد هنا تذكرتها وفاتورتها.')}</span></div> : null}
+      {src.state === 'error' ? <ErrorBox msg={src.error} /> : null}
+      {t ? <>
+        <div className="pos-pdf-src" data-pos-pdf-src="last">
+          <b>{tx('Dernière vente validée', 'آخر بيع مصادق عليه')} : <span dir="ltr" data-pos-pdf-number>{t.number}</span></b>
+          <span><span dir="ltr">{dh(t.totals.totalTTC)}</span> · {t.date}{t.clientName ? ' · ' + t.clientName : ''}</span>
+        </div>
+        <div className="flex gap-2 flex-wrap my-3">
+          {[['ticket', '🧾 ' + tx('Dernier ticket', 'آخر تذكرة')], ['facture', '📄 ' + tx('Dernière facture (A4)', 'آخر فاتورة (A4)')]].map(([k, l]) => (
+            <button key={k} type="button" onClick={() => setDoc(k)} className={'btn ' + (doc === k ? 'bg-slate-900 text-white' : 'bg-white border')} data-pos-pdf-doc={k}>{l}</button>
+          ))}
+        </div>
+        {prep.state === 'error' ? <ErrorBox msg={prep.error} /> : null}
+      </> : null}
+      <div className="flex gap-2 flex-wrap justify-end items-center">
+        {t && prep.state === 'busy' ? <span className="text-sm text-slate-500" data-pos-pdf-busy>{L('waPreparing')}</span> : null}
+        {t && canShare ? <button type="button" disabled={prep.state !== 'ready'} onClick={share} className="btn wa-send" data-pos-pdf-share>📤 {tx('Partager', 'مشاركة')}</button> : null}
+        {t ? <button type="button" disabled={prep.state !== 'ready'} onClick={() => downloadBlobFile(prep.blob, fileName)} className="btn bg-slate-900 text-white" data-pos-pdf-download>⬇ {tx('Télécharger', 'تحميل')}</button> : null}
+        <button type="button" onClick={close} className="btn bg-white border">{L('closeBtn')}</button>
+      </div>
+      {t ? <small className="text-xs text-slate-400 block mt-2" dir="ltr">{fileName}</small> : null}
+    </Modal>
+  );
 }
 
 function posWaPrefs() {
@@ -11061,14 +11237,22 @@ function PosCenter({ L }) {
   const [camera, setCamera] = useState(false);
   const [lastTicket, setLastTicket] = useState(null);
   const [waTicket, setWaTicket] = useState(null);
+  const [pdfOpen, setPdfOpen] = useState(false);
   const [err, setErr] = useState('');
   const searchRef = React.useRef(null);
   // V65 : thème « grande surface » (réglage de la droguerie, choix personnel de chaque caissier)
   const themeKey = userStoreKey('pos_theme');
-  const [theme, setThemeState] = useState(() => readLocal(themeKey, '') || (() => { try { return localStorage.getItem('droguerie_pos_theme') || 'classic'; } catch { return 'classic'; } })());
-  const market = theme === 'market';
+  const [themeRaw, setThemeState] = useState(() => readLocal(themeKey, '') || posDefaultTheme());
+  // V72 : un thème désactivé par l'administrateur n'est plus proposé → thème par défaut
+  const theme = posThemesAvailable().some(x => x.k === themeRaw) ? themeRaw : posDefaultTheme();
+  const market = theme !== 'classic';
   const setTheme = t => { writeLocal(themeKey, t); setThemeState(t); setTimeout(() => searchRef.current?.focus(), 50); };
-  useEffect(() => { if (!readLocal(themeKey, '')) loadSettings().then(st => setThemeState(st.pos_theme === 'market' ? 'market' : 'classic')).catch(() => {}); }, []);
+  useEffect(() => { loadSettings().then(st => { if (!readLocal(themeKey, '')) setThemeState(posDefaultTheme()); else setThemeState(t => t); }).catch(() => {}); }, []);
+  const themePicker = cls => (posThemesAvailable().length > 1 ? (
+    <select className={cls} value={theme} onChange={e => setTheme(e.target.value)} data-pos-theme-select title={tx('Thème de la caisse', 'واجهة الصندوق')} aria-label={tx('Thème de la caisse', 'واجهة الصندوق')}>
+      {posThemesAvailable().map(x => <option key={x.k} value={x.k}>{x.icon} {tx(x.fr, x.ar)}</option>)}
+    </select>
+  ) : null);
   const [selId, setSelId] = useState(null);
   const [mult, setMult] = useState(null);
   // V66 : le pavé numérique écrit soit dans l'article (scan), soit dans le montant reçu
@@ -11375,6 +11559,7 @@ function PosCenter({ L }) {
           onPrefs={p => { try { localStorage.setItem('droguerie_wa_pos68', JSON.stringify(p)); } catch {} }}
           auditModule="Caisse" auditObject={waTicket.number} />
       ) : null}
+      {pdfOpen ? <PosPdfModal L={L} close={() => setPdfOpen(false)} company={company} lastTicket={lastTicket} /> : null}
       {showHolds ? <PosHoldsModal holds={holds} resume={resumeHold} drop={id => saveHolds(holds.filter(h => h.id !== id))} close={() => setShowHolds(false)} /> : null}
       {camera ? <CameraScanner L={L} close={() => setCamera(false)} onCode={code => { const p = findByCode(code); if (p) addProduct(p); else { posBeep(false, muted); alert(L('productNotFound') + ' : ' + code); } }} /> : null}
     </>
@@ -11400,7 +11585,7 @@ function PosCenter({ L }) {
       ['Échap', tx('Effacer la saisie', 'مسح الإدخال'), () => { setSearch(''); setMult(null); }]
     ].filter(Boolean);
     return (
-      <div className={'pm' + (kiosk ? ' pm-kiosk' : '')} data-pos-market>
+      <div className={'pm pm-' + theme + (kiosk ? ' pm-kiosk' : '')} data-pos-market data-pos-current-theme={theme}>
         <div className="pm-bar">
           <div className="pm-bar-id">
             <b>🛒 {tx('Caisse', 'الصندوق')}</b>
@@ -11415,7 +11600,8 @@ function PosCenter({ L }) {
             <button type="button" className="pm-tool" onClick={() => openClientDisplay()} data-client-display title={tx('Ouvrir l\'écran client sur un second moniteur', 'شاشة الزبون')}>📺 {tx('Écran client', 'شاشة الزبون')}</button>
             <button type="button" className="pm-tool" onClick={() => { const m = !muted; setMuted(m); writeLocal('dp_pos_mute', m); }} title={tx('Bip du lecteur', 'صوت القارئ')} data-pos-mute>{muted ? '🔇' : '🔊'}</button>
             <button type="button" className="pm-tool" onClick={toggleKiosk} data-pos-kiosk>{kiosk ? '🗗 ' + tx('Quitter le plein écran', 'الخروج من ملء الشاشة') : '⛶ ' + tx('Plein écran', 'ملء الشاشة')}</button>
-            <button type="button" className="pm-tool" onClick={() => setTheme('classic')} data-pos-theme="classic">{tx('Thème classique', 'الواجهة الكلاسيكية')}</button>
+            <button type="button" className="pm-tool" onClick={() => setPdfOpen(true)} data-pos-pdf title={tx('Dernier ticket ou dernière facture en PDF', 'آخر تذكرة أو آخر فاتورة PDF')}>📄 PDF</button>
+            {themePicker('pm-tool pm-theme-select')}
           </div>
         </div>
 
@@ -11593,7 +11779,8 @@ function PosCenter({ L }) {
   return (
     <>
       <Header title={L('posMod')}>
-        <button onClick={() => setTheme('market')} className="btn bg-slate-900 text-white" data-pos-theme="market" title={tx('Caisse plein écran, pavé numérique, afficheur client', 'واجهة صندوق المتاجر الكبرى')}>🏬 {tx('Thème grande surface', 'واجهة المتاجر الكبرى')}</button>
+        {themePicker('btn bg-white border pm-theme-select')}
+        <button onClick={() => setPdfOpen(true)} className="btn bg-white border" data-pos-pdf title={tx('Dernier ticket ou dernière facture en PDF', 'آخر تذكرة أو آخر فاتورة PDF')}>📄 PDF</button>
         <button onClick={() => setShowHolds(true)} className={'btn ' + (holds.length ? 'bg-amber-100 border border-amber-300' : 'bg-white border')} data-holds-btn>⏸ {tx('En attente', 'في الانتظار')} ({holds.length})</button>
         {lastTicket ? <button onClick={() => printTicket(lastTicket)} className="btn bg-white border">🖨 {L('lastTicket')}</button> : null}
         {lastTicket && featureOn('share') ? <button onClick={() => setWaTicket(lastTicket)} className="btn wa-send">🟢 WhatsApp</button> : null}
@@ -14791,7 +14978,6 @@ function Settings({ L }) {
           <p className="text-xs text-slate-400 mt-2">{tx('Réglage par défaut pour toute la droguerie. Pensez à « Enregistrer ».', 'إعداد افتراضي لكل المحل. لا تنسوا « حفظ ».')}</p>
         </div>
 
-        {moduleOn('smallShop') ? <SmallShopCard settings={settings} setSettings={setSettings} /> : null}
 
         <div className="card p-5">
           <h2 className="font-bold mb-3">{L('company') || 'Société'}</h2>
@@ -14837,12 +15023,23 @@ function Settings({ L }) {
         </div>
 
         <div className="card p-5 md:col-span-2" data-pos-settings>
-          <h2 className="font-bold mb-1">🛒 {tx('Caisse rapide : thème par défaut', 'الصندوق السريع: الواجهة الافتراضية')}</h2>
-          <p className="text-xs text-slate-500 mb-3">{tx('« Grande surface » : grande zone de scan, ticket qui défile, afficheur client, pavé numérique, billets, touches F, plein écran et écran client. Chaque caissier peut changer de thème pour lui depuis la caisse.', 'واجهة المتاجر الكبرى: منطقة مسح كبيرة، شاشة الزبون، لوحة أرقام…')}</p>
-          <div className="flex gap-2 flex-wrap">
-            {[['market', '🏬 ' + tx('Grande surface', 'المتاجر الكبرى')], ['classic', '🧾 ' + tx('Classique', 'كلاسيكي')]].map(([v, t]) => (
-              <button key={v} type="button" className={'btn ' + ((settings.pos_theme || 'classic') === v ? 'bg-slate-900 text-white' : 'bg-white border')} onClick={() => set('pos_theme', v)} data-pos-theme-setting={v}>{t}</button>
-            ))}
+          <h2 className="font-bold mb-1">🛒 {tx('Caisse rapide : thèmes', 'الصندوق السريع: الواجهات')}</h2>
+          <p className="text-xs text-slate-500 mb-3">{tx('Choisissez le thème par défaut et les thèmes proposés aux caissiers (chacun peut changer de thème depuis la caisse, parmi ceux activés).', 'اختاروا الواجهة الافتراضية والواجهات المتاحة للبائعين.')}</p>
+          <div className="pos-theme-grid">
+            {POS_THEMES.map(x => {
+              const def = (settings.pos_theme || 'classic') === x.k;
+              const off = (jsonValue(settings.pos_themes_off, []) || []).includes(x.k);
+              return (
+                <div key={x.k} className={'pos-theme-card' + (def ? ' def' : '') + (off && !def ? ' off' : '')} data-pos-theme-card={x.k}>
+                  <div className={'pos-theme-swatch sw-' + x.k} aria-hidden="true"><i /><i /><i /></div>
+                  <b>{x.icon} {tx(x.fr, x.ar)}</b>
+                  <small>{tx(x.dfr, x.dar)}</small>
+                  <label className="flex items-center gap-2 text-sm"><input type="checkbox" disabled={def} checked={def || !off}
+                    onChange={e => { const cur = (jsonValue(settings.pos_themes_off, []) || []).filter(k => k !== x.k); set('pos_themes_off', JSON.stringify(e.target.checked ? cur : [...cur, x.k])); }} data-pos-theme-on={x.k} /> {tx('Proposé aux caissiers', 'متاح للبائعين')}</label>
+                  <button type="button" className={'btn text-sm ' + (def ? 'bg-slate-900 text-white' : 'bg-white border')} onClick={() => { set('pos_theme', x.k); set('pos_themes_off', JSON.stringify((jsonValue(settings.pos_themes_off, []) || []).filter(k => k !== x.k))); }} data-pos-theme-setting={x.k}>{def ? '✔ ' + tx('Par défaut', 'افتراضي') : tx('Choisir par défaut', 'جعله افتراضياً')}</button>
+                </div>
+              );
+            })}
           </div>
         </div>
 
@@ -15125,6 +15322,272 @@ function SmallCreditModal({ L, close }) {
         </div>
       )}
     </Modal>
+  );
+}
+
+/* ===================== V72 : « Petite droguerie » = une application à part ===================== */
+function loadSmallAppFont() {
+  try {
+    if (document.getElementById('dp-sa-font')) return;
+    const l = document.createElement('link');
+    l.id = 'dp-sa-font'; l.rel = 'stylesheet';
+    l.href = 'https://fonts.googleapis.com/css2?family=Readex+Pro:wght@400;500;600;700&display=swap';
+    document.head.appendChild(l);
+  } catch {}
+}
+function SmallApp({ L, lang, toggleLang, session, setSession, page, setPage, byKey, brand, pageView, pageKey, pwdOpen, setPwdOpen }) {
+  const [account, setAccount] = useState(false);
+  useEffect(() => { loadSmallAppFont(); }, []);
+  const tabs = [
+    ['dashboard', '🏠', tx('Accueil', 'الرئيسية')],
+    ['pos', '🛒', tx('Vendre', 'بيع')],
+    ['clients', '👥', tx('Clients', 'الزبناء')],
+    ['products', '🏷️', tx('Produits', 'المنتجات')],
+    ['myReport', '📊', tx('Mon bilan', 'حصيلتي')]
+  ].filter(([k]) => byKey[k]);
+  const extraTabs = smallShopExtras().filter(k => byKey[k]).map(k => [k, MENU_ICONS[k] || '•', byKey[k][1]]);
+  const [more, setMore] = useState(false);
+  const name = brand.name || tx('Ma droguerie', 'محلّي');
+  const tab = ([k, icon, label]) => (
+    <button key={k} type="button" onClick={() => setPage(k)} aria-current={page === k ? 'page' : undefined} className={page === k ? 'on' : ''} data-sa-tab={k}>
+      <span aria-hidden="true">{icon}</span><small>{label}</small>
+    </button>
+  );
+  async function logout() { setAccount(false); await logoutSession(); setSession(null); }
+  return (
+    <div className={(lang === 'ar' ? 'rtl ' : '') + 'small-app'} data-small-app>
+      <header className="sa-head no-print">
+        <button type="button" className="sa-brand" onClick={() => setPage('dashboard')} data-sa-home>
+          {brand.logo ? <img src={brand.logo} alt="" /> : <span className="sa-mark" aria-hidden="true">{String(name).trim().charAt(0).toUpperCase()}</span>}
+          <span className="sa-brand-text"><b>{name}</b><small>{tx('Ma droguerie', 'محلّي')}</small></span>
+        </button>
+        <nav className="sa-tabs-top" aria-label={tx('Écrans', 'الشاشات')}>{[...tabs, ...extraTabs].map(tab)}</nav>
+        <div className="sa-actions">
+          {featureOn('alerts') ? <NotificationBell session={session} /> : null}
+          <HelpButton key={page} page={page} />
+          <button type="button" className="sa-round" onClick={toggleLang} data-sa-lang>{lang === 'fr' ? 'ع' : 'Fr'}</button>
+          <span className="row-menu">
+            <button type="button" className="sa-round" onClick={() => setAccount(!account)} aria-expanded={account} aria-label={tx('Mon compte', 'حسابي')} data-sa-account>👤</button>
+            {account ? (
+              <>
+                <span className="new-backdrop" onClick={() => setAccount(false)} />
+                <span className="row-menu-pop sa-account-pop" role="menu">
+                  <span className="sa-who"><b>{session.user.full_name || session.user.username}</b><small>{session.user.role}</small></span>
+                  {extraTabs.map(([k, icon, label]) => <button key={k} type="button" role="menuitem" className="row-menu-item sa-extra-item" onClick={() => { setAccount(false); setPage(k); }}>{icon} {label}</button>)}
+                  <button type="button" role="menuitem" className="row-menu-item" onClick={() => { setAccount(false); setMore(true); }} data-sa-more>➕ {tx('Plus de fonctions', 'وظائف أخرى')}</button>
+                  <button type="button" role="menuitem" className="row-menu-item" onClick={() => { setAccount(false); setPwdOpen(true); }}>🔑 {L('myPassword')}</button>
+                  <button type="button" role="menuitem" className="row-menu-item" onClick={logout} data-sa-logout>⎋ {L('logout')}</button>
+                </span>
+              </>
+            ) : null}
+          </span>
+        </div>
+      </header>
+      <div className="sa-banners"><SaasBanner session={session} /></div>
+      <main className="sa-main">
+        <div key={page + '-' + pageKey}>{pageView}</div>
+      </main>
+      <nav className="sa-tabs no-print" aria-label={tx('Écrans', 'الشاشات')}>{tabs.map(tab)}</nav>
+      {pwdOpen ? <ChangePasswordModal L={L} close={() => setPwdOpen(false)} /> : null}
+      {more ? <SmallMoreModal close={() => setMore(false)} /> : null}
+    </div>
+  );
+}
+
+// « Plus de fonctions » : les modules gardés en arrière-plan, à demander au fournisseur
+function SmallMoreModal({ close }) {
+  const extras = smallShopExtras();
+  const sentKey = userStoreKey('small_requests');
+  const [sent, setSent] = useState(() => readLocal(sentKey, []) || []);
+  async function ask(x) {
+    await auditLog('SaaS', 'REQUEST', tx(x.fr, x.ar), 'Demande d\'activation : ' + x.k);
+    const next = [...new Set([...sent, x.k])]; writeLocal(sentKey, next); setSent(next);
+    showToast(tx('Demande envoyée à votre fournisseur DrogueriePro', 'تم إرسال الطلب إلى مزودكم'));
+  }
+  return (
+    <Modal title={'➕ ' + tx('Plus de fonctions', 'وظائف أخرى')} onClose={close} wide>
+      <p className="text-sm text-slate-600 mb-3">{tx('Votre application est simplifiée. Ces fonctions existent déjà et vos données sont gardées : demandez-les quand vous en avez besoin.', 'تطبيقكم مبسط. هذه الوظائف موجودة ومعطياتكم محفوظة: اطلبوها عند الحاجة.')}</p>
+      <div className="sa-more-grid" data-sa-more-list>
+        {SMALL_SHOP_EXTRAS.map(x => {
+          const on = extras.includes(x.k), asked = sent.includes(x.k);
+          return (
+            <div key={x.k} className={'sa-more-item' + (on ? ' on' : '')} data-sa-more-item={x.k}>
+              <span className="sa-more-icon" aria-hidden="true">{MENU_ICONS[x.k] || '•'}</span>
+              <span className="sa-more-text"><b>{tx(x.fr, x.ar)}</b><small>{tx(x.dfr, x.dar)}</small></span>
+              {on ? <span className="sa-more-state ok">✔ {tx('Activé', 'مفعل')}</span>
+                : asked ? <span className="sa-more-state">⏳ {tx('Demande envoyée', 'تم الطلب')}</span>
+                : <button type="button" className="btn bg-white border" onClick={() => ask(x)} data-sa-ask={x.k}>{tx('Demander', 'طلب')}</button>}
+            </div>
+          );
+        })}
+      </div>
+    </Modal>
+  );
+}
+
+/* ---------- V72 : « Mon bilan » (Petite droguerie) ---------- */
+function smallPeriod(key) {
+  const d = new Date(); const ymd = x => x.toISOString().slice(0, 10);
+  const t = today();
+  if (key === 'day') return { from: t, to: t, byMonth: false };
+  if (key === 'week') { const a = new Date(d); a.setDate(a.getDate() - 6); return { from: ymd(a), to: t, byMonth: false }; }
+  if (key === 'lastMonth') { const a = new Date(d.getFullYear(), d.getMonth() - 1, 1); const b = new Date(d.getFullYear(), d.getMonth(), 0); return { from: ymd(new Date(a.getTime() - a.getTimezoneOffset() * 60000)), to: ymd(new Date(b.getTime() - b.getTimezoneOffset() * 60000)), byMonth: false }; }
+  if (key === 'year') return { from: t.slice(0, 4) + '-01-01', to: t, byMonth: true };
+  return { from: t.slice(0, 8) + '01', to: t, byMonth: false };
+}
+function computeSmallReport({ sales, purchases, products, users }, period) {
+  const inR = x => { const v = String(x || '').slice(0, 10); return v >= period.from && v <= period.to; };
+  const cost = Object.fromEntries((products || []).map(p => [String(p.id), Number(p.prixAchat || 0)]));
+  const inv = sales.filter(d => d.stage === 'facture' && inR(d.date));
+  const ret = sales.filter(d => d.stage === 'avoir' && inR(d.date));
+  const ca = [...inv, ...ret].reduce((t, d) => t + revenueTTC(d), 0);
+  const cash = {}; let cashTotal = 0;
+  sales.forEach(d => jsonValue(d.payments_json, d.paiements || []).forEach(p => {
+    if (p.canceled || p.mode === 'Avoir' || !inR(p.date || p.createdAt)) return;
+    const m = Number(p.montant || 0); cashTotal += m; cash[p.mode || 'Autre'] = (cash[p.mode || 'Autre'] || 0) + m;
+  }));
+  let margin = 0; const top = {};
+  [...inv, ...ret].forEach(d => {
+    const lines = d.lignes || [];
+    const sumNet = lines.reduce((t, l) => t + lineNet(l), 0) || 1;
+    const sign = d.stage === 'avoir' ? -1 : 1;
+    const ratioHT = Number(d.totalHT || 0) / sumNet, ratioTTC = Number(d.totalTTC || 0) / sumNet;
+    lines.forEach(l => {
+      const q = Number(l.qte || 0);
+      const c = Number(l.prixAchat || 0) > 0 ? Number(l.prixAchat) : (cost[String(l.produitId)] || 0);
+      margin += sign * (lineNet(l) * ratioHT - c * q);
+      if (sign > 0) { const k = String(l.produitId || l.nom); top[k] = top[k] || { nom: l.nom, nomAr: l.nomAr, qte: 0, amount: 0 }; top[k].qte += q; top[k].amount += lineNet(l) * ratioTTC; }
+    });
+  });
+  const unpaid = sales.filter(d => d.stage === 'facture' && Number(d.reste || 0) > 0.009);
+  const debtors = {};
+  unpaid.forEach(d => { const k = String(d.client_id || d.client_name); debtors[k] = debtors[k] || { name: d.client_name || '-', due: 0 }; debtors[k].due += Number(d.reste || 0); });
+  const pInv = purchases.filter(d => d.stage === 'facture');
+  const buckets = [];
+  if (period.byMonth) { for (let m = 1; m <= Number(period.to.slice(5, 7)); m++) buckets.push(period.to.slice(0, 4) + '-' + String(m).padStart(2, '0')); }
+  else { const a = new Date(period.from + 'T12:00:00'), b = new Date(period.to + 'T12:00:00'); for (let x = new Date(a); x <= b; x.setDate(x.getDate() + 1)) buckets.push(x.toISOString().slice(0, 10)); }
+  const series = buckets.map(k => ({ k, v: [...inv, ...ret].filter(d => String(d.date || '').startsWith(k)).reduce((t, d) => t + revenueTTC(d), 0) }));
+  return {
+    ca, count: inv.length, basket: inv.length ? ca / inv.length : 0, cashTotal, cash,
+    margin, creditGiven: inv.reduce((t, d) => t + Math.max(0, Number(d.reste || 0)), 0),
+    debtTotal: unpaid.reduce((t, d) => t + Number(d.reste || 0), 0),
+    debtors: Object.values(debtors).sort((a, b) => b.due - a.due).slice(0, 5),
+    top: Object.values(top).sort((a, b) => b.amount - a.amount).slice(0, 5),
+    buyPeriod: pInv.filter(d => inR(d.date)).reduce((t, d) => t + Number(d.totalTTC || 0), 0),
+    supplierDebt: pInv.reduce((t, d) => t + Math.max(0, Number(d.reste || 0)), 0),
+    toOrder: (products || []).filter(p => isLowStockAlert(p)).slice(0, 6),
+    series, byMonth: period.byMonth,
+    // V72 : créances / dettes (toutes dates) et CA + encours par utilisateur
+    clientDebts: buildDebtRows(sales, 'clients'),
+    supplierDebts: buildDebtRows(purchases, 'suppliers'),
+    byUser: (() => {
+      const ca = groupByCreator([...inv, ...ret], users || {});
+      const debt = groupDebtBySeller(sales, users || {});
+      const map = {};
+      ca.forEach(x => { map[x.id] = { id: x.id, name: x.name, ca: x.total, count: x.invoices, paid: x.paid, debt: 0 }; });
+      debt.forEach(x => { map[x.id] = map[x.id] || { id: x.id, name: x.name, ca: 0, count: 0, paid: 0 }; map[x.id].debt = x.debt; });
+      return Object.values(map).sort((a, b) => b.ca - a.ca || b.debt - a.debt);
+    })()
+  };
+}
+function SmallReport({ L }) {
+  const [key, setKey] = useState('month');
+  const [data, setData] = useState(null);
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    const session = getStoredSession();
+    Promise.all([
+      applyDocScope(supabase.from('sales').select('*'), 'sales', session),
+      applyDocScope(supabase.from('purchases').select('*'), 'purchases', session),
+      applyProductScope(supabase.from('products').select('*'), session),
+      loadUserLabels().catch(() => ({}))
+    ]).then(([a, b, c, labels]) => {
+      const e = a.error || b.error || c.error; if (e) throw new Error(e.message);
+      setData({ sales: enrichDocs(a.data || [], labels), purchases: enrichDocs(b.data || [], labels), products: (c.data || []).map(mapProduct), users: labels || {} });
+    }).catch(e => setErr(e.message));
+  }, []);
+  if (err) return <ErrorBox msg={err} />;
+  const periods = [['day', tx('Aujourd\'hui', 'اليوم')], ['week', tx('7 jours', '7 أيام')], ['month', tx('Ce mois', 'هذا الشهر')], ['lastMonth', tx('Mois dernier', 'الشهر الماضي')], ['year', tx('Cette année', 'هذه السنة')]];
+  const period = smallPeriod(key);
+  const r = data ? computeSmallReport(data, period) : null;
+  const max = r ? Math.max(1, ...r.series.map(x => x.v)) : 1;
+  const ar = curLang() === 'ar';
+  async function pdf() {
+    if (!ref.current) return;
+    setBusy(true);
+    try {
+      const blob = await elementToPdfBlob(ref.current);
+      const name = storageSafe(tx('Mon-bilan', 'حصيلتي') + '_' + period.from + '_' + period.to) + '.pdf';
+      const file = new File([blob], name, { type: 'application/pdf' });
+      if (featureOn('share') && canShareFiles()) { try { await navigator.share({ files: [file] }); } catch (e) { if (e?.name !== 'AbortError') downloadBlobFile(blob, name); } }
+      else downloadBlobFile(blob, name);
+    } catch (e) { alert(e.message); }
+    setBusy(false);
+  }
+  return (
+    <div data-small-report>
+      <Header title={'📊 ' + tx('Mon bilan', 'حصيلتي')}>
+        <button type="button" disabled={!r || busy} onClick={pdf} className="btn bg-white border" data-sr-pdf>📄 {busy ? '…' : 'PDF'}</button>
+      </Header>
+      <div className="sr-periods no-print">
+        {periods.map(([k, t]) => <button key={k} type="button" className={'sr-pill' + (key === k ? ' on' : '')} onClick={() => setKey(k)} data-sr-period={k}>{t}</button>)}
+      </div>
+      {!r ? <p>…</p> : (
+        <div ref={ref} className="sr-sheet pdf-block">
+          <div className="sr-when">{frDate(period.from)}{period.from !== period.to ? ' → ' + frDate(period.to) : ''}</div>
+          <div className="sr-kpis">
+            <div className="sr-kpi" data-sr-kpi="ca"><span>{tx('Ventes', 'المبيعات')}</span><b dir="ltr">{dh(r.ca)}</b><small>{r.count} {tx('vente(s)', 'عملية')} · {tx('panier moyen', 'متوسط البيع')} <span dir="ltr">{dh(r.basket)}</span></small></div>
+            <div className="sr-kpi green" data-sr-kpi="cash"><span>{tx('Argent encaissé', 'المبالغ المحصلة')}</span><b dir="ltr">{dh(r.cashTotal)}</b><small>{Object.entries(r.cash).map(([m, v]) => (L('pm_' + m) || m) + ' ' + fmt(v)).join(' · ') || '—'}</small></div>
+            <div className="sr-kpi teal" data-sr-kpi="margin"><span>{tx('Bénéfice estimé', 'الربح التقديري')}</span><b dir="ltr">{dh(r.margin)}</b><small>{tx('ventes − prix d\'achat (hors charges)', 'المبيعات − ثمن الشراء (بدون المصاريف)')}</small></div>
+            <div className="sr-kpi red" data-sr-kpi="debt"><span>{tx('On me doit (crédits clients)', 'ديون الزبناء')}</span><b dir="ltr">{dh(r.debtTotal)}</b><small>{tx('dont ventes à crédit de la période', 'منها ديون هذه الفترة')} <span dir="ltr">{dh(r.creditGiven)}</span></small></div>
+          </div>
+          <div className="sr-card">
+            <h2>{r.byMonth ? tx('Ventes par mois', 'المبيعات حسب الشهر') : tx('Ventes par jour', 'المبيعات حسب اليوم')}</h2>
+            <div className="sr-chart" data-sr-chart={r.series.length}>
+              {r.series.map(x => (
+                <div key={x.k} className="sr-bar" title={(r.byMonth ? x.k : frDate(x.k)) + ' : ' + dh(x.v)}>
+                  <span style={{ height: Math.max(2, Math.round((x.v / max) * 100)) + '%' }} className={x.v > 0 ? 'on' : ''} />
+                  <small>{r.byMonth ? x.k.slice(5) : (r.series.length <= 8 ? frDate(x.k).slice(0, 5) : x.k.slice(8))}</small>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="sr-two">
+            <div className="sr-card">
+              <h2>🔥 {tx('Les plus vendus', 'الأكثر مبيعاً')}</h2>
+              {r.top.length ? r.top.map((x, i) => <div key={i} className="sr-row" data-sr-top={x.nom}><span>{ar && x.nomAr ? x.nomAr : x.nom} <small>× {fmt(x.qte)}</small></span><b dir="ltr">{dh(x.amount)}</b></div>) : <p className="sr-empty">{tx('Aucune vente sur la période.', 'لا مبيعات في هذه الفترة.')}</p>}
+            </div>
+            <div className="sr-card">
+              <h2>📉 {tx('À commander', 'للطلب')}</h2>
+              {r.toOrder.length ? r.toOrder.map(p => <div key={p.id} className="sr-row"><span>{ar && p.nomAr ? p.nomAr : p.nom}</span><b dir="ltr">{fmt(p.quantite)} / {fmt(p.stockMin)}</b></div>) : <p className="sr-empty">{tx('Stock suffisant.', 'المخزون كاف.')}</p>}
+              <div className="sr-row" style={{ marginTop: 8 }}><span>{tx('Achats de la période (factures fournisseurs)', 'مشتريات الفترة')}</span><b dir="ltr">{dh(r.buyPeriod)}</b></div>
+            </div>
+          </div>
+          <div className="sr-card" data-sr-users>
+            <h2>👤 {tx('Chiffre d\'affaires et encours par utilisateur', 'رقم المعاملات والديون حسب المستخدم')}</h2>
+            <div className="overflow-auto">
+              <table className="table w-full sr-table">
+                <thead><tr><th>{tx('Utilisateur', 'المستخدم')}</th><th>{tx('Ventes (période)', 'المبيعات (الفترة)')}</th><th>{tx('Factures', 'الفواتير')}</th><th>{tx('Encaissé sur ces ventes', 'المحصل')}</th><th>{tx('Encours (non payé)', 'الديون غير المؤداة')}</th></tr></thead>
+                <tbody>
+                  {r.byUser.map(u => (
+                    <tr key={u.id} data-sr-user={u.name}><td className="font-semibold">{u.name}</td><td dir="ltr">{dh(u.ca)}</td><td>{u.count}</td><td dir="ltr">{dh(u.paid)}</td><td dir="ltr" className={u.debt > 0.009 ? 'text-red-700 font-bold' : ''}>{dh(u.debt)}</td></tr>
+                  ))}
+                  {!r.byUser.length ? <tr><td colSpan="5">{L('noData')}</td></tr> : null}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+      {r ? (
+        <div className="sr-debts no-print">
+          <div data-sr-client-debts><DebtTable L={L} title={'📒 ' + tx('Créances clients (on me doit)', 'ديون الزبناء')} rows={r.clientDebts} docs={data.sales} type="clients" /></div>
+          <div data-sr-supplier-debts><DebtTable L={L} title={'🚚 ' + tx('Dettes fournisseurs (je dois)', 'ديون الموردين')} rows={r.supplierDebts} docs={data.purchases} type="suppliers" /></div>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
